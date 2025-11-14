@@ -5327,12 +5327,12 @@ function buildComparisonRow(label, beforeValue, afterValue) {
     
     let afterClass = 'text-gray-800 whitespace-nowrap';
     if (beforeStr !== afterStr) {
-        afterClass = 'text-blue-600 font-bold bg-blue-100 px-1 rounded whitespace-nowrap';
+        afterClass = 'text-blue-600 font-bold bg-blue-100 px-1 rounded whitespace-nowrap text-center';
     }
 
     return `<div class="grid grid-cols-[160px,1fr,1fr] gap-x-2 items-start py-1 border-b">
                 <div class="font-semibold text-gray-600 text-right">${label}:</div>
-                <div class="text-gray-500 whitespace-nowrap">${before}</div>
+                <div class="text-gray-500 whitespace-nowrap text-center">${before}</div>
                 <div class="${afterClass}">${after}</div>
             </div>`;
 }
@@ -5472,8 +5472,8 @@ function showRequestDetails(requestId, context) {
             detailsHtml += `
                 <div class="grid grid-cols-[160px,1fr,1fr] gap-x-2 items-start py-1 border-b-2 font-bold text-gray-800">
                     <div></div>
-                    <div>Before</div>
-                    <div>After</div>
+                    <div class="text-center">Before</div>
+                    <div class="text-center">After</div>
                 </div>
             `;
             detailsHtml += categoryHtml;

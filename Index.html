@@ -5469,7 +5469,16 @@ function showRequestDetails(requestId, context) {
         }
         // Only add the category title if it has rows
         if (categoryHtml) {
-            detailsHtml += buildCategory(category) + categoryHtml;
+            detailsHtml += buildCategory(category);
+            // Add the "Before" / "After" header
+            detailsHtml += `
+                <div class="grid grid-cols-[160px,1fr,1fr] gap-x-2 items-start py-1 border-b-2 font-bold text-gray-800">
+                    <div></div>
+                    <div>Before</div>
+                    <div>After</div>
+                </div>
+            `;
+            detailsHtml += categoryHtml;
         }
     }
     

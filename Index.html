@@ -3407,32 +3407,6 @@ function renderNotifications(data) {
     document.getElementById('refresh-my-requests').addEventListener('click', refreshChangeRequestData);
     document.getElementById('refresh-approvals').addEventListener('click', refreshChangeRequestData);
 
-    // --- START: CORRECTED LISTENER BLOCK ---
-    const tabArea = document.getElementById('tab-area');
-    
-    if (tabArea) {
-        // We attach ONE listener to the static parent 'tab-area'
-        tabArea.addEventListener('click', function(event) {
-            
-            // We check if the element that was clicked is our SPAN
-            const link = event.target.closest('span.request-details-link');
-            
-            // If a matching link was clicked
-            if (link) {
-                // We still call preventDefault(), though it's less critical for a <span>
-                event.preventDefault(); 
-                
-                const requestId = link.dataset.requestId;
-                const context = link.dataset.context;
-                
-                if (requestId && context) {
-                    // Now we can safely call our modal function
-                    showRequestDetails(requestId, context);
-                }
-            }
-        });
-    }
-    // --- END: CORRECTED LISTENER BLOCK ---
 }
 
   /**
@@ -5340,6 +5314,31 @@ function closeDeepDiveModal() {
     document.getElementById('competency-deep-dive-modal').style.display = 'none';
 }
 
+// Helper to create a category title
+function buildCategory(title) {
+    return `<div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm"><div class="md:col-span-2 mt-3 mb-1"><h3 class="text-lg font-bold text-slate-700 border-b pb-1">${title}</h3></div></div>`;
+}
+
+// Helper to create a single row in the comparison view, now robustly handles different value types
+function buildComparisonRow(label, beforeValue, afterValue) {
+    const beforeStr = (beforeValue === null || typeof beforeValue === 'undefined') ? '' : String(beforeValue);
+    const afterStr = (afterValue === null || typeof afterValue === 'undefined') ? '' : String(afterValue);
+
+    const before = beforeStr || '<i class="text-gray-400">N/A</i>';
+    const after = afterStr || '<i class="text-gray-400">N/A</i>';
+
+    let afterClass = 'text-gray-800 break-words';
+    if (beforeStr !== afterStr) {
+        afterClass = 'text-blue-600 font-bold bg-blue-100 px-1 rounded break-words';
+    }
+
+    return `<div class="grid grid-cols-[160px,1fr,1fr] gap-x-2 items-start py-1 border-b">
+                <div class="font-semibold text-gray-600 text-right">${label}:</div>
+                <div class="text-gray-500 break-words">${before}</div>
+                <div class="${afterClass}">${after}</div>
+            </div>`;
+}
+
 /**
  * REBUILT FUNCTION: Shows the request details in the new categorized "Before/After" modal.
  * This function replaces the original showRequestDetails.
@@ -5454,7 +5453,7 @@ function showRequestDetails(requestId, context) {
         }
     } catch (e) {
         body.innerHTML = `<p class="text-red-500">Error preparing comparison: ${e.message}</p>`;
-        // ... (footer logic) ...
+        footer.innerHTML = `<button onclick="closeRequestDetailsModal()" class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Close</button>`;
         modal.style.display = 'flex';
         return;
     }
@@ -5552,10 +5551,7 @@ function renderMyRequestsTable() {
         data: requests,
             columns: [
             { title: 'Request ID', data: 'RequestID', render: function(data, type, row) {
-                // CHANGED <a> to <span> and added cursor-pointer
-                return `<span class="text-blue-600 hover:underline cursor-pointer request-details-link" 
-                           data-request-id="${row.RequestID}" 
-                           data-context="my-requests">${data}</span>`;
+                return `<span class="text-blue-600 hover:underline cursor-pointer" onclick="showRequestDetails('${row.RequestID}', 'my-requests')">${data}</span>`;
               }
             },
             { title: 'Requestor', data: 'RequestorEmail' },
@@ -5597,10 +5593,7 @@ function renderApprovalsTable() {
         data: requests,
         columns: [
             { title: 'Request ID', data: 'RequestID', render: function(data, type, row) {
-                // CHANGED <a> to <span> and added cursor-pointer
-                return `<span class="text-blue-600 hover:underline cursor-pointer request-details-link" 
-                           data-request-id="${row.RequestID}" 
-                           data-context="approvals">${data}</span>`;
+                return `<span class="text-blue-600 hover:underline cursor-pointer" onclick="showRequestDetails('${row.RequestID}', 'approvals')">${data}</span>`;
               }
             },
             { title: 'Requestor', data: 'RequestorEmail' },

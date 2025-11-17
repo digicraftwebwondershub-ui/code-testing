@@ -5355,16 +5355,13 @@ function showRequestDetails(requestId, context) {
     let afterData = {};
     let detailsHtml = `<div class="grid grid-cols-1 gap-y-1">`; // Use a single column for categories
 
-    // --- !! MODIFICATION HERE !! ---
-    // Keys now match the exact case from Code.gs (e.g., employeeName, dateHired)
+    // --- CATEGORIES AND LABELS (Using camelCase keys) ---
     const categories = {
         'EMPLOYEE DETAILS': ['employeeName', 'employeeId', 'gender', 'dateHired', 'dateOfBirth'],
         'JOB DETAILS': ['jobTitle', 'level', 'status', 'contractType', 'competency', 'jobLevel', 'payrollType'],
         'ORGANIZATIONAL ASSIGNMENT': ['positionId', 'division', 'group', 'department', 'section', 'managerName', 'managerEmployeeId']
     };
 
-    // --- !! MODIFICATION HERE !! ---
-    // Keys now match the exact case
     const keyToLabelMap = {
         employeeName: 'Name', employeeId: 'Employee ID', gender: 'Gender', dateHired: 'Date Hired', dateOfBirth: 'Date of Birth',
         jobTitle: 'Job Title', level: 'Level', status: 'Status', contractType: 'Contract Type', contractEndDate: 'Contract End',
@@ -5385,35 +5382,53 @@ function showRequestDetails(requestId, context) {
             const afterPosBase = fullEmployeeData.find(p => p.positionId === requestData.NewPositionID);
             if (!beforePos || !afterPosBase) { throw new Error("Could not find 'before' or 'after' position data. The org chart may have changed."); }
             
+            // "Before" is the original position
             beforeData = { ...beforePos };
             
-            // --- !! MODIFICATION HERE !! ---
-            // Use correct case when building afterData
+            // --- *** THIS IS THE FIX *** ---
+            // "After" is the destination position...
+            // ...explicitly populated with the employee details *from the request data*...
+            // ...and mapped from PascalCase (requestData) to camelCase (for the modal).
             afterData = { 
-                ...afterPosBase, 
-                employeeName: beforePos.employeeName, 
-                employeeId: beforePos.employeeId,
-                gender: beforePos.gender, 
-                dateHired: beforePos.dateHired, 
-                dateOfBirth: beforePos.dateOfBirth,
+                ...afterPosBase, // Destination position details (e.g., new jobTitle, new manager)
+                
+                // Employee details from the request (requestData)
+                employeeName: requestData.EmployeeName, 
+                employeeId: requestData.EmployeeID,
+                gender: requestData.Gender, 
+                dateHired: requestData.DateHired, 
+                dateOfBirth: requestData.DateOfBirth,
+                
+                // Request status details
                 status: requestData.RequestType, 
                 effectiveDate: requestData.EffectiveDate, 
+                
+                // Explicitly keep destination manager details
                 managerName: afterPosBase.managerName, 
                 managerEmployeeId: afterPosBase.managerEmployeeId
             };
+            // --- *** END FIX *** ---
+
         } else if (requestType.includes('replacement for vacancy')) {
             beforeData = fullEmployeeData.find(p => p.positionId === requestData.VacantPositionID);
             if (!beforeData) { throw new Error("Could not find the vacant position to be filled."); }
             afterData = {
                 ...beforeData, status: 'FILLED VACANCY', effectiveDate: requestData.EffectiveDate,
+                // These are blank because a "replacement" request doesn't include new hire details
                 employeeName: '', employeeId: '', gender: '', dateHired: '', dateOfBirth: ''
             };
         } else if (requestType.includes('newly created position')) {
             beforeData = {}; 
             afterData = {
-                ...requestData, positionId: 'TBD (New)', status: 'VACANT', 
-                jobTitle: requestData.NewJobTitle, level: requestData.NewLevel,
-                managerName: requestData.ReportingTo, managerEmployeeId: requestData.ReportingToId,
+                ...requestData, // Contains PascalCase keys from the request
+                // Map PascalCase from request to camelCase for the modal
+                positionId: 'TBD (New)', 
+                status: 'VACANT', 
+                jobTitle: requestData.NewJobTitle,
+                level: requestData.NewLevel,
+                managerName: requestData.ReportingTo, 
+                managerEmployeeId: requestData.ReportingToId,
+                // Blank employee details
                 employeeName: '', employeeId: '', gender: '', dateHired: '', dateOfBirth: ''
             };
         }
@@ -5428,34 +5443,30 @@ function showRequestDetails(requestId, context) {
     for (const [category, keys] of Object.entries(categories)) {
         let categoryHtml = '';
 
+        // This correctly skips the employee section for non-promotion/transfer requests
         if (category === 'EMPLOYEE DETAILS' && !(requestType.includes('Transfer') || requestType.includes('Promotion'))) {
             continue;
         }
 
         for (const key of keys) {
-            // The 'key' is now correct (e.g., 'employeeName')
+            // key is camelCase (e.g., 'employeeName')
             const dataKey = key; 
             
-            if (beforeData[dataKey] || afterData[dataKey] || (key === 'status' && beforeData[key] !== afterData[key])) {
+            if (beforeData[dataKey] || afterData[dataKey] || (beforeData[dataKey] !== afterData[dataKey])) {
                 
                 const label = keyToLabelMap[key] || key;
-                let beforeStr, afterStr;
-
-                if (category === 'EMPLOYEE DETAILS') {
-                    // "Before" is the data from the destination (afterData)
-                    // "After" is the data from the source employee (beforeData)
-                    beforeStr = (afterData[dataKey] === null || typeof afterData[dataKey] === 'undefined') ? '' : String(afterData[dataKey]);
-                    afterStr = (beforeData[dataKey] === null || typeof beforeData[dataKey] === 'undefined') ? '' : String(beforeData[dataKey]);
-                } else {
-                    // For all other sections, logic is normal
-                    beforeStr = (beforeData[dataKey] === null || typeof beforeData[dataKey] === 'undefined') ? '' : String(beforeData[dataKey]);
-                    afterStr = (afterData[dataKey] === null || typeof afterData[dataKey] === 'undefined') ? '' : String(afterData[dataKey]);
-                }
+                
+                // --- *** THIS IS THE SECOND FIX *** ---
+                // Removed the flawed logical swap. "Before" is always beforeData. "After" is always afterData.
+                let beforeStr = (beforeData[dataKey] === null || typeof beforeData[dataKey] === 'undefined') ? '' : String(beforeData[dataKey]);
+                let afterStr = (afterData[dataKey] === null || typeof afterData[dataKey] === 'undefined') ? '' : String(afterData[dataKey]);
+                // --- *** END FIX *** ---
                 
                 const before = beforeStr || '<i class="text-gray-400">N/A</i>';
                 const after = afterStr || '<i class="text-gray-400">N/A</i>';
 
                 let afterClass = 'text-gray-800 text-left whitespace-nowrap';
+                // This comparison now works correctly
                 if (beforeStr !== afterStr) {
                     afterClass = 'text-blue-600 font-bold bg-blue-100 px-1 rounded text-left whitespace-nowrap';
                 }
@@ -5489,7 +5500,9 @@ function showRequestDetails(requestId, context) {
     
     requestFields.forEach(key => {
         if (requestData.hasOwnProperty(key) && requestData[key]) {
+            // Don't show effective date here if it was already shown in the 'after' column
             if (key === 'EffectiveDate' && (requestType.includes('replacement') || requestType.includes('Transfer') || requestType.includes('Promotion'))) { return; }
+            
             let value = requestData[key];
             if (key === 'SupportingDocuments') {
                 value = `<button onclick="openDocumentViewer('${requestData.RequestID}')" class="text-blue-600 hover:underline">View Documents</button>`;

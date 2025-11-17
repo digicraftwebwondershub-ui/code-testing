@@ -5317,31 +5317,19 @@ function buildCategory(title) {
     return `<div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm"><div class="md:col-span-2 mt-3 mb-1"><h3 class="text-lg font-bold text-slate-700 border-b pb-1">${title}</h3></div></div>`;
 }
 
-// Helper to create a single row in the comparison view, now robustly handles different value types
-function buildComparisonRow(label, beforeValue, afterValue) {
-    const beforeStr = (beforeValue === null || typeof beforeValue === 'undefined') ? '' : String(beforeValue);
-    const afterStr = (afterValue === null || typeof afterValue === 'undefined') ? '' : String(afterValue);
-
-    const before = beforeStr || '<i class="text-gray-400">N/A</i>';
-    const after = afterStr || '<i class="text-gray-400">N/A</i>';
-    
-    let afterClass = 'text-gray-800 whitespace-nowrap text-center';
-    if (beforeStr !== afterStr) {
-        afterClass = 'text-blue-600 font-bold bg-blue-100 px-1 rounded whitespace-nowrap text-center';
-    }
-
-    return `<div class="grid grid-cols-[160px,1fr,1fr] gap-x-2 items-start py-1 border-b">
-                <div class="font-semibold text-gray-600 text-right">${label}:</div>
-                <div class="text-gray-500 whitespace-nowrap text-center">${before}</div>
-                <div class="${afterClass}">${after}</div>
-            </div>`;
-}
-
 /**
  * REBUILT FUNCTION: Shows the request details in the new categorized "Before/After" modal.
  * This function replaces the original showRequestDetails.
  */
 function showRequestDetails(requestId, context) {
+    // --- !! GUARD CLAUSE !! ---
+    // This check prevents the function from running if the main employee data hasn't been loaded yet.
+    if (!fullEmployeeData || fullEmployeeData.length === 0) {
+        alert("The main employee data is still loading. Please wait a moment and try again.");
+        return;
+    }
+    // --- END GUARD CLAUSE ---
+
     const modal = document.getElementById('request-details-modal');
     const title = document.getElementById('request-details-modal-title');
     const body = document.getElementById('request-details-modal-body');
@@ -5365,16 +5353,18 @@ function showRequestDetails(requestId, context) {
     const requestType = requestData.RequestType;
     let beforeData = {};
     let afterData = {};
-    let detailsHtml = '<div class="grid grid-cols-1 gap-y-1">'; // Use a single column for categories
+    let detailsHtml = `<div class="grid grid-cols-1 gap-y-1">`; // Use a single column for categories
 
-    // Define field categories. We use the keys from fullEmployeeData (lowercase, no spaces).
+    // --- !! MODIFICATION HERE !! ---
+    // Keys now match the exact case from Code.gs (e.g., employeeName, dateHired)
     const categories = {
-        'Personal Info': ['employeeName', 'employeeId', 'gender', 'dateHired', 'dateOfBirth'],
-        'Job Details': ['jobTitle', 'level', 'status', 'contractType', 'contractEndDate', 'competency', 'jobLevel', 'payrollType'],
-        'Organizational Assignment': ['positionId', 'division', 'group', 'department', 'section', 'managerName', 'managerEmployeeId']
+        'EMPLOYEE DETAILS': ['employeeName', 'employeeId', 'gender', 'dateHired', 'dateOfBirth'],
+        'JOB DETAILS': ['jobTitle', 'level', 'status', 'contractType', 'competency', 'jobLevel', 'payrollType'],
+        'ORGANIZATIONAL ASSIGNMENT': ['positionId', 'division', 'group', 'department', 'section', 'managerName', 'managerEmployeeId']
     };
 
-    // Map keys to readable labels (expanded from original)
+    // --- !! MODIFICATION HERE !! ---
+    // Keys now match the exact case
     const keyToLabelMap = {
         employeeName: 'Name', employeeId: 'Employee ID', gender: 'Gender', dateHired: 'Date Hired', dateOfBirth: 'Date of Birth',
         jobTitle: 'Job Title', level: 'Level', status: 'Status', contractType: 'Contract Type', contractEndDate: 'Contract End',
@@ -5382,7 +5372,7 @@ function showRequestDetails(requestId, context) {
         managerName: 'Reports To (Name)', managerEmployeeId: 'Reports To (ID)',
         competency: 'Competency', jobLevel: 'Job Level', payrollType: 'Payroll Type',
         // Request-specific fields
-        RequestID: 'Request ID', RequestorEmail: 'Requestor', SubmissionTimestamp: 'Submitted', Status: 'Status', RequestType: 'Request Type',
+        RequestID: 'Request ID', RequestorEmail: 'Requestor', SubmissionTimestamp: 'Submitted', Status: 'Status', RequestType: 'RequestType',
         ApproverEmail: 'Approver', ApprovalTimestamp: 'Approved On', ApproverComments: 'Approver Comments', ImplementerEmail: 'Implemented By',
         ImplementationTimestamp: 'Implemented On', Justification: 'Justification', EffectiveDate: 'Effective Date',
         JiraTicket: 'Jira Ticket', SupportingDocuments: 'Documents'
@@ -5393,60 +5383,38 @@ function showRequestDetails(requestId, context) {
         if (requestType.includes('Transfer') || requestType.includes('Promotion')) {
             const beforePos = fullEmployeeData.find(p => p.positionId === requestData.CurrentPositionID);
             const afterPosBase = fullEmployeeData.find(p => p.positionId === requestData.NewPositionID);
-            
-            if (!beforePos || !afterPosBase) {
-                throw new Error("Could not find 'before' or 'after' position data. The org chart may have changed.");
-            }
+            if (!beforePos || !afterPosBase) { throw new Error("Could not find 'before' or 'after' position data. The org chart may have changed."); }
             
             beforeData = { ...beforePos };
-            // Simulate the "After" state: new position's data + employee's data
+            
+            // --- !! MODIFICATION HERE !! ---
+            // Use correct case when building afterData
             afterData = { 
-                ...afterPosBase, // Base org data from new position
-                employeeName: beforePos.employeeName, // Employee data from old position
+                ...afterPosBase, 
+                employeeName: beforePos.employeeName, 
                 employeeId: beforePos.employeeId,
-                gender: beforePos.gender,
-                dateHired: beforePos.dateHired,
+                gender: beforePos.gender, 
+                dateHired: beforePos.dateHired, 
                 dateOfBirth: beforePos.dateOfBirth,
-                status: requestData.RequestType, // New status from the request
-                effectiveDate: requestData.EffectiveDate, // Use the request's effective date
-                // Use the manager details from the new position's base data
+                status: requestData.RequestType, 
+                effectiveDate: requestData.EffectiveDate, 
                 managerName: afterPosBase.managerName, 
                 managerEmployeeId: afterPosBase.managerEmployeeId
             };
         } else if (requestType.includes('replacement for vacancy')) {
             beforeData = fullEmployeeData.find(p => p.positionId === requestData.VacantPositionID);
-            if (!beforeData) {
-                throw new Error("Could not find the vacant position to be filled.");
-            }
-            // "After" is the same position, but with status change
+            if (!beforeData) { throw new Error("Could not find the vacant position to be filled."); }
             afterData = {
-                ...beforeData, // Base org data
-                status: 'FILLED VACANCY',
-                effectiveDate: requestData.EffectiveDate,
-                // All employee fields remain blank, as per your feedback
-                employeeName: '',
-                employeeId: '',
-                gender: '',
-                dateHired: '',
-                dateOfBirth: ''
+                ...beforeData, status: 'FILLED VACANCY', effectiveDate: requestData.EffectiveDate,
+                employeeName: '', employeeId: '', gender: '', dateHired: '', dateOfBirth: ''
             };
         } else if (requestType.includes('newly created position')) {
-            beforeData = {}; // All "Before" fields will be N/A
-            // "After" data is built entirely from the request, for a VACANT position
+            beforeData = {}; 
             afterData = {
-                ...requestData, // Contains all the new org/job details
-                positionId: 'TBD (New)',
-                status: 'VACANT', // This type *creates* a vacant position
-                jobTitle: requestData.NewJobTitle,
-                level: requestData.NewLevel,
-                managerName: requestData.ReportingTo,
-                managerEmployeeId: requestData.ReportingToId,
-                // Employee fields are explicitly empty
-                employeeName: '',
-                employeeId: '',
-                gender: '',
-                dateHired: '',
-                dateOfBirth: ''
+                ...requestData, positionId: 'TBD (New)', status: 'VACANT', 
+                jobTitle: requestData.NewJobTitle, level: requestData.NewLevel,
+                managerName: requestData.ReportingTo, managerEmployeeId: requestData.ReportingToId,
+                employeeName: '', employeeId: '', gender: '', dateHired: '', dateOfBirth: ''
             };
         }
     } catch (e) {
@@ -5456,41 +5424,72 @@ function showRequestDetails(requestId, context) {
         return;
     }
     
-    // --- Build HTML ---
+    // --- Build HTML (Comparison Sections) ---
     for (const [category, keys] of Object.entries(categories)) {
         let categoryHtml = '';
+
+        if (category === 'EMPLOYEE DETAILS' && !(requestType.includes('Transfer') || requestType.includes('Promotion'))) {
+            continue;
+        }
+
         for (const key of keys) {
-            // Only add row if either value is not empty or they differ
-            if (beforeData[key] || afterData[key] || (key === 'status' && beforeData[key] !== afterData[key])) {
-                categoryHtml += buildComparisonRow(keyToLabelMap[key] || key, beforeData[key], afterData[key]);
+            // The 'key' is now correct (e.g., 'employeeName')
+            const dataKey = key; 
+            
+            if (beforeData[dataKey] || afterData[dataKey] || (key === 'status' && beforeData[key] !== afterData[key])) {
+                
+                const label = keyToLabelMap[key] || key;
+                let beforeStr, afterStr;
+
+                if (category === 'EMPLOYEE DETAILS') {
+                    // "Before" is the data from the destination (afterData)
+                    // "After" is the data from the source employee (beforeData)
+                    beforeStr = (afterData[dataKey] === null || typeof afterData[dataKey] === 'undefined') ? '' : String(afterData[dataKey]);
+                    afterStr = (beforeData[dataKey] === null || typeof beforeData[dataKey] === 'undefined') ? '' : String(beforeData[dataKey]);
+                } else {
+                    // For all other sections, logic is normal
+                    beforeStr = (beforeData[dataKey] === null || typeof beforeData[dataKey] === 'undefined') ? '' : String(beforeData[dataKey]);
+                    afterStr = (afterData[dataKey] === null || typeof afterData[dataKey] === 'undefined') ? '' : String(afterData[dataKey]);
+                }
+                
+                const before = beforeStr || '<i class="text-gray-400">N/A</i>';
+                const after = afterStr || '<i class="text-gray-400">N/A</i>';
+
+                let afterClass = 'text-gray-800 text-left whitespace-nowrap';
+                if (beforeStr !== afterStr) {
+                    afterClass = 'text-blue-600 font-bold bg-blue-100 px-1 rounded text-left whitespace-nowrap';
+                }
+                
+                categoryHtml += `
+                    <div class="font-semibold text-gray-600 text-left py-2">${label}:</div>
+                    <div class="text-gray-500 text-left py-2 whitespace-nowrap">${before}</div>
+                    <div class="${afterClass} py-2">${after}</div>
+                `;
             }
         }
-        // Only add the category title if it has rows
+        
         if (categoryHtml) {
             detailsHtml += buildCategory(category);
-            // Add the "Before" / "After" header
+            
             detailsHtml += `
-                <div class="grid grid-cols-[160px,1fr,1fr] gap-x-2 items-start py-1 border-b-2 font-bold text-gray-800">
-                    <div></div>
-                    <div class="text-center">Before</div>
-                    <div class="text-center">After</div>
+                <div class="grid grid-cols-[160px,1fr,1fr] gap-x-4">
+                    <div class="py-2"></div>
+                    <div class="font-bold text-gray-800 text-left py-2">Before</div>
+                    <div class="font-bold text-gray-800 text-left py-2">After</div>
+                    
+                    ${categoryHtml}
                 </div>
             `;
-            detailsHtml += categoryHtml;
         }
     }
     
     // --- Add Request-Specific Details (non-comparison) ---
-    detailsHtml += buildCategory('Request Details');
+    detailsHtml += buildCategory('REQUEST DETAILS');
     const requestFields = ['RequestID', 'RequestType', 'Status', 'RequestorEmail', 'SubmissionTimestamp', 'ApproverEmail', 'ApprovalTimestamp', 'ImplementerEmail', 'ImplementationTimestamp', 'EffectiveDate', 'Justification', 'ApproverComments', 'JiraTicket', 'SupportingDocuments'];
     
     requestFields.forEach(key => {
         if (requestData.hasOwnProperty(key) && requestData[key]) {
-            // Skip EffectiveDate if we already showed it in the comparison
-            if (key === 'EffectiveDate' && (requestType.includes('replacement') || requestType.includes('Transfer') || requestType.includes('Promotion'))) {
-                return;
-            }
-
+            if (key === 'EffectiveDate' && (requestType.includes('replacement') || requestType.includes('Transfer') || requestType.includes('Promotion'))) { return; }
             let value = requestData[key];
             if (key === 'SupportingDocuments') {
                 value = `<button onclick="openDocumentViewer('${requestData.RequestID}')" class="text-blue-600 hover:underline">View Documents</button>`;
@@ -5500,26 +5499,24 @@ function showRequestDetails(requestId, context) {
                 value = new Date(value).toLocaleDateString();
             }
             
-            detailsHtml += `<div class="grid grid-cols-[160px,1fr] gap-x-2 items-start py-1">
-                                <div class="font-semibold text-gray-600 text-right">${keyToLabelMap[key] || key}:</div>
-                                <div class="text-gray-800 whitespace-nowrap">${value}</div>
-                            </div>`;
+            detailsHtml += `
+                <div class="grid grid-cols-[160px,1fr] gap-x-4 items-start py-2">
+                    <div class="font-semibold text-gray-600 text-left">${keyToLabelMap[key] || key}:</div>
+                    <div class="text-gray-800">${value}</div>
+                </div>
+            `;
         }
     });
 
-    detailsHtml += '</div>';
+    detailsHtml += `</div>`;
     body.innerHTML = detailsHtml;
 
-    // --- Footer & Action Buttons (Copied from original logic) ---
+    // --- Footer & Action Buttons (Unchanged) ---
     footer.innerHTML = `<button onclick="closeRequestDetailsModal()" class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Close</button>`;
     let actionButtons = '';
-
-    // Show Preview button
     if (['Pending', 'Approved', 'Implemented'].includes(requestData.Status)) {
       actionButtons += `<button onclick="openPreviewModal('${requestId}')" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Preview Change</button>`;
     }
-
-    // Show context- and status-specific action buttons
     if (context === 'approvals') {
       if (requestData.Status === 'Pending') {
         actionButtons += `
@@ -5528,7 +5525,6 @@ function showRequestDetails(requestId, context) {
           <button onclick="handleApprovalAction('${requestId}', 'Returned')" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">Return</button>
         `;
       } else if (requestData.Status === 'Approved' && userCanApprove) {
-           // For ALL types, the 'Implement' button is now valid because the request is just for the *position*
            actionButtons += `<button onclick="handleImplementAction('${requestId}')" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Implement Change</button>`;
       }
     }

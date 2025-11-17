@@ -411,7 +411,7 @@ function getChangeRequests() {
   } catch (e) {
     Logger.log('FATAL Error in getChangeRequests: ' + e.message + ' Stack: ' + e.stack);
     // Return a valid empty object on error to prevent frontend from breaking
-    return { myRequests: [], approvals: [] };
+    return JSON.stringify({ myRequests: [], approvals: [] });
   }
 }
 

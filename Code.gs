@@ -2,6 +2,54 @@
  * @OnlyCurrentDoc
  */
 
+/**
+ * DYNAMIC CONFIGURATION (HEADER BASED)
+ * Scans the 'Competency Matrix' Row 1 headers.
+ * Automatically categorizes skills based on prefixes: 'CORE -', 'LEAD -', 'TECH -'.
+ */
+// --- DYNAMIC CONFIGURATION (HEADER BASED) ---
+function getCompetencyConfig() {
+  // FIX: Open the specific Competency Spreadsheet ID, not the Active one
+  const ss = SpreadsheetApp.openById(COMPETENCY_SPREADSHEET_ID); 
+  const sheet = ss.getSheetByName('Competency Matrix');
+  
+  const config = { CORE: [], LEADERSHIP: [], TECHNICAL: [] };
+  if (!sheet) return config;
+
+  // Read the first row (Headers)
+  // We assume headers are in Row 1. If they are in Row 2, change "1:1" to "2:2"
+  const headers = sheet.getRange("1:1").getValues()[0]; 
+  const seen = new Set();
+
+  headers.forEach(header => {
+    // Normalize: Uppercase and collapse multiple spaces (Handles "CORE -  WORK" vs "CORE - WORK")
+    const h = header.toString().replace(/\s+/g, ' ').trim().toUpperCase();
+    
+    // Skip empty or duplicate headers
+    if (!h || seen.has(h)) return;
+    
+    // Sort into categories based on prefix
+    if (h.startsWith("CORE -")) {
+      seen.add(h);
+      config.CORE.push(h);
+    } else if (h.startsWith("LEAD -")) {
+      seen.add(h);
+      config.LEADERSHIP.push(h);
+    } else if (h.startsWith("TECH -")) {
+      seen.add(h);
+      config.TECHNICAL.push(h);
+    }
+  });
+
+  return config;
+}
+
+// Helper used by Team Heatmap
+function getAllCompetencies() {
+  const config = getCompetencyConfig();
+  return [...config.CORE, ...config.LEADERSHIP, ...config.TECHNICAL];
+}
+// --- END CONFIGURATION ---
 
 // --- CONFIGURATION ---
 // IMPORTANT: You MUST update this URL if you create a new web app deployment that changes its link!
@@ -3232,96 +3280,88 @@ function getAttritionRiskData() {
   }
 }
 
-/**
- * Fetches the data required to build a team competency heatmap.
- * @param {string} department The department to filter by.
- * @returns {Object} An object containing employee scores and competency headers.
- */
 function getTeamCompetencyHeatmap(department) {
   if (!department) return { error: 'Department not specified.' };
-
+  
   try {
     const hubSs = SpreadsheetApp.getActiveSpreadsheet();
     const mainSheet = hubSs.getSheets()[0];
     const compSs = SpreadsheetApp.openById(COMPETENCY_SPREADSHEET_ID);
     const compSheet = compSs.getSheetByName('Competency Matrix');
 
-    if (!mainSheet || !compSheet) {
-      return { error: 'Required sheets not found.' };
-    }
+    if (!mainSheet || !compSheet) return { error: 'Required sheets not found.' };
 
-    // Get department data from main sheet
+    // Get Main Employee Data
     const mainData = mainSheet.getDataRange().getValues();
     const mainHeaders = mainData.shift();
     const mainEmpIdIndex = mainHeaders.indexOf('Employee ID');
     const mainDeptIndex = mainHeaders.indexOf('Department');
     const employeeToDeptMap = new Map();
-    mainData.forEach(row => {
-      if (row[mainEmpIdIndex] && row[mainDeptIndex]) {
-        employeeToDeptMap.set(String(row[mainEmpIdIndex]).trim(), row[mainDeptIndex]);
-      }
-    });
+    
+    if (mainEmpIdIndex !== -1 && mainDeptIndex !== -1) {
+        mainData.forEach(row => {
+          if (row[mainEmpIdIndex] && row[mainDeptIndex]) {
+            employeeToDeptMap.set(String(row[mainEmpIdIndex]).trim(), row[mainDeptIndex]);
+          }
+        });
+    }
 
-    // Get competency data
+    // Get Competency Data
     const compData = compSheet.getDataRange().getValues();
     const rawCompHeaders = compData.shift();
-    const compHeaders = rawCompHeaders.map(h => (h || '').toString().replace(/\n|\r/g, ' ').trim());
+    const compHeaders = rawCompHeaders.map(h => h.toString().replace(/\s+/g, ' ').trim().toUpperCase());
+    
     const compEmpIdIndex = compHeaders.indexOf('EMPLOYEE ID');
     const compNameIndex = compHeaders.indexOf('EMPLOYEE NAME');
 
-    // Filter employees by the selected department
+    if (compEmpIdIndex === -1) return { error: "Header 'EMPLOYEE ID' not found." };
+
+    // Filter employees
     const departmentEmployees = compData.filter(row => {
       const empId = String(row[compEmpIdIndex]).trim();
       return employeeToDeptMap.get(empId) === department;
     });
 
-    if (departmentEmployees.length === 0) {
-      return { headers: [], employeeScores: [] }; // No employees in this department
-    }
+    if (departmentEmployees.length === 0) return { headers: [], employeeScores: [] };
 
+    // Build Columns
     const competencyColumns = [];
-    const competencyHeaderNames = [];
-
-    // --- REVISED: More robust competency column identification ---
-    const allDefinedCompetencies = [
-        "TRUSTWORTHINESS", "ENTREPRENEURIAL SPIRIT", "INNOVATION", "LEADERSHIP", "RESPECT FOR THE INDIVIDUAL",
-        "LEADERSHIP BY EXAMPLE", "DRIVE FOR RESULTS", "COACHING FOR SUCCESS", "INSPIRING LOYAL AND TRUST",
-        "WORKING ACROSS TEAMS", "TALENT MANAGEMENT AND DEVELOPMENT", "EMPOWERMENT", "COMMUNICATION", "EXECUTIVE DISPOSITION",
-        "PROJECT MANAGEMENT", "LEAN THINKING PRINCIPLES", "PROCESS STANDARDIZATION", "OPERATIONAL EXPERTISE",
-        "COST MANAGEMENT", "DATA-DRIVEN DECISION MAKING", "MANAGEMENT OF WORK SYSTEMS/BUSINESS PROCESS ORIENTATION"
-    ];
+    const competencyHeaders = []; // Changed variable name for clarity
+    const allDefinedCompetencies = getAllCompetencies(); 
 
     allDefinedCompetencies.forEach(competencyName => {
-        let actualIndex = compHeaders.indexOf(`${competencyName} [Actual]`);
-
-        // Fallback for headers that might just have the competency name
-        if (actualIndex === -1) {
-            const indices = compHeaders.map((h, i) => (h.trim().toUpperCase() === competencyName ? i : -1)).filter(i => i !== -1);
-            if (indices.length >= 2) {
-                actualIndex = indices[1]; // Assume the second column is 'Actual'
-            }
-        }
+        const indices = compHeaders.map((h, i) => (h === competencyName ? i : -1)).filter(i => i !== -1);
+        
+        let actualIndex = -1;
+        if (indices.length >= 2) actualIndex = indices[1]; 
         
         if (actualIndex !== -1) {
-            competencyColumns.push({ name: competencyName, index: actualIndex });
-            competencyHeaderNames.push(competencyName);
+            const cleanName = competencyName.replace(/^(CORE|LEAD|TECH)\s?-\s?/i, '');
+            
+            // --- NEW: Determine Category ---
+            let category = "OTHER";
+            if (competencyName.startsWith("CORE")) category = "CORE";
+            else if (competencyName.startsWith("LEAD")) category = "LEADERSHIP";
+            else if (competencyName.startsWith("TECH")) category = "TECHNICAL";
+
+            competencyColumns.push({ name: cleanName, index: actualIndex });
+            
+            // --- NEW: Push object with category instead of just string ---
+            competencyHeaders.push({ name: cleanName, category: category });
         }
     });
-    // --- END REVISED SECTION ---
 
-    // Structure the data for the frontend
+    // Extract Scores
     const employeeScores = departmentEmployees.map(row => {
       const scores = competencyColumns.map(col => {
-        return parseFloat(row[col.index]) || 0;
+        const val = parseFloat(row[col.index]);
+        return (val > 0) ? val : ""; 
       });
-      return {
-        name: row[compNameIndex],
-        scores: scores
-      };
+      return { name: row[compNameIndex] || 'Unknown', scores: scores };
     });
 
     return {
-      headers: competencyHeaderNames,
+      headers: competencyHeaders, // Sending rich objects now
       employeeScores: employeeScores
     };
 
@@ -3826,27 +3866,21 @@ function getCompetencyEmployeeList() {
  */
 function getEmployeeCompetencyProfile(employeeId) {
   if (!employeeId) return { error: 'No employee ID provided.' };
-
   try {
     const ss = SpreadsheetApp.openById(COMPETENCY_SPREADSHEET_ID);
     const sheet = ss.getSheetByName('Competency Matrix');
-    if (!sheet) {
-      return { error: "The 'Competency Matrix' sheet was not found." };
-    }
+    if (!sheet) return { error: "The 'Competency Matrix' sheet was not found." };
+
     const data = sheet.getDataRange().getValues();
     const rawHeaders = data.shift();
-    const headers = rawHeaders.map(header => header.replace(/\n|\r/g, ' ').trim());
-
+    // Normalize headers to match Config (uppercase, single spaces)
+    const headers = rawHeaders.map(h => h.toString().replace(/\s+/g, ' ').trim().toUpperCase());
+    
     const empIdIndex = headers.indexOf('EMPLOYEE ID');
-    if (empIdIndex === -1) {
-      return { error: "Header 'EMPLOYEE ID' not found in Competency Matrix." };
-    }
+    if (empIdIndex === -1) return { error: "Header 'EMPLOYEE ID' not found." };
 
     const employeeRow = data.find(row => String(row[empIdIndex]).trim() === String(employeeId).trim());
-
-    if (!employeeRow) {
-      return { error: 'Employee not found in Competency Matrix.' };
-    }
+    if (!employeeRow) return { error: 'Employee not found in Competency Matrix.' };
 
     const profile = {
       core: { labels: [], actual: [], required: [] },
@@ -3854,52 +3888,47 @@ function getEmployeeCompetencyProfile(employeeId) {
       technical: { labels: [], actual: [], required: [] }
     };
 
-    const coreCompetencies = ["TRUSTWORTHINESS", "ENTREPRENEURIAL SPIRIT", "INNOVATION", "LEADERSHIP", "RESPECT FOR THE INDIVIDUAL"];
-    const leadershipCompetencies = ["LEADERSHIP BY EXAMPLE", "DRIVE FOR RESULTS", "COACHING FOR SUCCESS", "INSPIRING LOYAL AND TRUST", "WORKING ACROSS TEAMS", "TALENT MANAGEMENT AND DEVELOPMENT", "EMPOWERMENT", "COMMUNICATION", "EXECUTIVE DISPOSITION"];
-    const technicalCompetencies = ["PROJECT MANAGEMENT", "LEAN THINKING PRINCIPLES", "PROCESS STANDARDIZATION", "OPERATIONAL EXPERTISE", "COST MANAGEMENT", "DATA-DRIVEN DECISION MAKING", "MANAGEMENT OF WORK SYSTEMS/BUSINESS PROCESS ORIENTATION"];
-    
-    const allCompetencyNames = [...coreCompetencies, ...leadershipCompetencies, ...technicalCompetencies];
-    
-    allCompetencyNames.forEach(competencyName => {
-      let requiredIndex = -1;
-      let actualIndex = -1;
-
-      requiredIndex = headers.indexOf(`${competencyName} [Required]`);
-      actualIndex = headers.indexOf(`${competencyName} [Actual]`);
-
-      if (requiredIndex === -1 || actualIndex === -1) {
-        const indices = headers.map((h, i) => (h.trim() === competencyName ? i : -1)).filter(i => i !== -1);
-        if (indices.length >= 2) {
-          requiredIndex = indices[0];
-          actualIndex = indices[1];
-        }
-      }
-      
-      if (requiredIndex !== -1 && actualIndex !== -1) {
-        const requiredValue = parseFloat(employeeRow[requiredIndex]) || 0;
-        const actualValue = parseFloat(employeeRow[actualIndex]) || 0;
+    // Helper to process competencies
+    const processCompetencyList = (list, categoryKey) => {
+      list.forEach(headerName => {
+        // Header name from config is already normalized
+        const upperName = headerName; 
         
-        // --- THIS IS THE KEY IMPROVEMENT ---
-        // Only include the competency if it's relevant to the employee (score > 0)
-        if (requiredValue > 0 || actualValue > 0) {
-          let category;
-          if (coreCompetencies.includes(competencyName)) category = profile.core;
-          else if (leadershipCompetencies.includes(competencyName)) category = profile.leadership;
-          else if (technicalCompetencies.includes(competencyName)) category = profile.technical;
+        // Find ALL columns matching this name (Expected: 3 columns)
+        const indices = headers.map((h, i) => (h === upperName ? i : -1)).filter(i => i !== -1);
+        
+        // Logic: 1st is Required, 2nd is Actual. 3rd (Gap) is ignored.
+        if (indices.length >= 2) {
+          const requiredIndex = indices[0];
+          const actualIndex = indices[1];
+          
+          const requiredValue = parseFloat(employeeRow[requiredIndex]) || 0;
+          const actualValue = parseFloat(employeeRow[actualIndex]) || 0;
 
-          if (category && !category.labels.includes(competencyName)) {
-            category.labels.push(competencyName);
-            category.required.push(requiredValue);
-            category.actual.push(actualValue);
+          // DATA ONLY VIEW: Only add to chart if there is data
+          if (requiredValue > 0 || actualValue > 0) {
+             // CLEAN NAME: Remove the prefix (CORE -, LEAD -, TECH -) for the chart label
+             const cleanName = headerName.replace(/^(CORE|LEAD|TECH)\s?-\s?/i, '');
+             
+             profile[categoryKey].labels.push(cleanName);
+             profile[categoryKey].required.push(requiredValue);
+             profile[categoryKey].actual.push(actualValue);
           }
         }
-      }
-    });
+      });
+    };
+
+    // Fetch dynamic config automatically
+    const dynamicConfig = getCompetencyConfig(); 
+    
+    processCompetencyList(dynamicConfig.CORE, 'core');
+    processCompetencyList(dynamicConfig.LEADERSHIP, 'leadership');
+    processCompetencyList(dynamicConfig.TECHNICAL, 'technical');
 
     return profile;
 
   } catch (e) {
-    Logger.log('Error in getEmployeeCompetencyProfile: ' + e.message + ' Stack: ' + e.stack);
+    Logger.log('Error in getEmployeeCompetencyProfile: ' + e.message);
     return { error: e.message };
   }
 }
@@ -3921,16 +3950,20 @@ function getCompetencyAnalytics(employeeId) {
     const compSheet = compSs.getSheetByName('Competency Matrix');
     const historySheet = compSs.getSheetByName('Competency History');
 
-    // (This part for current data remains the same)
     if (!compSheet) return { error: "The 'Competency Matrix' sheet was not found." };
+    
     const compData = compSheet.getDataRange().getValues();
     const rawHeaders = compData.shift();
-    const headers = rawHeaders.map(header => header.replace(/\n|\r/g, ' ').trim());
+    // Normalize headers
+    const headers = rawHeaders.map(h => h.toString().replace(/\s+/g, ' ').trim().toUpperCase());
+    
     const compEmpIdIndex = headers.indexOf('EMPLOYEE ID');
-    if (compEmpIdIndex === -1) return { error: "Header 'EMPLOYEE ID' not found in Competency Matrix." };
+    if (compEmpIdIndex === -1) return { error: "Header 'EMPLOYEE ID' not found." };
+    
     const employeeRow = compData.find(row => String(row[compEmpIdIndex]).trim() === String(employeeId).trim());
     if (!employeeRow) return { error: 'Employee not found in Competency Matrix.' };
 
+    // Get Employee Department
     const employeeDepartmentMap = new Map();
     let selectedEmployeeDept = null;
     if (mainSheet) {
@@ -3954,102 +3987,91 @@ function getCompetencyAnalytics(employeeId) {
       technical: { labels: [], actual: [], required: [], team: [] }
     };
     const allGaps = [];
-    const coreCompetencies = ["TRUSTWORTHINESS", "ENTREPRENEURIAL SPIRIT", "INNOVATION", "LEADERSHIP", "RESPECT FOR THE INDIVIDUAL"];
-    const leadershipCompetencies = ["LEADERSHIP BY EXAMPLE", "DRIVE FOR RESULTS", "COACHING FOR SUCCESS", "INSPIRING LOYAL AND TRUST", "WORKING ACROSS TEAMS", "TALENT MANAGEMENT AND DEVELOPMENT", "EMPOWERMENT", "COMMUNICATION", "EXECUTIVE DISPOSITION"];
-    const technicalCompetencies = ["PROJECT MANAGEMENT", "LEAN THINKING PRINCIPLES", "PROCESS STANDARDIZATION", "OPERATIONAL EXPERTISE", "COST MANAGEMENT", "DATA-DRIVEN DECISION MAKING", "MANAGEMENT OF WORK SYSTEMS/BUSINESS PROCESS ORIENTATION"];
-    const allCompetencyNames = [...coreCompetencies, ...leadershipCompetencies, ...technicalCompetencies];
-    allCompetencyNames.forEach(competencyName => {
-      let requiredIndex = -1, actualIndex = -1;
-      const indices = headers.map((h, i) => (h.trim() === competencyName ? i : -1)).filter(i => i !== -1);
-      if (indices.length >= 2) {
-        requiredIndex = indices[0];
-        actualIndex = indices[1];
-      }
-      if (requiredIndex !== -1 && actualIndex !== -1) {
-        const requiredValue = parseFloat(employeeRow[requiredIndex]) || 0;
-        const actualValue = parseFloat(employeeRow[actualIndex]) || 0;
-        if (requiredValue > 0 || actualValue > 0) {
-          allGaps.push({ name: competencyName, gap: actualValue - requiredValue });
-          let teamTotal = 0, teamMemberCount = 0;
-          if (selectedEmployeeDept) {
-            compData.forEach(row => {
-              const currentEmpId = String(row[compEmpIdIndex]).trim();
-              if (employeeDepartmentMap.get(currentEmpId) === selectedEmployeeDept) {
-                teamTotal += parseFloat(row[actualIndex]) || 0;
-                teamMemberCount++;
-              }
-            });
-          }
-          const teamAverage = (teamMemberCount > 0) ? (teamTotal / teamMemberCount) : 0;
-          let category;
-          if (coreCompetencies.includes(competencyName)) category = profile.core;
-          else if (leadershipCompetencies.includes(competencyName)) category = profile.leadership;
-          else if (technicalCompetencies.includes(competencyName)) category = profile.technical;
-          if (category && !category.labels.includes(competencyName)) {
-            category.labels.push(competencyName);
-            category.required.push(requiredValue);
-            category.actual.push(actualValue);
-            category.team.push(parseFloat(teamAverage.toFixed(2)));
+
+    // Fetch dynamic config
+    const dynamicConfig = getCompetencyConfig(); 
+
+    const processCategory = (list, categoryKey) => {
+      list.forEach(headerName => {
+        const upperName = headerName; // Already normalized in config
+        const indices = headers.map((h, i) => (h === upperName ? i : -1)).filter(i => i !== -1);
+        
+        if (indices.length >= 2) {
+          const requiredIndex = indices[0];
+          const actualIndex = indices[1];
+          
+          const requiredValue = parseFloat(employeeRow[requiredIndex]) || 0;
+          const actualValue = parseFloat(employeeRow[actualIndex]) || 0;
+
+          if (requiredValue > 0 || actualValue > 0) {
+            // Clean Name for display
+            const cleanName = headerName.replace(/^(CORE|LEAD|TECH)\s?-\s?/i, '');
+            
+            allGaps.push({ name: cleanName, gap: actualValue - requiredValue });
+            
+            // Team Avg Calculation
+            let teamTotal = 0, teamMemberCount = 0;
+            if (selectedEmployeeDept) {
+              compData.forEach(row => {
+                const currentEmpId = String(row[compEmpIdIndex]).trim();
+                if (employeeDepartmentMap.get(currentEmpId) === selectedEmployeeDept) {
+                  const val = parseFloat(row[actualIndex]) || 0;
+                  if(val > 0) { 
+                      teamTotal += val;
+                      teamMemberCount++;
+                  }
+                }
+              });
+            }
+            const teamAverage = (teamMemberCount > 0) ? (teamTotal / teamMemberCount) : 0;
+
+            if (!profile[categoryKey].labels.includes(cleanName)) {
+              profile[categoryKey].labels.push(cleanName);
+              profile[categoryKey].required.push(requiredValue);
+              profile[categoryKey].actual.push(actualValue);
+              profile[categoryKey].team.push(parseFloat(teamAverage.toFixed(2)));
+            }
           }
         }
-      }
-    });
+      });
+    };
+
+    processCategory(dynamicConfig.CORE, 'core');
+    processCategory(dynamicConfig.LEADERSHIP, 'leadership');
+    processCategory(dynamicConfig.TECHNICAL, 'technical');
+
+    // Sort Strengths and Gaps
     allGaps.sort((a, b) => b.gap - a.gap);
     const strengths = allGaps.filter(item => item.gap > 0).slice(0, 3);
     const gaps = allGaps.filter(item => item.gap < 0).reverse().slice(0, 3);
+
     const allActuals = [...profile.core.actual, ...profile.leadership.actual, ...profile.technical.actual];
     const allRequired = [...profile.core.required, ...profile.leadership.required, ...profile.technical.required];
     const overallActual = allActuals.length > 0 ? (allActuals.reduce((a, b) => a + b, 0) / allActuals.length) : 0;
     const overallRequired = allRequired.length > 0 ? (allRequired.reduce((a, b) => a + b, 0) / allRequired.length) : 0;
 
-    // --- REVISED: Process Historical Data with robust header matching and logging ---
+    // Historical Data logic (Unchanged, kept for completeness)
     const historicalData = { labels: [], datasets: [] };
     if (historySheet) {
-      Logger.log("Processing 'Competency History' sheet.");
       const histData = historySheet.getDataRange().getValues();
       const rawHistHeaders = histData.shift();
-      // Clean headers: remove newlines, trim, and convert to uppercase for robust matching.
       const histHeaders = rawHistHeaders.map(h => (h || '').toString().replace(/\n|\r/g, ' ').trim().toUpperCase());
-      
-      Logger.log("Cleaned History Headers: " + JSON.stringify(histHeaders));
-
-      // Find the correct column indices using the cleaned, uppercase headers.
       const histEmpIdIndex = histHeaders.indexOf('EMPLOYEE ID');
       const histYearIndex = histHeaders.indexOf('ASSESSMENT YEAR');
       const histActualAvgIndex = histHeaders.indexOf('ACTUAL AVERAGE');
       const histGapAvgIndex = histHeaders.indexOf('GAP AVERAGE');
 
-      Logger.log(`Header Indices Found: empId=${histEmpIdIndex}, year=${histYearIndex}, actualAvg=${histActualAvgIndex}, gapAvg=${histGapAvgIndex}`);
-
       if (histEmpIdIndex !== -1 && histYearIndex !== -1 && histActualAvgIndex !== -1 && histGapAvgIndex !== -1) {
-        Logger.log("All required history headers found. Filtering for employee: " + employeeId);
-
         const employeeHistoryRows = histData
           .filter(row => String(row[histEmpIdIndex]).trim() === String(employeeId).trim())
           .sort((a, b) => a[histYearIndex] - b[histYearIndex]);
 
-        Logger.log("Found " + employeeHistoryRows.length + " historical rows for this employee.");
-
         if (employeeHistoryRows.length > 0) {
             historicalData.labels = employeeHistoryRows.map(row => row[histYearIndex].toString());
-            
-            historicalData.datasets.push({
-                label: "Overall Actual Average",
-                data: employeeHistoryRows.map(row => parseFloat(row[histActualAvgIndex]) || null)
-            });
-
-            historicalData.datasets.push({
-                label: "Overall Gap Average",
-                data: employeeHistoryRows.map(row => parseFloat(row[histGapAvgIndex]) || null)
-            });
-
-            Logger.log("Successfully prepared historical data for chart: " + JSON.stringify(historicalData));
+            historicalData.datasets.push({ label: "Overall Actual Average", data: employeeHistoryRows.map(row => parseFloat(row[histActualAvgIndex]) || null) });
+            historicalData.datasets.push({ label: "Overall Gap Average", data: employeeHistoryRows.map(row => parseFloat(row[histGapAvgIndex]) || null) });
         }
-      } else {
-        Logger.log("One or more required headers were NOT found in 'Competency History' sheet.");
       }
-    } else {
-        Logger.log("'Competency History' sheet not found.");
     }
 
     return {
@@ -4064,7 +4086,7 @@ function getCompetencyAnalytics(employeeId) {
     };
 
   } catch (e) {
-    Logger.log('Error in getCompetencyAnalytics: ' + e.message + ' Stack: ' + e.stack);
+    Logger.log('Error in getCompetencyAnalytics: ' + e.message);
     return { error: e.message };
   }
 }

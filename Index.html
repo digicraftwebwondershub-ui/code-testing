@@ -480,6 +480,37 @@
     }
  /* --- END PREVIEW STYLES --- */
 
+ /* --- HEATMAP STYLES --- */
+    .heatmap-legend-item {
+      display: flex;
+      align-items: center;
+      margin-right: 16px;
+      font-size: 0.875rem;
+      color: #374151;
+    }
+    .heatmap-color-box {
+      width: 16px;
+      height: 16px;
+      margin-right: 6px;
+      border-radius: 4px;
+    }
+    /* Sticky Column Logic */
+    .sticky-col {
+      position: sticky !important;
+      left: 0;
+      z-index: 10;
+      border-right: 2px solid #e2e8f0 !important; /* Visible separator */
+    }
+    /* Header needs higher z-index to stay on top of body columns */
+    thead th.sticky-col {
+      z-index: 20;
+      background-color: #f9fafb; /* Match bg-gray-50 */
+    }
+    /* Body cells need white background so scrolled numbers don't show behind them */
+    tbody td.sticky-col {
+      background-color: #ffffff;
+    }
+
   </style>
 </head>
 <body>
@@ -1315,17 +1346,17 @@
   
       <div id="competency-charts-loader" class="flex justify-center items-center h-64 mt-8" style="display: none;"><div id="loader"></div></div>
   
-      <div id="competency-charts-container" class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8" style="display: none;">
+      <div id="competency-charts-container" class="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8" style="display: none;">
           <div class="p-4 sm:p-6 bg-white rounded-lg shadow-md">
-              <h3 class="text-xl font-bold text-slate-800 mb-4 text-center">Core Competencies</h3>
+              <h3 class="text-xl font-bold text-slate-800 mb-2 text-center">Core Competencies</h3>
               <canvas id="core-competency-chart"></canvas>
           </div>
           <div class="p-4 sm:p-6 bg-white rounded-lg shadow-md">
-              <h3 class="text-xl font-bold text-slate-800 mb-4 text-center">Leadership Competencies</h3>
+              <h3 class="text-xl font-bold text-slate-800 mb-2 text-center">Leadership Competencies</h3>
               <canvas id="leadership-competency-chart"></canvas>
           </div>
-          <div class="p-4 sm:p-6 bg-white rounded-lg shadow-md lg:col-span-2">
-              <h3 class="text-xl font-bold text-slate-800 mb-4 text-center">Technical Competencies</h3>
+          <div class="p-4 sm:p-6 bg-white rounded-lg shadow-md">
+              <h3 class="text-xl font-bold text-slate-800 mb-2 text-center">Technical Competencies</h3>
               <canvas id="technical-competency-chart"></canvas>
           </div>
       </div>
@@ -1334,14 +1365,29 @@
     <!-- New Team Competency Heatmap Section -->
     <div id="team-competency-section" class="mt-8 p-4 sm:p-6 bg-white rounded-lg shadow-md" style="display: none;">
         <h2 class="text-2xl font-bold text-slate-800 mb-4">Team Competency Heatmap</h2>
-        <div class="max-w-md mb-6">
-            <label for="heatmap-department-select" class="block text-sm font-medium text-gray-700">Choose a Department</label>
-            <select id="heatmap-department-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                <option>Loading departments...</option>
-            </select>
+        
+        <div class="flex flex-col md:flex-row justify-between items-end mb-6 gap-4">
+            
+            <div class="w-full md:w-1/3">
+                <label for="heatmap-department-select" class="block text-sm font-medium text-gray-700">Choose a Department</label>
+                <select id="heatmap-department-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                    <option>Loading departments...</option>
+                </select>
+            </div>
+
+            <div id="heatmap-legend" class="flex flex-wrap p-3 bg-gray-50 rounded border border-gray-200 items-center shadow-sm" style="display: none;">
+                <span class="font-bold text-sm text-gray-700 mr-4">Legend:</span>
+                <div class="heatmap-legend-item"><div class="heatmap-color-box" style="background-color: #16a34a;"></div>4 (Innovator)</div>
+                <div class="heatmap-legend-item"><div class="heatmap-color-box" style="background-color: #22c55e;"></div>3 (Knowledge Sharer)</div>
+                <div class="heatmap-legend-item"><div class="heatmap-color-box" style="background-color: #facc15;"></div>2 (Competent)</div>
+                <div class="heatmap-legend-item"><div class="heatmap-color-box" style="background-color: #f97316;"></div>1 (Learner)</div>
+                <div class="heatmap-legend-item"><div class="heatmap-color-box" style="background-color: #f3f4f6; border: 1px solid #ccc;"></div>N/A</div>
+            </div>
         </div>
         <div id="heatmap-loader" class="flex justify-center items-center h-48" style="display: none;"><div id="loader"></div></div>
-        <div id="heatmap-container" class="overflow-x-auto">
+
+        <div id="heatmap-container" class="overflow-x-auto" style="max-height: 70vh;">
+            </div>
             <!-- Heatmap table will be generated here by JavaScript -->
         </div>
     </div>
@@ -2784,11 +2830,21 @@ function drawChart(filteredData) {
                                         '<svg class="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd"></path></svg>' +
                                       '</button>';
               }
+
+              // --- NEW BUTTON ADDED HERE ---
+              let competencyBtn = '';
+              if (emp.employeeId) { // Only show for filled positions
+                  competencyBtn = '<button title="View Competency Profile" onclick="event.stopPropagation(); viewCompetencyProfile(\'' + emp.employeeId + '\')" class="action-btn">' +
+                                    '<svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>' +
+                                  '</button>';
+              }
+
               actionsHtml = '<div class="node-actions">' +
                               '<button title="Edit" onclick="event.stopPropagation(); openModal(\'edit\', \'' + emp.nodeId + '\')" class="action-btn">' +
                                 '<svg class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828zM5 14l-1 4 4-1 7.586-7.586-2.828-2.828L5 14z"></path></svg>' +
                               '</button>' +
                               primaryActionBtn +
+                              competencyBtn + // Add the new button to the list
                               '<button title="Job Description" onclick="event.stopPropagation(); openJdModal(\'' + emp.positionId + '\', \'' + (emp.employeeId || '') + '\', \'' + (emp.jobTitle || '') + '\')" class="action-btn">' +
                                 '<svg class="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a2 2 0 00-2 2v8a2 2 0 002 2h2a2 2 0 002-2V4a2 2 0 00-2-2H9z"></path><path d="M4 12a2 2 0 012-2h10a2 2 0 012 2v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5z"></path></svg>' +
                               '</button>' +
@@ -4535,92 +4591,131 @@ function drawTalentInsights() {
 
 var chartInstances = {}; // To keep track of charts and destroy them before redrawing
 
-// REVISED - This function now loads all analytics at once.
 function initializeCompetencyView() {
+    console.log("Initializing Competency View...");
     competencyViewInitialized = true;
+    
+    // --- 1. Setup Employee Dropdown (Individual Profile) ---
     const select = document.getElementById('competency-employee-select');
-    select.innerHTML = '<option>Loading employees...</option>';
+    if (select) {
+        select.innerHTML = '<option>Loading employees...</option>';
+        google.charts.load('current', {packages:['gauge']});
 
-    // Load the Google Gauge chart package
-    google.charts.load('current', {packages:['gauge']});
+        google.script.run.withSuccessHandler(response => {
+            if (response.error) {
+                select.innerHTML = `<option disabled selected>Error: ${response.error}</option>`;
+                return;
+            }
+            select.innerHTML = '<option value="">-- Select an Employee --</option>';
+            response.forEach(emp => {
+                const option = document.createElement('option');
+                option.value = emp.code;
+                option.textContent = emp.name;
+                select.appendChild(option);
+            });
+        }).getCompetencyEmployeeList();
 
-    google.script.run.withSuccessHandler(response => {
-        if (response.error) {
-            select.innerHTML = `<option disabled selected>Error: ${response.error}</option>`;
-            return;
-        }
-        select.innerHTML = '<option value="">-- Select an Employee --</option>';
-        response.forEach(emp => {
-            const option = document.createElement('option');
-            option.value = emp.code;
-            option.textContent = emp.name;
-            select.appendChild(option);
+        select.addEventListener('change', (event) => {
+            const employeeId = event.target.value;
+            if (employeeId) {
+                drawCompetencyDashboard(employeeId); 
+            } else {
+                const idsToHide = ['competency-summary-container', 'competency-history-container', 
+                                   'competency-charts-container', 'team-competency-section', 
+                                   'individual-profile-content'];
+                idsToHide.forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) el.style.display = 'none';
+                });
+            }
         });
-    }).getCompetencyEmployeeList();
+    }
 
-    select.addEventListener('change', (event) => {
-        const employeeId = event.target.value;
-        if (employeeId) {
-            drawCompetencyDashboard(employeeId); // Call the new main function
-        } else {
-            // Hide all sections if no employee is selected
-            document.getElementById('competency-summary-container').style.display = 'none';
-            document.getElementById('competency-history-container').style.display = 'none';
-            document.getElementById('competency-charts-container').style.display = 'none';
-        document.getElementById('team-competency-section').style.display = 'none';
-        document.getElementById('individual-profile-content').style.display = 'none';
-        }
-    });
-
+    // --- 2. Setup View Toggles (Profile vs Heatmap) ---
     const individualProfileButton = document.getElementById('show-individual-profile');
     const teamHeatmapButton = document.getElementById('show-team-heatmap');
+    
     const individualProfileDropdownView = document.getElementById('individual-profile-view');
     const individualProfileContentView = document.getElementById('individual-profile-content');
     const teamHeatmapView = document.getElementById('team-competency-section');
 
-    individualProfileButton.addEventListener('click', () => {
-        individualProfileDropdownView.style.display = 'block';
-        individualProfileContentView.style.display = 'block';
-        teamHeatmapView.style.display = 'none';
-        individualProfileButton.classList.add('bg-white', 'shadow', 'text-blue-700');
-        individualProfileButton.classList.remove('text-gray-600', 'hover:bg-gray-300');
-        teamHeatmapButton.classList.add('text-gray-600', 'hover:bg-gray-300');
-        teamHeatmapButton.classList.remove('bg-white', 'shadow', 'text-blue-700');
-    });
+    if (individualProfileButton && teamHeatmapButton) {
+        individualProfileButton.addEventListener('click', () => {
+            individualProfileDropdownView.style.display = 'block';
+            individualProfileContentView.style.display = 'block';
+            teamHeatmapView.style.display = 'none';
+            
+            individualProfileButton.classList.add('bg-white', 'shadow', 'text-blue-700');
+            individualProfileButton.classList.remove('text-gray-600', 'hover:bg-gray-300');
+            teamHeatmapButton.classList.add('text-gray-600', 'hover:bg-gray-300');
+            teamHeatmapButton.classList.remove('bg-white', 'shadow', 'text-blue-700');
+        });
 
-    teamHeatmapButton.addEventListener('click', () => {
-        individualProfileDropdownView.style.display = 'none';
-        individualProfileContentView.style.display = 'none';
-        teamHeatmapView.style.display = 'block';
-        teamHeatmapButton.classList.add('bg-white', 'shadow', 'text-blue-700');
-        teamHeatmapButton.classList.remove('text-gray-600', 'hover:bg-gray-300');
-        individualProfileButton.classList.add('text-gray-600', 'hover:bg-gray-300');
-        individualProfileButton.classList.remove('bg-white', 'shadow', 'text-blue-700');
-    });
-
-    // Populate the department dropdown for the heatmap
-    const heatmapDeptSelect = document.getElementById('heatmap-department-select');
-    heatmapDeptSelect.innerHTML = '<option value="">-- Select a Department --</option>';
-    if (dropdownListData && dropdownListData.departments) {
-      dropdownListData.departments.forEach(dept => {
-          const option = document.createElement('option');
-          option.value = dept;
-          option.textContent = dept;
-          heatmapDeptSelect.appendChild(option);
-      });
+        teamHeatmapButton.addEventListener('click', () => {
+            individualProfileDropdownView.style.display = 'none';
+            individualProfileContentView.style.display = 'none';
+            teamHeatmapView.style.display = 'block';
+            
+            teamHeatmapButton.classList.add('bg-white', 'shadow', 'text-blue-700');
+            teamHeatmapButton.classList.remove('text-gray-600', 'hover:bg-gray-300');
+            individualProfileButton.classList.add('text-gray-600', 'hover:bg-gray-300');
+            individualProfileButton.classList.remove('bg-white', 'shadow', 'text-blue-700');
+        });
     }
 
-    heatmapDeptSelect.addEventListener('change', (event) => {
-        const department = event.target.value;
-        if (department) {
-            drawTeamCompetencyHeatmap(department);
-        } else {
-            document.getElementById('heatmap-container').innerHTML = '';
-        }
-    });
+    // --- 3. Setup Department Dropdown (Team Heatmap) - WITH RETRY LOGIC ---
+    const heatmapDeptSelect = document.getElementById('heatmap-department-select');
     
-    // Show the individual profile by default
-    individualProfileView.style.display = 'block';
+    // Inner function to populate data, or retry if not ready
+    const populateDepartments = () => {
+        if (!heatmapDeptSelect) return;
+
+        // Check if the global data (dropdownListData) is ready
+        if (typeof dropdownListData !== 'undefined' && dropdownListData.departments) {
+            heatmapDeptSelect.innerHTML = '<option value="">-- Select a Department --</option>';
+            
+            if (dropdownListData.departments.length > 0) {
+                dropdownListData.departments.forEach(dept => {
+                    const option = document.createElement('option');
+                    option.value = dept;
+                    option.textContent = dept;
+                    heatmapDeptSelect.appendChild(option);
+                });
+            } else {
+                const option = document.createElement('option');
+                option.text = "No departments found";
+                heatmapDeptSelect.add(option);
+            }
+        } else {
+            // Data not ready yet? Wait 500ms and try again
+            console.log("Waiting for department list data...");
+            heatmapDeptSelect.innerHTML = '<option>Loading Departments...</option>';
+            setTimeout(populateDepartments, 500);
+        }
+    };
+
+    if (heatmapDeptSelect) {
+        // Start the population process
+        populateDepartments();
+
+        heatmapDeptSelect.addEventListener('change', (event) => {
+            const department = event.target.value;
+            if (department) {
+                drawTeamCompetencyHeatmap(department);
+            } else {
+                document.getElementById('heatmap-container').innerHTML = '';
+                const legend = document.getElementById('heatmap-legend');
+                if (legend) legend.style.display = 'none';
+            }
+        });
+    }
+
+    // --- 4. Initial Visibility Settings ---
+    if (individualProfileDropdownView) individualProfileDropdownView.style.display = 'block';
+    if (individualProfileContentView) individualProfileContentView.style.display = 'block';
+    
+    const legend = document.getElementById('heatmap-legend');
+    if (legend) legend.style.display = 'none';
 }
 
 function openRequestModal() {
@@ -4963,8 +5058,11 @@ function submitRequest() {
 function drawTeamCompetencyHeatmap(department) {
     const loader = document.getElementById('heatmap-loader');
     const container = document.getElementById('heatmap-container');
+    const legend = document.getElementById('heatmap-legend');
+    
     loader.style.display = 'flex';
     container.innerHTML = '';
+    if(legend) legend.style.display = 'none'; 
 
     google.script.run
         .withSuccessHandler(data => {
@@ -4974,32 +5072,47 @@ function drawTeamCompetencyHeatmap(department) {
                 return;
             }
             if (data.employeeScores.length === 0) {
-                container.innerHTML = '<p class="text-gray-500">No employees with competency data found in this department.</p>';
+                container.innerHTML = '<p class="text-gray-500">No employees found.</p>';
                 return;
             }
 
-            const table = document.createElement('table');
-            table.className = 'min-w-full divide-y divide-gray-200 border';
+            if(legend) legend.style.display = 'flex';
 
-            // Create header row
+            const table = document.createElement('table');
+            table.className = 'min-w-full divide-y divide-gray-200 border text-xs';
+
             const thead = document.createElement('thead');
             thead.className = 'bg-gray-50';
-            let headerHtml = '<tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r align-bottom">Employee Name</th>';
-            data.headers.forEach(header => {
-                headerHtml += '<th class="p-2 border-l text-xs font-medium text-gray-500 uppercase" style="white-space: normal; max-width: 200px; vertical-align: bottom; table-layout: auto; width: auto;">' + header + '</th>';
+            
+            let headerHtml = '<tr><th class="sticky-col px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider border-r align-bottom shadow-sm">Employee Name</th>';
+            
+            // --- NEW: Loop through headers and add Category Badges ---
+            data.headers.forEach(headerObj => {
+                let badgeClass = "bg-gray-100 text-gray-800";
+                if (headerObj.category === "CORE") badgeClass = "bg-blue-100 text-blue-800";
+                if (headerObj.category === "LEADERSHIP") badgeClass = "bg-purple-100 text-purple-800";
+                if (headerObj.category === "TECHNICAL") badgeClass = "bg-teal-100 text-teal-800";
+
+                headerHtml += `<th class="p-2 border-l font-medium text-gray-500 uppercase text-center" style="min-width: 120px; vertical-align: bottom;">
+                    <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold mb-1 ${badgeClass}">${headerObj.category}</span><br>
+                    ${headerObj.name}
+                </th>`;
             });
+            
             headerHtml += '</tr>';
             thead.innerHTML = headerHtml;
             table.appendChild(thead);
 
-            // Create body rows
             const tbody = document.createElement('tbody');
             tbody.className = 'bg-white divide-y divide-gray-200';
+            
             data.employeeScores.forEach(employee => {
-                let rowHtml = `<tr><td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r">${employee.name}</td>`;
+                let rowHtml = `<tr><td class="sticky-col px-6 py-3 whitespace-nowrap font-medium text-gray-900 border-r shadow-sm">${employee.name}</td>`;
+                
                 employee.scores.forEach(score => {
                     const color = getHeatmapColor(score);
-                    rowHtml += `<td class="px-2 py-4 whitespace-nowrap text-sm text-center font-bold text-white" style="background-color: ${color};">${score}</td>`;
+                    const textColor = (score === "" || score === 0) ? '#9ca3af' : 'white'; 
+                    rowHtml += `<td class="px-2 py-3 whitespace-nowrap text-center font-bold" style="background-color: ${color}; color: ${textColor}; border: 1px solid #fff;">${score}</td>`;
                 });
                 rowHtml += '</tr>';
                 tbody.innerHTML += rowHtml;
@@ -5016,11 +5129,14 @@ function drawTeamCompetencyHeatmap(department) {
 }
 
 function getHeatmapColor(score) {
+    // FIX: If score is empty/blank, return a neutral color (Light Gray)
+    if (!score) return '#f3f4f6'; 
+    
     if (score >= 4) return '#16a34a'; // Dark Green
     if (score >= 3) return '#22c55e'; // Green
     if (score >= 2) return '#facc15'; // Yellow
     if (score >= 1) return '#f97316'; // Orange
-    return '#ef4444'; // Red
+    return '#ef4444'; // Red (only for actual low scores like 0.5)
 }
 
 // REPLACED - This is now the main function for the entire tab.
@@ -5121,77 +5237,161 @@ function renderStrengthsAndGaps(strengths, gaps) {
     }
 }
 
-// REVISED - This version specifically adds borderWidth to the Team Average dataset and the onClick handler.
-    function renderRadarCharts(radarData) {
-        const createChart = (canvasId, data) => {
-            const canvas = document.getElementById(canvasId);
-            if (!data || data.labels.length === 0) {
-                if (canvas && canvas.parentElement) canvas.parentElement.style.display = 'none';
-                return;
+// REVISED - Side-by-Side Optimized Layout & Zero Gaps
+function renderRadarCharts(radarData) {
+    
+    const wrapLabel = (str) => {
+        const maxChars = 15; 
+        if (str.length <= maxChars) return str;
+        const words = str.split(' ');
+        const lines = [];
+        let currentLine = words[0];
+        for (let i = 1; i < words.length; i++) {
+            if (currentLine.length + words[i].length + 1 <= maxChars) {
+                currentLine += ' ' + words[i];
+            } else {
+                lines.push(currentLine);
+                currentLine = words[i];
             }
-            if (canvas && canvas.parentElement) canvas.parentElement.style.display = 'block';
+        }
+        lines.push(currentLine);
+        return lines;
+    };
 
-            const ctx = canvas.getContext('2d');
-            chartInstances[canvasId] = new Chart(ctx, {
-                type: 'radar',
-                data: {
-                    labels: data.labels,
-                    datasets: [{
-                        label: 'Actual Score',
-                        data: data.actual,
-                        fill: true,
-                        backgroundColor: 'rgba(239, 68, 68, 0.2)',
-                        borderColor: 'rgb(239, 68, 68)',
-                        pointBackgroundColor: 'rgb(239, 68, 68)',
-                        borderWidth: 3
-                    }, {
-                        label: 'Required Score',
-                        data: data.required,
-                        fill: true,
-                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                        borderColor: 'rgb(59, 130, 246)',
-                        pointBackgroundColor: 'rgb(59, 130, 246)',
-                        borderWidth: 3
-                    }, {
-                        label: 'Team Average',
-                        data: data.team,
-                        fill: false,
-                        borderColor: 'rgba(22, 163, 74, 0.9)',
-                        pointBackgroundColor: 'rgb(22, 163, 74)',
-                        borderWidth: 2.5
-                    }]
+    const createChart = (canvasId, data) => {
+        const canvas = document.getElementById(canvasId);
+        
+        if (!data || data.labels.length === 0) {
+            if (canvas && canvas.parentElement) canvas.parentElement.style.display = 'none';
+            return;
+        }
+        
+        const parent = canvas.parentElement;
+        parent.style.display = 'block';
+
+        // --- 1. INJECT CUSTOM LEGEND ---
+        let customLegend = parent.querySelector('.custom-radar-legend');
+        if (!customLegend) {
+            customLegend = document.createElement('div');
+            // Tight spacing: minimal margins
+            customLegend.className = 'custom-radar-legend flex flex-wrap justify-center gap-2 text-xs text-gray-600';
+            customLegend.style.marginBottom = '5px'; 
+            
+            customLegend.innerHTML = `
+                <div class="flex items-center">
+                    <span style="width:10px; height:10px; background-color: rgba(239, 68, 68, 0.2); border: 2px solid rgb(239, 68, 68); margin-right:3px; display:inline-block;"></span>
+                    Actual
+                </div>
+                <div class="flex items-center">
+                    <span style="width:10px; height:10px; background-color: rgba(59, 130, 246, 0.2); border: 2px solid rgb(59, 130, 246); margin-right:3px; display:inline-block;"></span>
+                    Required
+                </div>
+                <div class="flex items-center">
+                    <span style="width:10px; height:2px; background-color: rgb(22, 163, 74); margin-right:3px; display:inline-block;"></span>
+                    Team Avg
+                </div>
+            `;
+            parent.insertBefore(customLegend, canvas);
+        }
+
+        // --- 2. FORCE COMPACT CANVAS ---
+        // Explicitly set height to 250px to eliminate vertical whitespace
+        canvas.style.height = '250px';
+        canvas.style.width = '100%';
+        canvas.style.marginTop = '0px'; 
+
+        const wrappedLabels = data.labels.map(label => wrapLabel(label));
+        const ctx = canvas.getContext('2d');
+
+        if (chartInstances[canvasId]) {
+            chartInstances[canvasId].destroy();
+        }
+
+        chartInstances[canvasId] = new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: wrappedLabels,
+                datasets: [{
+                    label: 'Actual Score',
+                    data: data.actual,
+                    fill: true,
+                    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                    borderColor: 'rgb(239, 68, 68)',
+                    pointBackgroundColor: 'rgb(239, 68, 68)',
+                    borderWidth: 2
+                }, {
+                    label: 'Required Score',
+                    data: data.required,
+                    fill: true,
+                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                    borderColor: 'rgb(59, 130, 246)',
+                    pointBackgroundColor: 'rgb(59, 130, 246)',
+                    borderWidth: 2
+                }, {
+                    label: 'Team Average',
+                    data: data.team,
+                    fill: false,
+                    borderColor: 'rgba(22, 163, 74, 0.8)', 
+                    pointBackgroundColor: 'rgb(22, 163, 74)',
+                    borderWidth: 2,
+                    borderDash: [5, 5] 
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false, // Allows chart to fill the short 250px height perfectly
+                layout: {
+                    padding: { top: 0, bottom: 0, left: 0, right: 0 }
                 },
-                options: {
-                    scales: {
-                        r: {
-                            angleLines: { display: false },
-                            suggestedMin: 0,
-                            suggestedMax: 4,
-                            ticks: { stepSize: 1 }
-                        }
-                    },
-                    onClick: (event) => {
-                        const points = chartInstances[canvasId].getElementsAtEventForMode(event, 'nearest', { intersect: true }, true);
-                        if (points.length) {
-                            const competencyIndex = points[0].index;
-                            const competencyName = chartInstances[canvasId].data.labels[competencyIndex];
-                            const employeeId = document.getElementById('competency-employee-select').value;
-                            if (employeeId && competencyName) {
-                                openDeepDiveModal(employeeId, competencyName);
+                plugins: {
+                    legend: { display: false }, 
+                    title: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            title: function(context) {
+                                return context[0].label.join(' '); 
                             }
                         }
-                    },
-                     onHover: (event, chartElement) => {
-                        event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
                     }
+                },
+                scales: {
+                    r: {
+                        angleLines: { display: true, color: '#e5e7eb' },
+                        grid: { color: '#e5e7eb' },
+                        suggestedMin: 0,
+                        suggestedMax: 4,
+                        ticks: { 
+                            stepSize: 1,
+                            display: false 
+                        },
+                        pointLabels: {
+                          font: { size: 9, family: "'Roboto', sans-serif" }, // Smaller font for side-by-side view
+                          color: '#4b5563' 
+                        }
+                    }
+                },
+                onClick: (event) => {
+                    const points = chartInstances[canvasId].getElementsAtEventForMode(event, 'nearest', { intersect: true }, true);
+                    if (points.length) {
+                        const competencyIndex = points[0].index;
+                        const competencyName = data.labels[competencyIndex]; 
+                        const employeeId = document.getElementById('competency-employee-select').value;
+                        if (employeeId && competencyName) {
+                            openDeepDiveModal(employeeId, competencyName);
+                        }
+                    }
+                },
+                 onHover: (event, chartElement) => {
+                    event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
                 }
-            });
-        };
+            }
+        });
+    };
 
-        createChart('core-competency-chart', radarData.core);
-        createChart('leadership-competency-chart', radarData.leadership);
-        createChart('technical-competency-chart', radarData.technical);
-    }
+    createChart('core-competency-chart', radarData.core);
+    createChart('leadership-competency-chart', radarData.leadership);
+    createChart('technical-competency-chart', radarData.technical);
+}
 
 // REVISED - This function now draws two lines: one for Actual Average and one for Gap Average.
     function renderHistoricalChart(history) {
@@ -6025,6 +6225,75 @@ function drawPreviewChart(previewDataArray) {
 
     previewChart = new google.visualization.OrgChart(chartDiv);
     previewChart.draw(previewDataTable, { allowHtml: true, allowCollapse: true, nodeClass: 'google-visualization-orgchart-node' });
+}
+
+// --- ROBUST FUNCTION: Instantly Loads Profile from Org Chart ---
+function viewCompetencyProfile(rawEmployeeId) {
+  // 1. Safety Check & Logging
+  if (!rawEmployeeId) {
+    console.error("viewCompetencyProfile called with no ID");
+    return;
+  }
+  const employeeId = String(rawEmployeeId).trim(); // Ensure it's a clean string
+  console.log("Viewing Competency for ID:", employeeId);
+
+  // 2. Switch to the Competency Tab
+  switchTab('competency');
+
+  // 3. FORCE the view to "Individual Profile" mode
+  document.getElementById('individual-profile-view').style.display = 'block';
+  document.getElementById('individual-profile-content').style.display = 'block';
+  document.getElementById('team-competency-section').style.display = 'none';
+  
+  // 4. PRE-SHOW the Chart Containers
+  // This ensures the space is reserved and ready for the charts
+  document.getElementById('competency-summary-container').style.display = 'grid';
+  document.getElementById('competency-history-container').style.display = 'block';
+  document.getElementById('competency-charts-container').style.display = 'grid';
+  
+  // 5. Update Toggle Buttons Styling
+  const btnProfile = document.getElementById('show-individual-profile');
+  const btnTeam = document.getElementById('show-team-heatmap');
+  if (btnProfile && btnTeam) {
+      btnProfile.classList.add('bg-white', 'shadow', 'text-blue-700');
+      btnProfile.classList.remove('text-gray-600', 'hover:bg-gray-300');
+      btnTeam.classList.add('text-gray-600', 'hover:bg-gray-300');
+      btnTeam.classList.remove('bg-white', 'shadow', 'text-blue-700');
+  }
+
+  // 6. LOAD DATA DIRECTLY (Instant)
+  // This fetches data and draws the charts immediately
+  if (typeof drawCompetencyDashboard === 'function') {
+      drawCompetencyDashboard(employeeId);
+  } else {
+      console.error("drawCompetencyDashboard function is missing!");
+      alert("Error: Dashboard function not loaded. Please refresh.");
+  }
+
+  // 7. Sync the Dropdown (Background Task)
+  // We keep trying to set the dropdown value until the list populates
+  let attempts = 0;
+  const syncDropdown = () => {
+    const dropdown = document.getElementById('competency-employee-select');
+    // Check if options are loaded (length > 1 means more than just "Loading...")
+    if (dropdown && dropdown.options.length > 1) {
+       dropdown.value = employeeId;
+       // If the value didn't stick (mismatch), log it
+       if (dropdown.value !== employeeId) {
+         console.warn("Dropdown sync mismatch. ID in list might differ from:", employeeId);
+       }
+    } else {
+       attempts++;
+       // Stop trying after 10 seconds (100 attempts * 100ms) to save memory
+       if (attempts < 100) {
+         setTimeout(syncDropdown, 100);
+       }
+    }
+  };
+  syncDropdown();
+  
+  // 8. Scroll to view
+  document.getElementById('competency-view').scrollIntoView({ behavior: 'smooth' });
 }
 
 </script>

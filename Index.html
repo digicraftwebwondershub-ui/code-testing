@@ -5537,7 +5537,7 @@ function showRequestDetails(requestId, context) {
           <button onclick="handleApprovalAction('${requestId}', 'Rejected')" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Reject</button>
           <button onclick="handleApprovalAction('${requestId}', 'Returned')" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">Return</button>
         `;
-      } else if (requestData.Status === 'Approved' && userCanApprove) {
+      } else if (requestData.Status === 'Approved' && userCanApprove && requestData.RequestType !== 'Hiring of a new employee (replacement for vacancy)') {
            actionButtons += `<button onclick="handleImplementAction('${requestId}')" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Implement Change</button>`;
       }
     }

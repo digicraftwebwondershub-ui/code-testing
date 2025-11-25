@@ -1348,15 +1348,15 @@
   
       <div id="competency-charts-container" class="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8" style="display: none;">
           <div class="p-4 sm:p-6 bg-white rounded-lg shadow-md">
-              <h3 class="text-xl font-bold text-slate-800 mb-2 text-center">Core Competencies</h3>
+              <h3 class="text-xl font-bold text-slate-800 text-center">Core Competencies</h3>
               <canvas id="core-competency-chart"></canvas>
           </div>
           <div class="p-4 sm:p-6 bg-white rounded-lg shadow-md">
-              <h3 class="text-xl font-bold text-slate-800 mb-2 text-center">Leadership Competencies</h3>
+              <h3 class="text-xl font-bold text-slate-800 text-center">Leadership Competencies</h3>
               <canvas id="leadership-competency-chart"></canvas>
           </div>
           <div class="p-4 sm:p-6 bg-white rounded-lg shadow-md">
-              <h3 class="text-xl font-bold text-slate-800 mb-2 text-center">Technical Competencies</h3>
+              <h3 class="text-xl font-bold text-slate-800 text-center">Technical Competencies</h3>
               <canvas id="technical-competency-chart"></canvas>
           </div>
       </div>
@@ -5275,7 +5275,8 @@ function renderRadarCharts(radarData) {
             customLegend = document.createElement('div');
             // Tight spacing: minimal margins
             customLegend.className = 'custom-radar-legend flex flex-wrap justify-center gap-2 text-xs text-gray-600';
-            customLegend.style.marginBottom = '5px'; 
+            customLegend.style.marginTop = '8px';
+            customLegend.style.marginBottom = '4px';
             
             customLegend.innerHTML = `
                 <div class="flex items-center">

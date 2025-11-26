@@ -1345,6 +1345,11 @@
                     <div id="comp-employee-filter-container" class="searchable-dropdown mt-1"></div>
                     <input type="hidden" id="competency-employee-select" value=""> 
                 </div>
+                 <div class="flex items-end">
+                    <button id="reset-competency-filters-btn" class="w-full bg-slate-600 text-white py-2 px-4 rounded hover:bg-slate-700 font-semibold shadow">
+                        Reset Filters
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -1422,8 +1427,11 @@
                     <div id="heatmap-section-filter-container" class="searchable-dropdown mt-1"></div>
                     <input type="hidden" id="heatmap-section-filter-value" value="all">
                 </div>
-                <div class="flex items-end">
-                    <button onclick="triggerHeatmapDraw()" class="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 font-semibold shadow">
+                <div class="flex items-end space-x-2">
+                    <button id="reset-heatmap-filters-btn" class="flex-grow bg-slate-600 text-white py-2 px-4 rounded hover:bg-slate-700 font-semibold shadow">
+                        Reset Filters
+                    </button>
+                    <button onclick="triggerHeatmapDraw()" class="flex-grow bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 font-semibold shadow">
                         Generate Heatmap
                     </button>
                 </div>
@@ -4881,6 +4889,10 @@ function initializeCompetencyView() {
     if (individualProfileDropdownView) individualProfileDropdownView.style.display = 'block';
     if (individualProfileContentView) individualProfileContentView.style.display = 'block';
     if (document.getElementById('heatmap-legend')) document.getElementById('heatmap-legend').style.display = 'none';
+
+    // Attach event listeners to the new reset buttons
+    document.getElementById('reset-competency-filters-btn').addEventListener('click', resetCompetencyFilters);
+    document.getElementById('reset-heatmap-filters-btn').addEventListener('click', resetHeatmapFilters);
 }
 
 function openRequestModal() {
@@ -5743,6 +5755,37 @@ function openDeepDiveModal(employeeId, competencyName) {
 
 function closeDeepDiveModal() {
     document.getElementById('competency-deep-dive-modal').style.display = 'none';
+}
+
+function resetCompetencyFilters() {
+    // Reset all the hidden input values to 'all'
+    document.getElementById('comp-division-filter-value').value = 'all';
+    document.getElementById('comp-group-filter-value').value = 'all';
+    document.getElementById('comp-department-filter-value').value = 'all';
+    document.getElementById('comp-section-filter-value').value = 'all';
+    document.getElementById('competency-employee-select').value = '';
+
+    // Repopulate the filters, which will also clear the visual inputs
+    populateCompetencyFilters();
+
+    // Hide the dashboard content
+    document.getElementById('competency-dashboard-grid').style.display = 'none';
+    document.getElementById('competency-charts-container').style.display = 'none';
+}
+
+function resetHeatmapFilters() {
+    // Reset all the hidden input values to 'all'
+    document.getElementById('heatmap-division-filter-value').value = 'all';
+    document.getElementById('heatmap-group-filter-value').value = 'all';
+    document.getElementById('heatmap-department-filter-value').value = 'all';
+    document.getElementById('heatmap-section-filter-value').value = 'all';
+
+    // Repopulate the filters to clear visual inputs
+    populateHeatmapFilters();
+
+    // Clear the heatmap container and hide the legend
+    document.getElementById('heatmap-container').innerHTML = '';
+    document.getElementById('heatmap-legend').style.display = 'none';
 }
 
 // Helper to create a category title

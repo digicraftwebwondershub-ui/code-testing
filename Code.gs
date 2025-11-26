@@ -3280,9 +3280,24 @@ function getAttritionRiskData() {
   }
 }
 
-function getTeamCompetencyHeatmap(department) {
-  if (!department) return { error: 'Department not specified.' };
-  
+/**
+ * REVISED: Generates Team Heatmap data with full filters (Division, Group, Dept, Section).
+ * @param {Object|string} filters - Filter object {division, group, department, section} OR string (legacy department name).
+ * @returns {Object} Heatmap data.
+ */
+function getTeamCompetencyHeatmap(filters) {
+  // Handle legacy calls (just in case) where only a string was passed
+  let activeFilters = {};
+  if (typeof filters === 'string') {
+      activeFilters = { department: filters };
+  } else {
+      activeFilters = filters || {};
+  }
+
+  // Basic validation: Ensure at least one filter is active to prevent loading the whole company
+  const hasFilter = activeFilters.division || activeFilters.group || activeFilters.department || activeFilters.section;
+  if (!hasFilter) return { error: 'Please select at least one filter (Division, Group, Department, or Section).' };
+
   try {
     const hubSs = SpreadsheetApp.getActiveSpreadsheet();
     const mainSheet = hubSs.getSheets()[0];
@@ -3291,68 +3306,91 @@ function getTeamCompetencyHeatmap(department) {
 
     if (!mainSheet || !compSheet) return { error: 'Required sheets not found.' };
 
-    // Get Main Employee Data
+    // 1. Get Main Employee Data (to map IDs to Div/Group/Dept/Sect)
     const mainData = mainSheet.getDataRange().getValues();
     const mainHeaders = mainData.shift();
-    const mainEmpIdIndex = mainHeaders.indexOf('Employee ID');
-    const mainDeptIndex = mainHeaders.indexOf('Department');
-    const employeeToDeptMap = new Map();
     
-    if (mainEmpIdIndex !== -1 && mainDeptIndex !== -1) {
+    const idx = {
+        empId: mainHeaders.indexOf('Employee ID'),
+        div: mainHeaders.indexOf('Division'),
+        grp: mainHeaders.indexOf('Group'),
+        dept: mainHeaders.indexOf('Department'),
+        sect: mainHeaders.indexOf('Section')
+    };
+
+    // Map Employee ID -> { division, group, department, section }
+    const employeeLocationMap = new Map();
+    
+    if (idx.empId !== -1) {
         mainData.forEach(row => {
-          if (row[mainEmpIdIndex] && row[mainDeptIndex]) {
-            employeeToDeptMap.set(String(row[mainEmpIdIndex]).trim(), row[mainDeptIndex]);
+          const empId = String(row[idx.empId]).trim();
+          if (empId) {
+            employeeLocationMap.set(empId, {
+                division: row[idx.div] || '',
+                group: row[idx.grp] || '',
+                department: row[idx.dept] || '',
+                section: row[idx.sect] || ''
+            });
           }
         });
     }
 
-    // Get Competency Data
+    // 2. Get Competency Data
     const compData = compSheet.getDataRange().getValues();
     const rawCompHeaders = compData.shift();
     const compHeaders = rawCompHeaders.map(h => h.toString().replace(/\s+/g, ' ').trim().toUpperCase());
     
     const compEmpIdIndex = compHeaders.indexOf('EMPLOYEE ID');
     const compNameIndex = compHeaders.indexOf('EMPLOYEE NAME');
-
+    
     if (compEmpIdIndex === -1) return { error: "Header 'EMPLOYEE ID' not found." };
 
-    // Filter employees
-    const departmentEmployees = compData.filter(row => {
+    // 3. Filter Employees based on Active Filters
+    const filteredEmployees = compData.filter(row => {
       const empId = String(row[compEmpIdIndex]).trim();
-      return employeeToDeptMap.get(empId) === department;
+      const loc = employeeLocationMap.get(empId);
+      
+      // If employee doesn't exist in main sheet, exclude them
+      if (!loc) return false; 
+
+      // Check filters (Case insensitive comparison)
+      if (activeFilters.division && activeFilters.division !== 'all' && loc.division !== activeFilters.division) return false;
+      if (activeFilters.group && activeFilters.group !== 'all' && loc.group !== activeFilters.group) return false;
+      if (activeFilters.department && activeFilters.department !== 'all' && loc.department !== activeFilters.department) return false;
+      if (activeFilters.section && activeFilters.section !== 'all' && loc.section !== activeFilters.section) return false;
+
+      return true;
     });
 
-    if (departmentEmployees.length === 0) return { headers: [], employeeScores: [] };
+    if (filteredEmployees.length === 0) return { headers: [], employeeScores: [] };
 
-    // Build Columns
+    // 4. Build Columns (Competencies)
     const competencyColumns = [];
-    const competencyHeaders = []; // Changed variable name for clarity
-    const allDefinedCompetencies = getAllCompetencies(); 
+    const competencyHeaders = [];
+    const allDefinedCompetencies = getAllCompetencies(); // Uses your existing config helper
 
     allDefinedCompetencies.forEach(competencyName => {
         const indices = compHeaders.map((h, i) => (h === competencyName ? i : -1)).filter(i => i !== -1);
         
+        // Logic: 1st is Required, 2nd is Actual.
         let actualIndex = -1;
         if (indices.length >= 2) actualIndex = indices[1]; 
         
         if (actualIndex !== -1) {
             const cleanName = competencyName.replace(/^(CORE|LEAD|TECH)\s?-\s?/i, '');
             
-            // --- NEW: Determine Category ---
             let category = "OTHER";
             if (competencyName.startsWith("CORE")) category = "CORE";
             else if (competencyName.startsWith("LEAD")) category = "LEADERSHIP";
             else if (competencyName.startsWith("TECH")) category = "TECHNICAL";
 
             competencyColumns.push({ name: cleanName, index: actualIndex });
-            
-            // --- NEW: Push object with category instead of just string ---
             competencyHeaders.push({ name: cleanName, category: category });
         }
     });
 
-    // Extract Scores
-    const employeeScores = departmentEmployees.map(row => {
+    // 5. Extract Scores
+    const employeeScores = filteredEmployees.map(row => {
       const scores = competencyColumns.map(col => {
         const val = parseFloat(row[col.index]);
         return (val > 0) ? val : ""; 
@@ -3361,7 +3399,7 @@ function getTeamCompetencyHeatmap(department) {
     });
 
     return {
-      headers: competencyHeaders, // Sending rich objects now
+      headers: competencyHeaders,
       employeeScores: employeeScores
     };
 

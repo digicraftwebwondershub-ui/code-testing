@@ -3372,66 +3372,65 @@ function getTeamCompetencyHeatmap(department) {
 }
 
 /**
- * Fetches data for a deep dive into a specific competency for an employee.
- * @param {string} employeeId The ID of the employee.
- * @param {string} competencyName The name of the competency.
- * @returns {Object} An object containing the deep dive data.
+ * REVISED: Fetches deep dive data, handling "CORE - " prefixes in headers.
  */
 function getCompetencyDeepDive(employeeId, competencyName) {
   if (!employeeId || !competencyName) return { error: 'Employee ID or competency name not specified.' };
 
   try {
+    // 1. Open Sheets
     const hubSs = SpreadsheetApp.getActiveSpreadsheet();
     const mainSheet = hubSs.getSheets()[0];
     const compSs = SpreadsheetApp.openById(COMPETENCY_SPREADSHEET_ID);
     const compSheet = compSs.getSheetByName('Competency Matrix');
 
-    if (!mainSheet || !compSheet) {
-      return { error: 'Required sheets not found.' };
+    if (!mainSheet || !compSheet) return { error: 'Required sheets not found.' };
+
+    // 2. Get Data & Normalize Headers
+    const compData = compSheet.getDataRange().getValues();
+    const rawCompHeaders = compData.shift();
+    const compHeaders = rawCompHeaders.map(h => h.toString().replace(/\s+/g, ' ').trim().toUpperCase());
+    
+    const compEmpIdIndex = compHeaders.indexOf('EMPLOYEE ID');
+    const compNameIndex = compHeaders.indexOf('EMPLOYEE NAME');
+
+    if (compEmpIdIndex === -1) return { error: "Header 'EMPLOYEE ID' not found." };
+
+    // 3. Find the Columns for this Competency
+    // We must match "WORK-LIFE BALANCE" against "CORE - WORK-LIFE BALANCE"
+    const targetName = competencyName.toString().trim().toUpperCase();
+    
+    const indices = compHeaders.map((h, i) => {
+        // Strip the prefix (CORE -, LEAD -, TECH -) from the header before comparing
+        const cleanHeader = h.replace(/^(CORE|LEAD|TECH)\s?-\s?/i, '');
+        return (cleanHeader === targetName) ? i : -1;
+    }).filter(i => i !== -1);
+
+    let actualScoreIndex = -1;
+    // Logic: 1st is Required, 2nd is Actual.
+    if (indices.length >= 2) {
+        actualScoreIndex = indices[1]; 
+    } else {
+        return { error: `Competency '${competencyName}' score column not found.` };
     }
 
-    // Get department data from main sheet
+    // 4. Get Employee Department (for Team Avg)
     const mainData = mainSheet.getDataRange().getValues();
     const mainHeaders = mainData.shift();
     const mainEmpIdIndex = mainHeaders.indexOf('Employee ID');
     const mainDeptIndex = mainHeaders.indexOf('Department');
     const employeeToDeptMap = new Map();
-    mainData.forEach(row => {
-      if (row[mainEmpIdIndex] && row[mainDeptIndex]) {
-        employeeToDeptMap.set(String(row[mainEmpIdIndex]).trim(), row[mainDeptIndex]);
-      }
-    });
     
-    // Get competency data
-    const compData = compSheet.getDataRange().getValues();
-    const rawCompHeaders = compData.shift();
-    const compHeaders = rawCompHeaders.map(h => (h || '').toString().replace(/\n|\r/g, ' ').trim());
-    const compEmpIdIndex = compHeaders.indexOf('EMPLOYEE ID');
-    const compNameIndex = compHeaders.indexOf('EMPLOYEE NAME');
-    
-    let actualScoreIndex = -1;
-    let requiredScoreIndex = -1;
-
-    // Flexible header finding
-    const requiredHeader = `${competencyName} [Required]`;
-    const actualHeader = `${competencyName} [Actual]`;
-    
-    actualScoreIndex = compHeaders.indexOf(actualHeader);
-    
-    // Fallback for headers that might just have the competency name
-    if (actualScoreIndex === -1) {
-        const indices = compHeaders.map((h, i) => (h.trim() === competencyName ? i : -1)).filter(i => i !== -1);
-        if (indices.length >= 2) {
-          requiredScoreIndex = indices[0];
-          actualScoreIndex = indices[1];
-        }
+    if (mainEmpIdIndex !== -1 && mainDeptIndex !== -1) {
+        mainData.forEach(row => {
+           if (row[mainEmpIdIndex] && row[mainDeptIndex]) {
+             employeeToDeptMap.set(String(row[mainEmpIdIndex]).trim(), row[mainDeptIndex]);
+           }
+        });
     }
+    const employeeDept = employeeToDeptMap.get(String(employeeId).trim());
 
-    if (actualScoreIndex === -1) {
-        return { error: `Competency '${competencyName}' score column not found.`};
-    }
-    
-    // --- CALCULATIONS ---
+    // 5. Calculate Scores & Averages
     let employeeScore = 0;
     let teamTotalScore = 0;
     let teamMemberCount = 0;
@@ -3439,29 +3438,27 @@ function getCompetencyDeepDive(employeeId, competencyName) {
     let companyMemberCount = 0;
     const topPerformers = [];
 
-    const employeeDept = employeeToDeptMap.get(String(employeeId).trim());
-
     compData.forEach(row => {
       const currentEmpId = String(row[compEmpIdIndex]).trim();
       const score = parseFloat(row[actualScoreIndex]) || 0;
       
       if(score > 0) {
-        // Company-wide calculation
+        // Company-wide
         companyTotalScore += score;
         companyMemberCount++;
 
-        // Team calculation
+        // Team-wide
         if (employeeDept && employeeToDeptMap.get(currentEmpId) === employeeDept) {
           teamTotalScore += score;
           teamMemberCount++;
         }
 
-        // Employee's specific score
+        // Selected Employee
         if (currentEmpId === String(employeeId).trim()) {
           employeeScore = score;
         }
 
-        // Top performers list
+        // Top Performers List
         topPerformers.push({ name: row[compNameIndex], score: score });
       }
     });
@@ -3469,7 +3466,7 @@ function getCompetencyDeepDive(employeeId, competencyName) {
     const teamAverage = teamMemberCount > 0 ? (teamTotalScore / teamMemberCount) : 0;
     const companyAverage = companyMemberCount > 0 ? (companyTotalScore / companyMemberCount) : 0;
 
-    // Sort and get top 5 performers
+    // Sort top 5
     const sortedTopPerformers = topPerformers
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);

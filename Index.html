@@ -1302,104 +1302,152 @@
   </div>
 
   <div id="competency-view" class="tab-content">
+    
+    <h2 class="text-3xl font-bold text-slate-800 mb-6">Employee Competency</h2>
+
     <div class="p-4 sm:p-6 bg-white rounded-lg shadow-md">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-2xl font-bold text-slate-800">Employee Competency</h2>
+        
+        <div class="flex flex-col md:flex-row justify-between items-center mb-6">
+            <h3 id="competency-card-title" class="text-xl font-bold text-slate-800 mb-4 md:mb-0">
+                Employee Competency Profile
+            </h3>
+
             <div id="competency-view-toggle" class="flex space-x-1 bg-gray-200 p-1 rounded-lg">
                 <button id="show-individual-profile" class="px-3 py-1 text-sm font-medium rounded-md bg-white shadow text-blue-700">Individual Profile</button>
                 <button id="show-team-heatmap" class="px-3 py-1 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-300">Team Heatmap</button>
             </div>
         </div>
+
         <div id="individual-profile-view">
-            <h3 class="text-xl font-bold text-slate-800 mb-4">Employee Competency Profile</h3>
-            <div class="max-w-md">
-                <label for="competency-employee-select" class="block text-sm font-medium text-gray-700">Choose a Person</label>
-                <select id="competency-employee-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                    <option>Loading employees...</option>
-                </select>
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-4 bg-gray-50 p-4 rounded border">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Division</label>
+                    <div id="comp-division-filter-container" class="searchable-dropdown mt-1"></div>
+                    <input type="hidden" id="comp-division-filter-value" value="all">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Group</label>
+                    <div id="comp-group-filter-container" class="searchable-dropdown mt-1"></div>
+                    <input type="hidden" id="comp-group-filter-value" value="all">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Department</label>
+                    <div id="comp-department-filter-container" class="searchable-dropdown mt-1"></div>
+                    <input type="hidden" id="comp-department-filter-value" value="all">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Section</label>
+                    <div id="comp-section-filter-container" class="searchable-dropdown mt-1"></div>
+                    <input type="hidden" id="comp-section-filter-value" value="all">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Employee Name</label>
+                    <div id="comp-employee-filter-container" class="searchable-dropdown mt-1"></div>
+                    <input type="hidden" id="competency-employee-select" value=""> 
+                </div>
             </div>
         </div>
-    </div>
 
     <div id="individual-profile-content">
-      
-      <div id="competency-dashboard-grid" class="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" style="display: none;">
-          
-          <div class="bg-white rounded-lg shadow-md p-4 flex flex-col items-center justify-center h-full min-h-[280px]">
-               <h3 class="text-md font-bold text-slate-700 mb-2 text-center">Current Overall Score</h3>
-               <div id="gauge-chart-div" class="flex justify-center items-center flex-grow"></div>
-          </div>
-
-          <div class="bg-white rounded-lg shadow-md p-4 border-t-4 border-green-500 h-full min-h-[280px] flex flex-col">
-               <div class="flex items-center mb-4 shrink-0">
-                   <div class="p-2 bg-green-100 rounded-full mr-3">
-                       <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
-                   </div>
-                   <h3 class="text-md font-bold text-slate-800">Top Strengths</h3>
-               </div>
-               <ul id="strengths-list" class="space-y-3 text-sm overflow-y-auto flex-grow"></ul>
-          </div>
-
-          <div class="bg-white rounded-lg shadow-md p-4 border-t-4 border-red-500 h-full min-h-[280px] flex flex-col">
-               <div class="flex items-center mb-4 shrink-0">
-                   <div class="p-2 bg-red-100 rounded-full mr-3">
-                       <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                   </div>
-                   <h3 class="text-md font-bold text-slate-800">Development Areas</h3>
-               </div>
-               <ul id="gaps-list" class="space-y-3 text-sm overflow-y-auto flex-grow"></ul>
-          </div>
-
-          <div class="bg-white rounded-lg shadow-md p-4 flex flex-col h-full min-h-[280px]">
-               <h3 class="text-md font-bold text-slate-700 mb-2 text-center">Development Over Time</h3>
-               <div class="relative w-full flex-grow flex items-center justify-center">
-                  <canvas id="historical-competency-chart" style="max-height: 220px;"></canvas>
-               </div>
-          </div>
-
-      </div>
-      
-      <div id="competency-charts-loader" class="flex justify-center items-center h-64 mt-8" style="display: none;"><div id="loader"></div></div>
-      
-      <div id="competency-charts-container" class="mt-8 flex flex-col gap-8" style="display: none;">
-          
-          <div id="core-section" class="bg-white rounded-lg shadow-md p-6">
-              </div>
-          
-          <div id="leadership-section" class="bg-white rounded-lg shadow-md p-6">
-              </div>
-          
-          <div id="technical-section" class="bg-white rounded-lg shadow-md p-6">
-              </div>
-
-      </div>
-    </div>
-
-    <!-- New Team Competency Heatmap Section -->
-    <div id="team-competency-section" class="mt-8 p-4 sm:p-6 bg-white rounded-lg shadow-md" style="display: none;">
-        <h2 class="text-2xl font-bold text-slate-800 mb-4">Team Competency Heatmap</h2>
-        
-        <div class="flex flex-col md:flex-row justify-between items-end mb-6 gap-4">
-            
-            <div class="w-full md:w-1/3">
-                <label for="heatmap-department-select" class="block text-sm font-medium text-gray-700">Choose a Department</label>
-                <select id="heatmap-department-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                    <option>Loading departments...</option>
-                </select>
+            <div id="competency-dashboard-grid" class="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" style="display: none;">
+                <div class="bg-white rounded-lg shadow-md p-4 flex flex-col items-center justify-center h-full min-h-[280px]">
+                    <h3 class="text-md font-bold text-slate-700 mb-2 text-center">Current Overall Score</h3>
+                    <div id="gauge-chart-div" class="flex justify-center items-center flex-grow"></div>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-4 border-t-4 border-green-500 h-full min-h-[280px] flex flex-col">
+                    <div class="flex items-center mb-4 shrink-0">
+                        <div class="p-2 bg-green-100 rounded-full mr-3">
+                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+                        </div>
+                        <h3 class="text-md font-bold text-slate-800">Top Strengths</h3>
+                    </div>
+                    <ul id="strengths-list" class="space-y-3 text-sm overflow-y-auto flex-grow"></ul>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-4 border-t-4 border-red-500 h-full min-h-[280px] flex flex-col">
+                    <div class="flex items-center mb-4 shrink-0">
+                        <div class="p-2 bg-red-100 rounded-full mr-3">
+                            <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        </div>
+                        <h3 class="text-md font-bold text-slate-800">Development Areas</h3>
+                    </div>
+                    <ul id="gaps-list" class="space-y-3 text-sm overflow-y-auto flex-grow"></ul>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-4 flex flex-col h-full min-h-[280px]">
+                    <h3 class="text-md font-bold text-slate-700 mb-2 text-center">Development Over Time</h3>
+                    <div class="relative w-full flex-grow flex items-center justify-center">
+                        <canvas id="historical-competency-chart" style="max-height: 220px;"></canvas>
+                    </div>
+                </div>
             </div>
-
-            <div id="heatmap-legend" class="flex flex-wrap p-3 bg-gray-50 rounded border border-gray-200 items-center shadow-sm" style="display: none;">
-                <span class="font-bold text-sm text-gray-700 mr-4">Legend:</span>
-                <div class="heatmap-legend-item"><div class="heatmap-color-box" style="background-color: #16a34a;"></div>4 (Innovator)</div>
-                <div class="heatmap-legend-item"><div class="heatmap-color-box" style="background-color: #22c55e;"></div>3 (Knowledge Sharer)</div>
-                <div class="heatmap-legend-item"><div class="heatmap-color-box" style="background-color: #facc15;"></div>2 (Competent)</div>
-                <div class="heatmap-legend-item"><div class="heatmap-color-box" style="background-color: #f97316;"></div>1 (Learner)</div>
-                <div class="heatmap-legend-item"><div class="heatmap-color-box" style="background-color: #f3f4f6; border: 1px solid #ccc;"></div>N/A</div>
+            <div id="competency-charts-loader" class="flex justify-center items-center h-64 mt-8" style="display: none;"><div id="loader"></div></div>
+            <div id="competency-charts-container" class="mt-8 flex flex-col gap-8" style="display: none;">
+                <div id="core-section" class="bg-white rounded-lg shadow-md p-6"></div>
+                <div id="leadership-section" class="bg-white rounded-lg shadow-md p-6"></div>
+                <div id="technical-section" class="bg-white rounded-lg shadow-md p-6"></div>
             </div>
         </div>
+
+    <!-- New Team Competency Heatmap Section -->
+    <div id="team-competency-section" class="mt-0" style="display: none;">
+            
+            <div class="flex justify-end mb-4">
+                <div id="heatmap-legend" class="flex flex-wrap p-2 bg-gray-50 rounded border border-gray-200 items-center shadow-sm text-sm" style="display: none;">
+                    <span class="font-bold text-gray-700 mr-3">Legend:</span>
+                    <div class="heatmap-legend-item"><div class="heatmap-color-box" style="background-color: #16a34a;"></div>4 (Innovator)</div>
+                    <div class="heatmap-legend-item"><div class="heatmap-color-box" style="background-color: #22c55e;"></div>3 (Knowledge Sharer)</div>
+                    <div class="heatmap-legend-item"><div class="heatmap-color-box" style="background-color: #facc15;"></div>2 (Competent)</div>
+                    <div class="heatmap-legend-item"><div class="heatmap-color-box" style="background-color: #f97316;"></div>1 (Learner)</div>
+                    <div class="heatmap-legend-item"><div class="heatmap-color-box" style="background-color: #f3f4f6; border: 1px solid #ccc;"></div>N/A</div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6 bg-gray-50 p-4 rounded border">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Division</label>
+                    <div id="heatmap-division-filter-container" class="searchable-dropdown mt-1"></div>
+                    <input type="hidden" id="heatmap-division-filter-value" value="all">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Group</label>
+                    <div id="heatmap-group-filter-container" class="searchable-dropdown mt-1"></div>
+                    <input type="hidden" id="heatmap-group-filter-value" value="all">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Department</label>
+                    <div id="heatmap-department-filter-container" class="searchable-dropdown mt-1"></div>
+                    <input type="hidden" id="heatmap-department-filter-value" value="all">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Section</label>
+                    <div id="heatmap-section-filter-container" class="searchable-dropdown mt-1"></div>
+                    <input type="hidden" id="heatmap-section-filter-value" value="all">
+                </div>
+                <div class="flex items-end">
+                    <button onclick="triggerHeatmapDraw()" class="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 font-semibold shadow">
+                        Generate Heatmap
+                    </button>
+                </div>
+            </div>
+
+        <div id="heatmap-loader" class="flex justify-center items-center h-48" style="display: none;"><div id="loader"></div></div>
+            <div id="heatmap-container" class="overflow-x-auto" style="max-height: 70vh;"></div>
+        </div>
+    </div>
+
+        <div id="heatmap-legend" class="flex flex-wrap p-3 mb-4 bg-white rounded border border-gray-200 items-center shadow-sm" style="display: none;">
+            <span class="font-bold text-sm text-gray-700 mr-4">Legend:</span>
+            <div class="heatmap-legend-item"><div class="heatmap-color-box" style="background-color: #16a34a;"></div>4 (Innovator)</div>
+            <div class="heatmap-legend-item"><div class="heatmap-color-box" style="background-color: #22c55e;"></div>3 (Knowledge Sharer)</div>
+            <div class="heatmap-legend-item"><div class="heatmap-color-box" style="background-color: #facc15;"></div>2 (Competent)</div>
+            <div class="heatmap-legend-item"><div class="heatmap-color-box" style="background-color: #f97316;"></div>1 (Learner)</div>
+            <div class="heatmap-legend-item"><div class="heatmap-color-box" style="background-color: #f3f4f6; border: 1px solid #ccc;"></div>N/A</div>
+        </div>
+
         <div id="heatmap-loader" class="flex justify-center items-center h-48" style="display: none;"><div id="loader"></div></div>
 
         <div id="heatmap-container" class="overflow-x-auto" style="max-height: 70vh;">
+            </div>
+    </div>
             </div>
             <!-- Heatmap table will be generated here by JavaScript -->
         </div>
@@ -1419,9 +1467,7 @@
                 </div>
                 <div>
                     <h3 class="text-xl font-bold text-slate-700 mb-4 text-center">Top Performers</h3>
-                    <ul id="top-performers-list" class="space-y-2">
-                        <!-- Top performers will be listed here -->
-                    </ul>
+                    <ul id="top-performers-list" class="space-y-2"></ul>
                 </div>
             </div>
             <div class="mt-6 flex justify-end">
@@ -1716,6 +1762,163 @@
     { id: 'Department', containerId: 'masterlist-Department-filter-container', defaultLabel: 'All Departments', parent: 'Group' },
     { id: 'Section', containerId: 'masterlist-Section-filter-container', defaultLabel: 'All Sections', parent: 'Department' }
 ];
+
+// --- COMPETENCY FILTERS CONFIGURATION ---
+  const COMP_FILTERS_CONFIG = [
+      { id: 'division', containerId: 'comp-division-filter-container', valueId: 'comp-division-filter-value', defaultLabel: 'All Divisions', parent: null },
+      { id: 'group', containerId: 'comp-group-filter-container', valueId: 'comp-group-filter-value', defaultLabel: 'All Groups', parent: 'division' },
+      { id: 'department', containerId: 'comp-department-filter-container', valueId: 'comp-department-filter-value', defaultLabel: 'All Departments', parent: 'group' },
+      { id: 'section', containerId: 'comp-section-filter-container', valueId: 'comp-section-filter-value', defaultLabel: 'All Sections', parent: 'department' }
+  ];
+
+  /**
+   * Populates the dynamic filters for the Competency View.
+   * Filters the global `fullEmployeeData` based on selections and updates the Employee list.
+   */
+  function populateCompetencyFilters() {
+      // Start with all employees who have an ID
+      let sourceData = fullEmployeeData.filter(emp => emp.employeeId);
+
+      // 1. Process Hierarchy Filters (Division -> Group -> Department -> Section)
+      COMP_FILTERS_CONFIG.forEach(config => {
+          const currentValue = document.getElementById(config.valueId).value;
+          
+          // Get unique options based on current filtered sourceData
+          const options = [config.defaultLabel, ...new Set(sourceData.map(e => e[config.id]).filter(String).sort())];
+          
+          createSearchableDropdown(config.containerId, options, null, null, (selection) => {
+              const newValue = (selection === config.defaultLabel) ? 'all' : selection;
+              
+              if (document.getElementById(config.valueId).value !== newValue) {
+                  document.getElementById(config.valueId).value = newValue;
+                  
+                  // Reset children filters when a parent changes
+                  let childIdToReset = config.id;
+                  let childConfig = COMP_FILTERS_CONFIG.find(f => f.parent === childIdToReset);
+                  while (childConfig) {
+                      document.getElementById(childConfig.valueId).value = 'all';
+                      childIdToReset = childConfig.id;
+                      childConfig = COMP_FILTERS_CONFIG.find(f => f.parent === childIdToReset);
+                  }
+                  
+                  populateCompetencyFilters(); // Recursively update child options
+              }
+          });
+
+          setSearchableDropdownValue(config.containerId, currentValue === 'all' ? config.defaultLabel : currentValue);
+
+          // Filter data for the next level down
+          if (currentValue !== 'all') {
+              sourceData = sourceData.filter(emp => emp[config.id] === currentValue);
+          }
+      });
+
+      // 2. Process Employee Dropdown (The final filtered list)
+      const employees = sourceData.map(emp => ({
+          name: emp.employeeName,
+          id: emp.employeeId
+      })).sort((a, b) => a.name.localeCompare(b.name));
+
+      createSearchableDropdown('comp-employee-filter-container', employees, 'name', 'id', (employeeId) => {
+          const currentSelectValue = document.getElementById('competency-employee-select').value;
+          
+          // Only redraw if the selection actually changed
+          if (currentSelectValue !== employeeId) {
+              document.getElementById('competency-employee-select').value = employeeId;
+              
+              if (employeeId) {
+                  drawCompetencyDashboard(employeeId);
+              } else {
+                  // Hide dashboard if selection is cleared
+                  const idsToHide = ['competency-summary-container', 'competency-history-container', 
+                                     'competency-charts-container', 'team-competency-section', 
+                                     'individual-profile-content'];
+                  idsToHide.forEach(id => {
+                      const el = document.getElementById(id);
+                      if(el) el.style.display = 'none';
+                  });
+              }
+          }
+      });
+      
+      // Update the text in the employee box if an ID is already selected (e.g., from Org Chart click)
+      const currentEmpId = document.getElementById('competency-employee-select').value;
+      if (currentEmpId) {
+          const currentEmp = employees.find(e => e.id === currentEmpId);
+          if (currentEmp) {
+              setSearchableDropdownValue('comp-employee-filter-container', currentEmp.name);
+          } else {
+              // If the selected employee is no longer in the filtered list (e.g. user changed Division), clear the display
+              setSearchableDropdownValue('comp-employee-filter-container', '');
+          }
+      }
+  }
+
+// --- HEATMAP FILTERS CONFIGURATION ---
+  const HEATMAP_FILTERS_CONFIG = [
+      { id: 'division', containerId: 'heatmap-division-filter-container', valueId: 'heatmap-division-filter-value', defaultLabel: 'All Divisions', parent: null },
+      { id: 'group', containerId: 'heatmap-group-filter-container', valueId: 'heatmap-group-filter-value', defaultLabel: 'All Groups', parent: 'division' },
+      { id: 'department', containerId: 'heatmap-department-filter-container', valueId: 'heatmap-department-filter-value', defaultLabel: 'All Departments', parent: 'group' },
+      { id: 'section', containerId: 'heatmap-section-filter-container', valueId: 'heatmap-section-filter-value', defaultLabel: 'All Sections', parent: 'department' }
+  ];
+
+  /**
+   * Populates the dynamic filters for the Team Heatmap.
+   */
+  function populateHeatmapFilters() {
+      // Start with all employees who have an ID
+      let sourceData = fullEmployeeData.filter(emp => emp.employeeId);
+
+      HEATMAP_FILTERS_CONFIG.forEach(config => {
+          const currentValue = document.getElementById(config.valueId).value;
+          const options = [config.defaultLabel, ...new Set(sourceData.map(e => e[config.id]).filter(String).sort())];
+          
+          createSearchableDropdown(config.containerId, options, null, null, (selection) => {
+              const newValue = (selection === config.defaultLabel) ? 'all' : selection;
+              
+              if (document.getElementById(config.valueId).value !== newValue) {
+                  document.getElementById(config.valueId).value = newValue;
+                  
+                  // Reset children
+                  let childIdToReset = config.id;
+                  let childConfig = HEATMAP_FILTERS_CONFIG.find(f => f.parent === childIdToReset);
+                  while (childConfig) {
+                      document.getElementById(childConfig.valueId).value = 'all';
+                      childIdToReset = childConfig.id;
+                      childConfig = HEATMAP_FILTERS_CONFIG.find(f => f.parent === childIdToReset);
+                  }
+                  
+                  populateHeatmapFilters(); // Recursive update
+                  // Note: We DO NOT auto-draw the heatmap on filter change because it can be heavy.
+                  // User must click "Generate Heatmap".
+              }
+          });
+
+          setSearchableDropdownValue(config.containerId, currentValue === 'all' ? config.defaultLabel : currentValue);
+
+          if (currentValue !== 'all') {
+              sourceData = sourceData.filter(emp => emp[config.id] === currentValue);
+          }
+      });
+  }
+
+  // Wrapper function called by the "Generate Heatmap" button
+  function triggerHeatmapDraw() {
+      const filters = {
+          division: document.getElementById('heatmap-division-filter-value').value,
+          group: document.getElementById('heatmap-group-filter-value').value,
+          department: document.getElementById('heatmap-department-filter-value').value,
+          section: document.getElementById('heatmap-section-filter-value').value
+      };
+      
+      // Check if all are 'all'
+      if (Object.values(filters).every(val => val === 'all')) {
+          alert("Please select at least one filter (e.g., Division or Department) to generate the heatmap.");
+          return;
+      }
+
+      drawTeamCompetencyHeatmap(filters);
+  }
 
 // --- START: NEW INITIALIZATION & LOGIN LOGIC ---
 document.addEventListener("DOMContentLoaded", function() {
@@ -2590,7 +2793,7 @@ function drawEmployeeMovementCharts(forceRefresh = false) {
     if (!data) {
       hideLoader();
       console.error('Error: Fetched data is null. The backend script may have encountered a critical error.');
-      document.getElementById('chart_div').innerHTML = '<p class="text-red-600 p-4 font-bold">Error: Could not load data from the server. This can happen if a required sheet is missing or if there is a data formatting error (e.g., text in a date column). Please check the Apps Script logs for details.</p>';
+      document.getElementById('chart_div').innerHTML = '<p class="text-red-600 p-4 font-bold">Error: Could not load data from the server. Please check logs.</p>';
       return;
     }
   
@@ -2615,14 +2818,23 @@ function drawEmployeeMovementCharts(forceRefresh = false) {
       document.getElementById('tab-approvals').style.display = 'block';
     }
     
-    // Fetch and display notification counts after main data is loaded
     google.script.run.withSuccessHandler(updateNotificationBadges).getRequestCounts();
 
     populateLevelLegend();
     setupPageEventListeners();
-    populateFilters();
-    // initializeCompetencyView(); // This will be moved to switchTab
+    populateFilters(); // Populates Org Chart filters
+    
     updateUI();
+
+    // --- FIX START: Refresh Competency Filters with Loaded Data ---
+    // If the user navigated to the Competency tab while data was still loading,
+    // the dropdowns would have been empty. Now that fullEmployeeData is ready, we populate them.
+    if (competencyViewInitialized) {
+        console.log("Data arrived. Refreshing Competency filters...");
+        populateCompetencyFilters(); // Refresh Individual Profile Filters
+        populateHeatmapFilters();    // Refresh Team Heatmap Filters
+    }
+    // --- FIX END ---
   }
 
 function updateNotificationBadges(counts) {
@@ -4607,57 +4819,41 @@ var chartInstances = {}; // To keep track of charts and destroy them before redr
 function initializeCompetencyView() {
     console.log("Initializing Competency View...");
     competencyViewInitialized = true;
-    
-    // --- 1. Setup Employee Dropdown (Individual Profile) ---
-    const select = document.getElementById('competency-employee-select');
-    if (select) {
-        select.innerHTML = '<option>Loading employees...</option>';
-        google.charts.load('current', {packages:['gauge']});
+    google.charts.load('current', {packages:['gauge']});
 
-        google.script.run.withSuccessHandler(response => {
-            if (response.error) {
-                select.innerHTML = `<option disabled selected>Error: ${response.error}</option>`;
-                return;
-            }
-            select.innerHTML = '<option value="">-- Select an Employee --</option>';
-            response.forEach(emp => {
-                const option = document.createElement('option');
-                option.value = emp.code;
-                option.textContent = emp.name;
-                select.appendChild(option);
-            });
-        }).getCompetencyEmployeeList();
-
-        select.addEventListener('change', (event) => {
-            const employeeId = event.target.value;
-            if (employeeId) {
-                drawCompetencyDashboard(employeeId); 
-            } else {
-                const idsToHide = ['competency-summary-container', 'competency-history-container', 
-                                   'competency-charts-container', 'team-competency-section', 
-                                   'individual-profile-content'];
-                idsToHide.forEach(id => {
-                    const el = document.getElementById(id);
-                    if(el) el.style.display = 'none';
-                });
-            }
-        });
+    // --- 1. Setup Dynamic Filters (Individual & Heatmap) ---
+    if (typeof fullEmployeeData !== 'undefined' && fullEmployeeData.length > 0) {
+        populateCompetencyFilters();
+        populateHeatmapFilters();
+    } else {
+        setTimeout(() => {
+             if (typeof fullEmployeeData !== 'undefined') {
+                 populateCompetencyFilters();
+                 populateHeatmapFilters();
+             }
+        }, 1000);
     }
 
-    // --- 2. Setup View Toggles (Profile vs Heatmap) ---
+    // --- 2. Setup View Toggles (With Dynamic Title Change) ---
     const individualProfileButton = document.getElementById('show-individual-profile');
     const teamHeatmapButton = document.getElementById('show-team-heatmap');
     
     const individualProfileDropdownView = document.getElementById('individual-profile-view');
     const individualProfileContentView = document.getElementById('individual-profile-content');
     const teamHeatmapView = document.getElementById('team-competency-section');
+    const sectionTitle = document.getElementById('competency-card-title'); // <--- NEW TARGET
 
     if (individualProfileButton && teamHeatmapButton) {
         individualProfileButton.addEventListener('click', () => {
+            // Update View
             individualProfileDropdownView.style.display = 'block';
             individualProfileContentView.style.display = 'block';
             teamHeatmapView.style.display = 'none';
             
+            // Update Title
+            if(sectionTitle) sectionTitle.textContent = "Employee Competency Profile";
+
+            // Update Buttons
             individualProfileButton.classList.add('bg-white', 'shadow', 'text-blue-700');
             individualProfileButton.classList.remove('text-gray-600', 'hover:bg-gray-300');
             teamHeatmapButton.classList.add('text-gray-600', 'hover:bg-gray-300');
@@ -4665,10 +4861,15 @@ function initializeCompetencyView() {
         });
 
         teamHeatmapButton.addEventListener('click', () => {
+            // Update View
             individualProfileDropdownView.style.display = 'none';
             individualProfileContentView.style.display = 'none';
             teamHeatmapView.style.display = 'block';
+
+            // Update Title
+            if(sectionTitle) sectionTitle.textContent = "Team Competency Heatmap";
             
+            // Update Buttons
             teamHeatmapButton.classList.add('bg-white', 'shadow', 'text-blue-700');
             teamHeatmapButton.classList.remove('text-gray-600', 'hover:bg-gray-300');
             individualProfileButton.classList.add('text-gray-600', 'hover:bg-gray-300');
@@ -4676,59 +4877,10 @@ function initializeCompetencyView() {
         });
     }
 
-    // --- 3. Setup Department Dropdown (Team Heatmap) - WITH RETRY LOGIC ---
-    const heatmapDeptSelect = document.getElementById('heatmap-department-select');
-    
-    // Inner function to populate data, or retry if not ready
-    const populateDepartments = () => {
-        if (!heatmapDeptSelect) return;
-
-        // Check if the global data (dropdownListData) is ready
-        if (typeof dropdownListData !== 'undefined' && dropdownListData.departments) {
-            heatmapDeptSelect.innerHTML = '<option value="">-- Select a Department --</option>';
-            
-            if (dropdownListData.departments.length > 0) {
-                dropdownListData.departments.forEach(dept => {
-                    const option = document.createElement('option');
-                    option.value = dept;
-                    option.textContent = dept;
-                    heatmapDeptSelect.appendChild(option);
-                });
-            } else {
-                const option = document.createElement('option');
-                option.text = "No departments found";
-                heatmapDeptSelect.add(option);
-            }
-        } else {
-            // Data not ready yet? Wait 500ms and try again
-            console.log("Waiting for department list data...");
-            heatmapDeptSelect.innerHTML = '<option>Loading Departments...</option>';
-            setTimeout(populateDepartments, 500);
-        }
-    };
-
-    if (heatmapDeptSelect) {
-        // Start the population process
-        populateDepartments();
-
-        heatmapDeptSelect.addEventListener('change', (event) => {
-            const department = event.target.value;
-            if (department) {
-                drawTeamCompetencyHeatmap(department);
-            } else {
-                document.getElementById('heatmap-container').innerHTML = '';
-                const legend = document.getElementById('heatmap-legend');
-                if (legend) legend.style.display = 'none';
-            }
-        });
-    }
-
-    // --- 4. Initial Visibility Settings ---
+    // --- 4. Initial Visibility ---
     if (individualProfileDropdownView) individualProfileDropdownView.style.display = 'block';
     if (individualProfileContentView) individualProfileContentView.style.display = 'block';
-    
-    const legend = document.getElementById('heatmap-legend');
-    if (legend) legend.style.display = 'none';
+    if (document.getElementById('heatmap-legend')) document.getElementById('heatmap-legend').style.display = 'none';
 }
 
 function openRequestModal() {
@@ -5068,7 +5220,7 @@ function submitRequest() {
   });
 }
 
-function drawTeamCompetencyHeatmap(department) {
+function drawTeamCompetencyHeatmap(filters) {
     const loader = document.getElementById('heatmap-loader');
     const container = document.getElementById('heatmap-container');
     const legend = document.getElementById('heatmap-legend');
@@ -5081,11 +5233,11 @@ function drawTeamCompetencyHeatmap(department) {
         .withSuccessHandler(data => {
             loader.style.display = 'none';
             if (data.error) {
-                container.innerHTML = `<p class="text-red-500">Error: ${data.error}</p>`;
+                container.innerHTML = `<p class="text-red-500 text-center mt-4">${data.error}</p>`;
                 return;
             }
             if (data.employeeScores.length === 0) {
-                container.innerHTML = '<p class="text-gray-500">No employees found.</p>';
+                container.innerHTML = '<p class="text-gray-500 text-center mt-4">No employees found matching these filters.</p>';
                 return;
             }
 
@@ -5099,7 +5251,6 @@ function drawTeamCompetencyHeatmap(department) {
             
             let headerHtml = '<tr><th class="sticky-col px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider border-r align-bottom shadow-sm">Employee Name</th>';
             
-            // --- NEW: Loop through headers and add Category Badges ---
             data.headers.forEach(headerObj => {
                 let badgeClass = "bg-gray-100 text-gray-800";
                 if (headerObj.category === "CORE") badgeClass = "bg-blue-100 text-blue-800";
@@ -5138,7 +5289,7 @@ function drawTeamCompetencyHeatmap(department) {
             loader.style.display = 'none';
             container.innerHTML = `<p class="text-red-500">An error occurred: ${err.message}</p>`;
         })
-        .getTeamCompetencyHeatmap(department);
+        .getTeamCompetencyHeatmap(filters);
 }
 
 function getHeatmapColor(score) {
@@ -6309,31 +6460,23 @@ function drawPreviewChart(previewDataArray) {
     previewChart.draw(previewDataTable, { allowHtml: true, allowCollapse: true, nodeClass: 'google-visualization-orgchart-node' });
 }
 
-// --- ROBUST FUNCTION: Instantly Loads Profile from Org Chart ---
 function viewCompetencyProfile(rawEmployeeId) {
-  // 1. Safety Check & Logging
-  if (!rawEmployeeId) {
-    console.error("viewCompetencyProfile called with no ID");
-    return;
-  }
-  const employeeId = String(rawEmployeeId).trim(); // Ensure it's a clean string
-  console.log("Viewing Competency for ID:", employeeId);
+  if (!rawEmployeeId) return;
+  const employeeId = String(rawEmployeeId).trim();
 
-  // 2. Switch to the Competency Tab
   switchTab('competency');
 
-  // 3. FORCE the view to "Individual Profile" mode
+  // Force view to Individual Profile
   document.getElementById('individual-profile-view').style.display = 'block';
   document.getElementById('individual-profile-content').style.display = 'block';
   document.getElementById('team-competency-section').style.display = 'none';
   
-  // 4. PRE-SHOW the Chart Containers
-  // This ensures the space is reserved and ready for the charts
+  // Pre-show containers
   document.getElementById('competency-summary-container').style.display = 'grid';
   document.getElementById('competency-history-container').style.display = 'block';
   document.getElementById('competency-charts-container').style.display = 'grid';
   
-  // 5. Update Toggle Buttons Styling
+  // Update buttons styling
   const btnProfile = document.getElementById('show-individual-profile');
   const btnTeam = document.getElementById('show-team-heatmap');
   if (btnProfile && btnTeam) {
@@ -6343,38 +6486,22 @@ function viewCompetencyProfile(rawEmployeeId) {
       btnTeam.classList.remove('bg-white', 'shadow', 'text-blue-700');
   }
 
-  // 6. LOAD DATA DIRECTLY (Instant)
-  // This fetches data and draws the charts immediately
-  if (typeof drawCompetencyDashboard === 'function') {
-      drawCompetencyDashboard(employeeId);
-  } else {
-      console.error("drawCompetencyDashboard function is missing!");
-      alert("Error: Dashboard function not loaded. Please refresh.");
-  }
+  // Load Data
+  drawCompetencyDashboard(employeeId);
 
-  // 7. Sync the Dropdown (Background Task)
-  // We keep trying to set the dropdown value until the list populates
-  let attempts = 0;
-  const syncDropdown = () => {
-    const dropdown = document.getElementById('competency-employee-select');
-    // Check if options are loaded (length > 1 means more than just "Loading...")
-    if (dropdown && dropdown.options.length > 1) {
-       dropdown.value = employeeId;
-       // If the value didn't stick (mismatch), log it
-       if (dropdown.value !== employeeId) {
-         console.warn("Dropdown sync mismatch. ID in list might differ from:", employeeId);
-       }
-    } else {
-       attempts++;
-       // Stop trying after 10 seconds (100 attempts * 100ms) to save memory
-       if (attempts < 100) {
-         setTimeout(syncDropdown, 100);
-       }
-    }
-  };
-  syncDropdown();
+  // Sync Filters: Auto-fill Division/Group/Dept based on the employee
+  const employee = fullEmployeeData.find(e => String(e.employeeId).trim() === employeeId);
+  if (employee) {
+      document.getElementById('comp-division-filter-value').value = employee.division || 'all';
+      document.getElementById('comp-group-filter-value').value = employee.group || 'all';
+      document.getElementById('comp-department-filter-value').value = employee.department || 'all';
+      document.getElementById('comp-section-filter-value').value = employee.section || 'all';
+      document.getElementById('competency-employee-select').value = employeeId;
+
+      // Trigger populate to update visual text in dropdowns
+      populateCompetencyFilters();
+  }
   
-  // 8. Scroll to view
   document.getElementById('competency-view').scrollIntoView({ behavior: 'smooth' });
 }
 

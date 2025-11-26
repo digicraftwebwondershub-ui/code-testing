@@ -1322,43 +1322,56 @@
     </div>
 
     <div id="individual-profile-content">
-      <div id="competency-summary-container" class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-8" style="display: none;">
-      <div class="p-4 sm:p-6 bg-white rounded-lg shadow-md flex flex-col items-center">
-          <h3 class="text-xl font-bold text-slate-800 mb-2 text-center">Overall Score</h3>
-          <div id="gauge-chart-div" style="width: 250px; height: 250px;"></div>
+      
+      <div id="competency-dashboard-grid" class="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" style="display: none;">
+          
+          <div class="bg-white rounded-lg shadow-md p-4 flex flex-col items-center justify-center h-full min-h-[280px]">
+               <h3 class="text-md font-bold text-slate-700 mb-2 text-center">Current Overall Score</h3>
+               <div id="gauge-chart-div" class="flex justify-center items-center flex-grow"></div>
+          </div>
+
+          <div class="bg-white rounded-lg shadow-md p-4 border-t-4 border-green-500 h-full min-h-[280px] flex flex-col">
+               <div class="flex items-center mb-4 shrink-0">
+                   <div class="p-2 bg-green-100 rounded-full mr-3">
+                       <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+                   </div>
+                   <h3 class="text-md font-bold text-slate-800">Top Strengths</h3>
+               </div>
+               <ul id="strengths-list" class="space-y-3 text-sm overflow-y-auto flex-grow"></ul>
+          </div>
+
+          <div class="bg-white rounded-lg shadow-md p-4 border-t-4 border-red-500 h-full min-h-[280px] flex flex-col">
+               <div class="flex items-center mb-4 shrink-0">
+                   <div class="p-2 bg-red-100 rounded-full mr-3">
+                       <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                   </div>
+                   <h3 class="text-md font-bold text-slate-800">Development Areas</h3>
+               </div>
+               <ul id="gaps-list" class="space-y-3 text-sm overflow-y-auto flex-grow"></ul>
+          </div>
+
+          <div class="bg-white rounded-lg shadow-md p-4 flex flex-col h-full min-h-[280px]">
+               <h3 class="text-md font-bold text-slate-700 mb-2 text-center">Development Over Time</h3>
+               <div class="relative w-full flex-grow flex items-center justify-center">
+                  <canvas id="historical-competency-chart" style="max-height: 220px;"></canvas>
+               </div>
+          </div>
+
       </div>
-      <div class="p-4 sm:p-6 bg-white rounded-lg shadow-md">
-          <h3 class="text-xl font-bold text-slate-800 mb-4 text-center">Top Strengths</h3>
-          <ul id="strengths-list" class="space-y-3">
-              </ul>
-      </div>
-      <div class="p-4 sm:p-6 bg-white rounded-lg shadow-md">
-          <h3 class="text-xl font-bold text-slate-800 mb-4 text-center">Development Areas</h3>
-          <ul id="gaps-list" class="space-y-3">
-              </ul>
-      </div>
-  </div>
-  
-  <div id="competency-history-container" class="mt-8 p-4 sm:p-6 bg-white rounded-lg shadow-md" style="display: none;">
-      <h3 class="text-xl font-bold text-slate-800 mb-4 text-center">Competency Development Over Time</h3>
-      <canvas id="historical-competency-chart"></canvas>
-  </div>
-  
+      
       <div id="competency-charts-loader" class="flex justify-center items-center h-64 mt-8" style="display: none;"><div id="loader"></div></div>
-  
-      <div id="competency-charts-container" class="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8" style="display: none;">
-          <div class="p-4 sm:p-6 bg-white rounded-lg shadow-md">
-              <h3 class="text-xl font-bold text-slate-800 mb-2 text-center">Core Competencies</h3>
-              <canvas id="core-competency-chart"></canvas>
-          </div>
-          <div class="p-4 sm:p-6 bg-white rounded-lg shadow-md">
-              <h3 class="text-xl font-bold text-slate-800 mb-2 text-center">Leadership Competencies</h3>
-              <canvas id="leadership-competency-chart"></canvas>
-          </div>
-          <div class="p-4 sm:p-6 bg-white rounded-lg shadow-md">
-              <h3 class="text-xl font-bold text-slate-800 mb-2 text-center">Technical Competencies</h3>
-              <canvas id="technical-competency-chart"></canvas>
-          </div>
+      
+      <div id="competency-charts-container" class="mt-8 flex flex-col gap-8" style="display: none;">
+          
+          <div id="core-section" class="bg-white rounded-lg shadow-md p-6">
+              </div>
+          
+          <div id="leadership-section" class="bg-white rounded-lg shadow-md p-6">
+              </div>
+          
+          <div id="technical-section" class="bg-white rounded-lg shadow-md p-6">
+              </div>
+
       </div>
     </div>
 
@@ -5139,18 +5152,18 @@ function getHeatmapColor(score) {
     return '#ef4444'; // Red (only for actual low scores like 0.5)
 }
 
-// REPLACED - This is now the main function for the entire tab.
 function drawCompetencyDashboard(employeeId) {
+    // Show Loader
     document.getElementById('competency-charts-loader').style.display = 'flex';
-    document.getElementById('competency-summary-container').style.display = 'none';
-    document.getElementById('competency-history-container').style.display = 'none';
+    
+    // Hide Main Containers
+    document.getElementById('competency-dashboard-grid').style.display = 'none';
     document.getElementById('competency-charts-container').style.display = 'none';
 
-    // Destroy previous charts to prevent memory leaks
+    // Destroy previous charts to avoid glitches
     Object.values(chartInstances).forEach(chart => chart.destroy());
     chartInstances = {};
 
-    // Call the new, all-in-one backend function
     google.script.run.withSuccessHandler(analytics => {
         if (analytics.error) {
             alert('Error fetching competency analytics: ' + analytics.error);
@@ -5158,17 +5171,18 @@ function drawCompetencyDashboard(employeeId) {
             return;
         }
 
-        // --- Render all new components ---
+        // 1. Render the Top 4-Column Grid
         renderOverallScoreGauge(analytics.overall);
         renderStrengthsAndGaps(analytics.strengths, analytics.gaps);
-        renderRadarCharts(analytics.radarData);
         renderHistoricalChart(analytics.history);
 
-        // --- Show all containers ---
+        // 2. Render the Bottom Detailed Sections
+        renderRadarCharts(analytics.radarData);
+
+        // 3. Reveal Everything
         document.getElementById('competency-charts-loader').style.display = 'none';
-        document.getElementById('competency-summary-container').style.display = 'grid';
-        document.getElementById('competency-history-container').style.display = 'block';
-        document.getElementById('competency-charts-container').style.display = 'grid';
+        document.getElementById('competency-dashboard-grid').style.display = 'grid';
+        document.getElementById('competency-charts-container').style.display = 'flex';
 
     }).getCompetencyAnalytics(employeeId);
 }
@@ -5237,119 +5251,159 @@ function renderStrengthsAndGaps(strengths, gaps) {
     }
 }
 
-// REVISED - Side-by-Side Optimized Layout & Zero Gaps
+// FINAL CORRECTED - 3-Section Layout with Deep Dive Restored
 function renderRadarCharts(radarData) {
-    
-    const wrapLabel = (str) => {
-        const maxChars = 15; 
-        if (str.length <= maxChars) return str;
-        const words = str.split(' ');
-        const lines = [];
-        let currentLine = words[0];
-        for (let i = 1; i < words.length; i++) {
-            if (currentLine.length + words[i].length + 1 <= maxChars) {
-                currentLine += ' ' + words[i];
-            } else {
-                lines.push(currentLine);
-                currentLine = words[i];
-            }
-        }
-        lines.push(currentLine);
-        return lines;
-    };
 
-    const createChart = (canvasId, data) => {
-        const canvas = document.getElementById(canvasId);
-        
+    // Helper to render one full category row
+    const renderCategoryRow = (containerId, title, data) => {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        // Hide section if no data
         if (!data || data.labels.length === 0) {
-            if (canvas && canvas.parentElement) canvas.parentElement.style.display = 'none';
+            container.style.display = 'none';
             return;
         }
+        container.style.display = 'block';
+
+        // Create Numeric Labels for the Chart (1, 2, 3...)
+        const numericLabels = data.labels.map((_, i) => (i + 1).toString());
+
+        // Build the HTML Structure
+        let html = `
+            <h3 class="text-xl font-bold text-slate-800 mb-6 border-b pb-2">${title}</h3>
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <div class="lg:col-span-4">
+                    <h4 class="font-bold text-xs text-gray-500 uppercase mb-3 tracking-wider">1. Competency List</h4>
+                    <div class="border rounded-lg overflow-hidden bg-white">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-gray-100 text-gray-600 font-bold">
+                                <tr>
+                                    <th class="p-3 border-b w-10 text-center">#</th>
+                                    <th class="p-3 border-b">Competency Name</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                ${data.labels.map((label, i) => `
+                                    <tr class="hover:bg-blue-50 transition-colors cursor-pointer" 
+                                        onclick="triggerDeepDive('${label.replace(/'/g, "\\'")}')" 
+                                        title="Click to Deep Dive">
+                                        <td class="p-2 text-center font-bold text-slate-500 bg-gray-50 border-r">${i+1}</td>
+                                        <td class="p-2 text-slate-700 font-medium">${label}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-5">
+                    <h4 class="font-bold text-xs text-gray-500 uppercase mb-3 tracking-wider">2. Score Analysis</h4>
+                    <div class="border rounded-lg overflow-hidden bg-white">
+                        <table class="w-full text-sm text-center">
+                            <thead class="bg-gray-100 text-gray-600 font-bold">
+                                <tr>
+                                    <th class="p-3 border-b w-10">#</th>
+                                    <th class="p-3 border-b text-blue-600" title="Required Score">Req</th>
+                                    <th class="p-3 border-b text-red-600" title="Actual Score">Act</th>
+                                    <th class="p-3 border-b text-green-600" title="Team Average">Team</th>
+                                    <th class="p-3 border-b text-gray-600" title="Gap">Gap</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                ${data.labels.map((label, i) => {
+                                    const req = data.required[i];
+                                    const act = data.actual[i];
+                                    const team = data.team[i];
+                                    const gap = (act - req).toFixed(1);
+                                    
+                                    // Color logic: Red for negative gap, Green for positive
+                                    const gapColor = gap < 0 ? 'text-red-600 font-bold bg-red-50' : 'text-green-600 font-medium';
+                                    const gapSign = gap > 0 ? '+' : '';
+                                    
+                                    return `
+                                    <tr class="hover:bg-gray-50 cursor-pointer" 
+                                        onclick="triggerDeepDive('${label.replace(/'/g, "\\'")}')"
+                                        title="Click to Deep Dive">
+                                        <td class="p-2 font-bold text-gray-400 bg-gray-50 border-r">${i+1}</td>
+                                        <td class="p-2 border-r text-slate-600">${req}</td>
+                                        <td class="p-2 border-r font-bold text-slate-800">${act}</td>
+                                        <td class="p-2 border-r text-green-700 font-medium">${team}</td>
+                                        <td class="p-2 ${gapColor}">${gapSign}${gap}</td>
+                                    </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-3 flex flex-col">
+                    <h4 class="font-bold text-xs text-gray-500 uppercase mb-3 tracking-wider text-center">3. Visualization</h4>
+                    <div class="relative flex-grow flex items-center justify-center" style="min-height: 250px;">
+                        <canvas id="chart-${containerId}"></canvas>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        container.innerHTML = html;
+
+        // --- Render the Chart ---
+        const ctx = document.getElementById(`chart-${containerId}`).getContext('2d');
         
-        const parent = canvas.parentElement;
-        parent.style.display = 'block';
-
-        // --- 1. INJECT CUSTOM LEGEND ---
-        let customLegend = parent.querySelector('.custom-radar-legend');
-        if (!customLegend) {
-            customLegend = document.createElement('div');
-            // Tight spacing: minimal margins
-            customLegend.className = 'custom-radar-legend flex flex-wrap justify-center gap-2 text-xs text-gray-600';
-            customLegend.style.marginBottom = '5px'; 
-            
-            customLegend.innerHTML = `
-                <div class="flex items-center">
-                    <span style="width:10px; height:10px; background-color: rgba(239, 68, 68, 0.2); border: 2px solid rgb(239, 68, 68); margin-right:3px; display:inline-block;"></span>
-                    Actual
-                </div>
-                <div class="flex items-center">
-                    <span style="width:10px; height:10px; background-color: rgba(59, 130, 246, 0.2); border: 2px solid rgb(59, 130, 246); margin-right:3px; display:inline-block;"></span>
-                    Required
-                </div>
-                <div class="flex items-center">
-                    <span style="width:10px; height:2px; background-color: rgb(22, 163, 74); margin-right:3px; display:inline-block;"></span>
-                    Team Avg
-                </div>
-            `;
-            parent.insertBefore(customLegend, canvas);
+        if (chartInstances[containerId]) {
+            chartInstances[containerId].destroy();
         }
 
-        // --- 2. FORCE COMPACT CANVAS ---
-        // Explicitly set height to 250px to eliminate vertical whitespace
-        canvas.style.height = '250px';
-        canvas.style.width = '100%';
-        canvas.style.marginTop = '0px'; 
-
-        const wrappedLabels = data.labels.map(label => wrapLabel(label));
-        const ctx = canvas.getContext('2d');
-
-        if (chartInstances[canvasId]) {
-            chartInstances[canvasId].destroy();
-        }
-
-        chartInstances[canvasId] = new Chart(ctx, {
+        chartInstances[containerId] = new Chart(ctx, {
             type: 'radar',
             data: {
-                labels: wrappedLabels,
+                labels: numericLabels, // Uses 1, 2, 3...
                 datasets: [{
-                    label: 'Actual Score',
+                    label: 'Actual',
                     data: data.actual,
                     fill: true,
                     backgroundColor: 'rgba(239, 68, 68, 0.2)',
                     borderColor: 'rgb(239, 68, 68)',
                     pointBackgroundColor: 'rgb(239, 68, 68)',
-                    borderWidth: 2
+                    borderWidth: 2,
+                    pointRadius: 4, // Made points slightly bigger for easier clicking
+                    pointHoverRadius: 6
                 }, {
-                    label: 'Required Score',
+                    label: 'Required',
                     data: data.required,
                     fill: true,
                     backgroundColor: 'rgba(59, 130, 246, 0.2)',
                     borderColor: 'rgb(59, 130, 246)',
                     pointBackgroundColor: 'rgb(59, 130, 246)',
-                    borderWidth: 2
+                    borderWidth: 2,
+                    pointRadius: 3
                 }, {
-                    label: 'Team Average',
+                    label: 'Team Avg',
                     data: data.team,
                     fill: false,
-                    borderColor: 'rgba(22, 163, 74, 0.8)', 
+                    borderColor: 'rgb(22, 163, 74)', // Green
                     pointBackgroundColor: 'rgb(22, 163, 74)',
                     borderWidth: 2,
-                    borderDash: [5, 5] 
+                    borderDash: [4, 4],
+                    pointRadius: 2
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false, // Allows chart to fill the short 250px height perfectly
-                layout: {
-                    padding: { top: 0, bottom: 0, left: 0, right: 0 }
-                },
+                maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: false }, 
-                    title: { display: false },
+                    legend: { 
+                        position: 'bottom', 
+                        labels: { boxWidth: 10, font: { size: 11 }, padding: 15 } 
+                    },
                     tooltip: {
                         callbacks: {
                             title: function(context) {
-                                return context[0].label.join(' '); 
+                                const index = context[0].dataIndex;
+                                return `${index + 1}. ${data.labels[index]}`;
                             }
                         }
                     }
@@ -5360,87 +5414,115 @@ function renderRadarCharts(radarData) {
                         grid: { color: '#e5e7eb' },
                         suggestedMin: 0,
                         suggestedMax: 4,
-                        ticks: { 
-                            stepSize: 1,
-                            display: false 
-                        },
+                        ticks: { display: false, stepSize: 1 },
                         pointLabels: {
-                          font: { size: 9, family: "'Roboto', sans-serif" }, // Smaller font for side-by-side view
-                          color: '#4b5563' 
+                            font: { size: 12, weight: 'bold' },
+                            color: '#64748b'
                         }
                     }
                 },
-                onClick: (event) => {
-                    const points = chartInstances[canvasId].getElementsAtEventForMode(event, 'nearest', { intersect: true }, true);
-                    if (points.length) {
-                        const competencyIndex = points[0].index;
-                        const competencyName = data.labels[competencyIndex]; 
-                        const employeeId = document.getElementById('competency-employee-select').value;
-                        if (employeeId && competencyName) {
-                            openDeepDiveModal(employeeId, competencyName);
-                        }
-                    }
+                // --- RESTORED ONCLICK EVENT ---
+                onClick: (event, elements) => {
+                    if (!elements.length) return;
+                    
+                    const index = elements[0].index;
+                    const competencyName = data.labels[index]; // Map index back to real name
+                    
+                    triggerDeepDive(competencyName);
                 },
-                 onHover: (event, chartElement) => {
+                onHover: (event, chartElement) => {
                     event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
                 }
             }
         });
     };
 
-    createChart('core-competency-chart', radarData.core);
-    createChart('leadership-competency-chart', radarData.leadership);
-    createChart('technical-competency-chart', radarData.technical);
+    // Helper to call the modal logic safely
+    window.triggerDeepDive = (competencyName) => {
+        const employeeId = document.getElementById('competency-employee-select').value;
+        if (employeeId && competencyName) {
+            openDeepDiveModal(employeeId, competencyName);
+        }
+    };
+
+    // Render all 3 Categories
+    renderCategoryRow('core-section', 'Core Competencies', radarData.core);
+    renderCategoryRow('leadership-section', 'Leadership Competencies', radarData.leadership);
+    renderCategoryRow('technical-section', 'Technical Competencies', radarData.technical);
 }
 
-// REVISED - This function now draws two lines: one for Actual Average and one for Gap Average.
-    function renderHistoricalChart(history) {
-        const container = document.getElementById('competency-history-container');
-        const canvasId = 'historical-competency-chart';
-        
-        // Check if there's at least one dataset with some data.
-        if (!history || history.datasets.length === 0 || history.datasets.every(d => d.data.length < 2)) {
-             container.style.display = 'none';
-             return;
-        }
-        container.style.display = 'block';
+function renderHistoricalChart(history) {
+    const canvasId = 'historical-competency-chart';
+    const canvas = document.getElementById(canvasId);
+    
+    // Handle empty history
+    if (!history || history.datasets.length === 0 || history.datasets.every(d => d.data.length < 2)) {
+         // Instead of hiding the whole container (which breaks the grid),
+         // we display a "No Data" message on the canvas parent.
+         const parent = canvas.parentElement;
+         parent.innerHTML = '<p class="text-gray-400 text-sm text-center italic mt-10">No historical data available.</p>';
+         return;
+    }
 
-        const colors = ['#3b82f6', '#ef4444', '#22c55e', '#f97316']; // Blue, Red, Green, Orange
-        
-        const datasets = history.datasets.map((dataset, index) => ({
-            label: dataset.label,
-            data: dataset.data,
-            borderColor: colors[index % colors.length],
-            backgroundColor: colors[index % colors.length] + '33', // Add transparency for area fill
-            tension: 0.1,
-            fill: false,
-            spanGaps: true // Ensures line continues over null points if any
-        }));
+    const ctx = canvas.getContext('2d');
+    
+    if (chartInstances[canvasId]) {
+        chartInstances[canvasId].destroy();
+    }
 
-        const ctx = document.getElementById(canvasId).getContext('2d');
-        chartInstances[canvasId] = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: history.labels,
-                datasets: datasets
+    // Colors: Blue & Red
+    const colors = [
+        { border: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)' }, 
+        { border: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' } 
+    ];
+    
+    const datasets = history.datasets.map((dataset, index) => ({
+        label: dataset.label,
+        data: dataset.data,
+        borderColor: colors[index % colors.length].border,
+        backgroundColor: colors[index % colors.length].bg,
+        borderWidth: 2,
+        tension: 0.4,
+        fill: true,
+        pointRadius: 3,
+        pointBackgroundColor: '#fff'
+    }));
+
+    chartInstances[canvasId] = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: history.labels,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false, // Fits the container height (approx 220px)
+            plugins: {
+              legend: { 
+                  display: true, 
+                  position: 'bottom', // Move legend to bottom for narrow columns
+                  labels: { boxWidth: 8, font: { size: 10 }, usePointStyle: true } 
+              },
+              tooltip: { mode: 'index', intersect: false }
             },
-            options: {
-                responsive: true,
-                plugins: {
-                  title: {
+            scales: {
+                x: {
                     display: true,
-                    text: 'Yearly Competency Averages'
-                  }
+                    grid: { display: false },
+                    ticks: { font: { size: 10 } } // Smaller font for years
                 },
-                scales: {
-                    y: {
-                        beginAtZero: false, // Allow negative values for gap
-                        suggestedMax: 4 // Match your 0-4 competency scale
-                    }
+                y: {
+                    display: true,
+                    beginAtZero: false,
+                    suggestedMin: 1,
+                    suggestedMax: 4,
+                    ticks: { stepSize: 1, display: false }, // Hide Y-axis numbers to save space
+                    grid: { borderDash: [5, 5] }
                 }
             }
-        });
-    }
+        }
+    });
+}
 
 function openDeepDiveModal(employeeId, competencyName) {
     const modal = document.getElementById('competency-deep-dive-modal');

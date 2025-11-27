@@ -3665,7 +3665,8 @@ function submitChangeRequest(requestData) {
       
       requestData.files.forEach(file => {
         const decodedContent = Utilities.base64Decode(file.content);
-        const blob = Utilities.newBlob(decodedContent, file.mimeType, file.name);
+        const fileName = file.label ? `[${file.label}] ${file.name}` : file.name;
+        const blob = Utilities.newBlob(decodedContent, file.mimeType, fileName);
         requestFolder.createFile(blob);
       });
       

@@ -5317,14 +5317,19 @@ function submitRequest() {
   showSavingOverlay('Processing Files...');
 
   // Read files using FileReader
-  const filePromises = collectedFiles.map(file => {
+  const filePromises = Array.from(attachmentInputs).map(input => {
+    const file = input.files[0];
+    if (!file) {
+      return Promise.resolve(null); // Resolve with null if no file is selected
+    }
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const fileData = {
           name: file.name,
           mimeType: file.type,
-          content: e.target.result.split(',')[1] // Get base64 content
+          content: e.target.result.split(',')[1], // Get base64 content
+          label: input.dataset.label // Capture the data-label attribute
         };
         resolve(fileData);
       };
@@ -5334,13 +5339,16 @@ function submitRequest() {
   });
 
   Promise.all(filePromises).then(fileContents => {
+    // Filter out null values for inputs that didn't have a file
+    const validFiles = fileContents.filter(file => file !== null);
+
     const requestData = {
       // Common fields
       RequestType: requestType,
       ApproverEmail: document.getElementById('approver-email-select').value,
       Justification: document.getElementById('justification')?.value,
       EffectiveDate: document.getElementById('effective-date-request')?.value,
-      files: fileContents,
+      files: validFiles,
 
       // Transfer/Promotion fields
       EmployeeID: document.getElementById('request-EmployeeID')?.value,
@@ -6512,9 +6520,22 @@ function openDocumentViewer(requestId) {
                 // If there are multiple files, show a selection list.
                 let buttonsHtml = '<p class="mb-4">Please select a document to view:</p><div class="flex flex-col space-y-2">';
                 fileList.forEach(file => {
-                    // We need to escape the URL to handle special characters in file names
                     const escapedUrl = escape(file.url);
-                    buttonsHtml += `<button onclick="showDocumentInViewer(unescape('${escapedUrl}'))" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">${escapeHtml(file.name)}</button>`;
+                    const originalName = file.name;
+                    let displayName = '';
+                    const match = originalName.match(/^\[(.*?)\]\s*(.*)$/);
+
+                    if (match && match[1] && match[2]) {
+                        // Format: [Label] Filename.ext
+                        const label = escapeHtml(match[1]);
+                        const filename = escapeHtml(match[2]);
+                        displayName = `<div class="text-left w-full"><strong class="font-semibold text-blue-200">${label}:</strong><span class="ml-2">${filename}</span></div>`;
+                    } else {
+                        // Fallback for old files without the label
+                        displayName = `<div class="text-left w-full">${escapeHtml(originalName)}</div>`;
+                    }
+
+                    buttonsHtml += `<button onclick="showDocumentInViewer(unescape('${escapedUrl}'))" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex justify-start items-center">${displayName}</button>`;
                 });
                 buttonsHtml += '</div>';
                 contentArea.innerHTML = buttonsHtml;

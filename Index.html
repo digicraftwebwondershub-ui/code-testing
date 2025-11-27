@@ -1525,6 +1525,10 @@
           </select>
         </div>
         <div id="request-fields" class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+
+        <div id="required-attachments-container" class="md:col-span-2 mt-4"></div>
+
+        <div id="attachment-validation-message" class="md:col-span-2 text-red-500 text-sm mt-2" style="display: none;"></div>
       </div>
       <div class="mt-6 flex justify-end gap-3">
         <button type="button" onclick="closeRequestModal()" class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Cancel</button>
@@ -1769,6 +1773,28 @@
     { id: 'Department', containerId: 'masterlist-Department-filter-container', defaultLabel: 'All Departments', parent: 'Group' },
     { id: 'Section', containerId: 'masterlist-Section-filter-container', defaultLabel: 'All Sections', parent: 'Department' }
 ];
+
+  const attachmentRules = {
+    'Hiring of a new employee (newly created position)': [
+      'Approved POMP (if applicable)',
+      'Workload Assessment (Job Description)',
+      'Email Approval from Department Head / Management'
+    ],
+    'Hiring of a new employee (replacement for vacancy)': [
+      'Approved POMP (if applicable)',
+      'Resignation Letter (if applicable)',
+      'Approved Personnel Requisition Form (PRF)'
+    ],
+    'Promotion': [
+      'Approved Personnel Action Form (PAF)'
+    ],
+    'Internal Transfer': [
+      'Approved Personnel Action Form (PAF)'
+    ],
+    'Lateral Transfer': [
+      'Approved Personnel Action Form (PAF)'
+    ]
+  };
 
 // --- COMPETENCY FILTERS CONFIGURATION ---
   const COMP_FILTERS_CONFIG = [
@@ -4993,19 +5019,9 @@ function handleRequestTypeChange() {
   const requestType = document.getElementById('request-type').value;
   const fieldsContainer = document.getElementById('request-fields');
   fieldsContainer.innerHTML = '';
+  updateRequiredAttachments(requestType);
 
   let fieldsHtml = '';
-
-  const fileUploadHtml = `
-    <div class="md:col-span-2">
-      <label class="block font-medium">Supporting Documents</label>
-      <div class="mt-1">
-        <input type="file" id="support-docs-input" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-      </div>
-      <div id="support-docs-list" class="mt-2 text-sm text-gray-600"></div>
-      <p id="file-limit-warning" class="text-red-500 text-xs mt-1" style="display: none;">You can upload a maximum of 5 files.</p>
-    </div>
-  `;
 
   switch (requestType) {
     case 'Lateral Transfer':
@@ -5027,7 +5043,6 @@ function handleRequestTypeChange() {
         </div>
         <div><label class="block font-medium">Effective Date</label><input type="date" id="effective-date-request" name="EffectiveDate" class="mt-1 p-2 w-full border rounded"></div>
         <div class="md:col-span-2"><label class="block font-medium">Justification</label><textarea id="justification" name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
-        ${fileUploadHtml}
       `;
       break;
     case 'Hiring of a new employee (newly created position)':
@@ -5043,7 +5058,6 @@ function handleRequestTypeChange() {
         <div><label class="block font-medium">Reporting To Employee ID</label><input type="text" id="reporting-to-id-request" name="ReportingToId" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
         
         <div class="md:col-span-2 mt-4"><label class="block font-medium">Justification</label><textarea id="justification" name="Justification" class="mt-1 p-2 w-full border rounded" rows="3"></textarea></div>
-        ${fileUploadHtml}
       `;
       break;
     case 'Hiring of a new employee (replacement for vacancy)':
@@ -5063,16 +5077,10 @@ function handleRequestTypeChange() {
         
         <div class="md:col-span-2 mt-4 font-bold text-indigo-700">Request Details</div>
         <div class="md:col-span-2"><label class="block font-medium">Justification</label><textarea id="justification" name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
-        ${fileUploadHtml}
       `;
       break;
   }
   fieldsContainer.innerHTML = fieldsHtml;
-
-  const fileInput = document.getElementById('support-docs-input');
-  if (fileInput) {
-    fileInput.addEventListener('change', handleFileUpload);
-  }
 
   // Populate dropdowns
   if (requestType.includes('Transfer') || requestType.includes('Promotion')) {
@@ -5188,34 +5196,69 @@ function submitRequest() {
     return;
   }
 
-  const fileInput = document.getElementById('support-docs-input');
-  const files = fileInput.files;
+  // --- New Validation Logic ---
+  const validationMessage = document.getElementById('attachment-validation-message');
+  validationMessage.style.display = 'none';
+  validationMessage.textContent = '';
 
-  if (files.length === 0) {
-    alert('You must add at least one supporting document.');
+  const attachmentInputs = document.querySelectorAll('#required-attachments-container input[type="file"]');
+  let allRequiredFilesPresent = true;
+  let totalFileCount = 0;
+
+  attachmentInputs.forEach(input => {
+    const label = document.querySelector(`label[for="${input.id}"]`);
+    const isRequired = label.innerHTML.includes('*');
+
+    // Reset any previous validation styles
+    label.parentElement.parentElement.classList.remove('border', 'border-red-500', 'rounded-md', 'p-2');
+
+    if (isRequired && input.files.length === 0) {
+      allRequiredFilesPresent = false;
+      label.parentElement.parentElement.classList.add('border', 'border-red-500', 'rounded-md', 'p-2');
+    }
+
+    if (input.files.length > 0) {
+      totalFileCount++;
+    }
+  });
+
+  if (!allRequiredFilesPresent) {
+    validationMessage.textContent = 'Please upload all required attachments (marked with *).';
+    validationMessage.style.display = 'block';
     return;
   }
-  if (files.length > 5) {
-    alert('You cannot upload more than 5 documents.');
+
+  if (totalFileCount === 0) {
+    alert('You must upload at least one attachment.');
+    return;
+  }
+
+  if (totalFileCount > 5) {
+    alert('You cannot upload more than 5 files in total.');
     return;
   }
 
   showSavingOverlay('Processing Files...');
 
-  const filePromises = Array.from(files).map(file => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const fileData = {
-          name: file.name,
-          mimeType: file.type,
-          content: e.target.result.split(',')[1] // Get base64 content
+  const filePromises = [];
+  attachmentInputs.forEach(input => {
+    if (input.files.length > 0) {
+      const file = input.files[0];
+      const promise = new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const fileData = {
+            name: file.name,
+            mimeType: file.type,
+            content: e.target.result.split(',')[1] // Get base64 content
+          };
+          resolve(fileData);
         };
-        resolve(fileData);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      filePromises.push(promise);
+    }
   });
 
   Promise.all(filePromises).then(fileContents => {

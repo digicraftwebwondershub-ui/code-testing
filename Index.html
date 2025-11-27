@@ -1565,6 +1565,13 @@
             <option value="Internal Transfer">Internal Transfer</option>
             <option value="Hiring of a new employee (newly created position)">Hiring of a new employee (newly created position)</option>
             <option value="Hiring of a new employee (replacement for vacancy)">Hiring of a new employee (replacement for vacancy)</option>
+            <option value="Change in Employment Status">Change in Employment Status</option>
+            <option value="Change in Reporting line">Change in Reporting line</option>
+            <option value="Job Title/Position Change (without promotion)">Job Title/Position Change (without promotion)</option>
+            <option value="Name Correction/Update of Employee Information">Name Correction/Update of Employee Information</option>
+            <option value="Position on Hold/Cancelled/Deleted">Position on Hold/Cancelled/Deleted</option>
+            <option value="Regularization">Regularization</option>
+            <option value="Resignation/Separation">Resignation/Separation</option>
           </select>
         </div>
         <div>
@@ -1804,6 +1811,29 @@ const ATTACHMENT_CONFIG = {
   ],
   'Lateral Transfer': [
     'Approved Personnel Action Form (PAF)'
+  ],
+    'Change in Employment Status': [
+    'Approved Personnel Action Form (PAF)'
+  ],
+  'Change in Reporting line': [
+    'Approved Personnel Action Form (PAF)'
+  ],
+  'Job Title/Position Change (without promotion)': [
+    'Approved Personnel Action Form (PAF)'
+  ],
+    'Name Correction/Update of Employee Information': [
+    'Supporting Document (e.g., Birth Certificate, Marriage Certificate)'
+  ],
+  'Position on Hold/Cancelled/Deleted': [
+    'Management Approval'
+  ],
+  'Regularization': [
+    'Approved Personnel Action Form (PAF)',
+    'Performance Evaluation Form'
+  ],
+  'Resignation/Separation': [
+    'Resignation Letter',
+    'Clearance Form (if applicable)'
   ]
 };
 
@@ -5181,6 +5211,63 @@ function handleRequestTypeChange() {
         ${attachmentsHtml}
       `;
       break;
+    case 'Change in Employment Status':
+    case 'Regularization':
+    case 'Resignation/Separation':
+        fieldsHtml = `
+            <div class="md:col-span-2"><label class="block font-medium">Employee</label><div id="employee-request-dropdown" class="searchable-dropdown"></div></div>
+            <div><label class="block font-medium">New Status</label><div id="new-status-dropdown" class="searchable-dropdown"></div></div>
+            <div><label class="block font-medium">Effective Date</label><input type="date" name="EffectiveDate" class="mt-1 p-2 w-full border rounded"></div>
+            <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
+            ${attachmentsHtml}
+        `;
+        break;
+    case 'Change in Reporting line':
+        fieldsHtml = `
+            <div class="md:col-span-2"><label class="block font-medium">Employee</label><div id="employee-request-dropdown" class="searchable-dropdown"></div></div>
+            <div><label class="block font-medium">Current Reporting To</label><input type="text" id="current-reporting-to" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
+            <div><label class="block font-medium">New Reporting To</label><div id="new-reporting-to-dropdown" class="searchable-dropdown"></div></div>
+            <div><label class="block font-medium">Effective Date</label><input type="date" name="EffectiveDate" class="mt-1 p-2 w-full border rounded"></div>
+            <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
+            ${attachmentsHtml}
+        `;
+        break;
+    case 'Job Title/Position Change (without promotion)':
+        fieldsHtml = `
+            <div class="md:col-span-2"><label class="block font-medium">Employee</label><div id="employee-request-dropdown" class="searchable-dropdown"></div></div>
+            <div><label class="block font-medium">Current Job Title</label><input type="text" id="current-job-title" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
+            <div><label class="block font-medium">New Job Title</label><div id="new-job-title-dropdown" class="searchable-dropdown"></div></div>
+            <div><label class="block font-medium">Effective Date</label><input type="date" name="EffectiveDate" class="mt-1 p-2 w-full border rounded"></div>
+            <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
+            ${attachmentsHtml}
+        `;
+        break;
+    case 'Name Correction/Update of Employee Information':
+        fieldsHtml = `
+            <div class="md:col-span-2"><label class="block font-medium">Employee</label><div id="employee-request-dropdown" class="searchable-dropdown"></div></div>
+            <div><label class="block font-medium">Current Name</label><input type="text" id="current-name" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
+            <div><label class="block font-medium">New/Corrected Name</label><input type="text" name="NewName" class="mt-1 p-2 w-full border rounded"></div>
+            <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
+            ${attachmentsHtml}
+        `;
+        break;
+    case 'Position on Hold/Cancelled/Deleted':
+        fieldsHtml = `
+            <div class="md:col-span-2"><label class="block font-medium">Position ID</label><div id="position-id-dropdown" class="searchable-dropdown"></div></div>
+            <div class="md:col-span-2"><label class="block font-medium">Action</label>
+                <select name="Action" class="mt-1 p-2 w-full border rounded">
+                    <option>On Hold</option>
+                    <option>Cancelled</option>
+                    <option>Deleted</option>
+                </select>
+            </div>
+            <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
+            ${attachmentsHtml}
+        `;
+        break;
+    default:
+        fieldsHtml = '<p class="text-gray-500 md:col-span-2">This request type is not yet implemented.</p>';
+        break;
   }
   fieldsContainer.innerHTML = fieldsHtml;
 

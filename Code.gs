@@ -249,6 +249,138 @@ function implementApprovedChange(requestId) {
             employeeid: '',
           };
           mode = 'add';
+        } else if (requestType.includes('Resignation/Separation') || requestType.includes('Change in Employment Status') || requestType.includes('Regularization')) {
+            logToSheet('Processing Status Change/Resignation.');
+            const employeeId = rowData[headerMap.get('EmployeeID')];
+            if (!employeeId) throw new Error('EmployeeID is required for this request type.');
+            
+            const mainSheet = ss.getSheets()[0];
+            const mainData = mainSheet.getDataRange().getValues();
+            const mainHeaders = mainData[0];
+            const mainEmpIdIndex = mainHeaders.indexOf('Employee ID');
+            const mainPosIdIndex = mainHeaders.indexOf('Position ID');
+            let positionId = null;
+            for (let j = 1; j < mainData.length; j++) {
+                if (mainData[j][mainEmpIdIndex] === employeeId) {
+                    positionId = mainData[j][mainPosIdIndex];
+                    break;
+                }
+            }
+            if (!positionId) throw new Error(`Could not find Position ID for Employee ID: ${employeeId}`);
+
+            let newStatus = '';
+            if (requestType.includes('Resignation/Separation')) {
+                newStatus = 'RESIGNED';
+            } else if (requestType.includes('Regularization')) {
+                newStatus = 'REGULAR';
+            } else {
+                newStatus = rowData[headerMap.get('NewStatus')];
+            }
+
+            dataToSave = {
+                positionid: positionId,
+                status: newStatus,
+                effectivedate: rowData[headerMap.get('EffectiveDate')]
+            };
+            if (newStatus === 'RESIGNED') {
+                dataToSave.reasonforleaving = rowData[headerMap.get('ReasonForLeaving')];
+                dataToSave.employeeid = employeeId;
+            }
+
+        } else if (requestType.includes('Change in Reporting line')) {
+            logToSheet('Processing Reporting Line Change.');
+            const employeeId = rowData[headerMap.get('EmployeeID')];
+            if (!employeeId) throw new Error('EmployeeID is required for this request type.');
+
+            const mainSheet = ss.getSheets()[0];
+            const mainData = mainSheet.getDataRange().getValues();
+            const mainHeaders = mainData[0];
+            const mainEmpIdIndex = mainHeaders.indexOf('Employee ID');
+            const mainPosIdIndex = mainHeaders.indexOf('Position ID');
+            let positionId = null;
+            for (let j = 1; j < mainData.length; j++) {
+                if (mainData[j][mainEmpIdIndex] === employeeId) {
+                    positionId = mainData[j][mainPosIdIndex];
+                    break;
+                }
+            }
+            if (!positionId) throw new Error(`Could not find Position ID for Employee ID: ${employeeId}`);
+            
+            dataToSave = {
+                positionid: positionId,
+                reportingtoid: rowData[headerMap.get('NewReportingToId')],
+                reportingto: rowData[headerMap.get('NewReportingToName')]
+            };
+            
+        } else if (requestType.includes('Job Title/Position Change')) {
+            logToSheet('Processing Job Title Change.');
+            const employeeId = rowData[headerMap.get('EmployeeID')];
+            if (!employeeId) throw new Error('EmployeeID is required for this request type.');
+            
+            const mainSheet = ss.getSheets()[0];
+            const mainData = mainSheet.getDataRange().getValues();
+            const mainHeaders = mainData[0];
+            const mainEmpIdIndex = mainHeaders.indexOf('Employee ID');
+            const mainPosIdIndex = mainHeaders.indexOf('Position ID');
+            let positionId = null;
+            for (let j = 1; j < mainData.length; j++) {
+                if (mainData[j][mainEmpIdIndex] === employeeId) {
+                    positionId = mainData[j][mainPosIdIndex];
+                    break;
+                }
+            }
+            if (!positionId) throw new Error(`Could not find Position ID for Employee ID: ${employeeId}`);
+
+            dataToSave = {
+                positionid: positionId,
+                jobtitle: rowData[headerMap.get('NewJobTitle')]
+            };
+
+        } else if (requestType.includes('Name Correction/Update')) {
+            logToSheet('Processing Name Correction.');
+            const employeeId = rowData[headerMap.get('EmployeeID')];
+            if (!employeeId) throw new Error('EmployeeID is required.');
+
+            const mainSheet = ss.getSheets()[0];
+            const mainData = mainSheet.getDataRange().getValues();
+            const mainHeaders = mainData[0];
+            const mainEmpIdIndex = mainHeaders.indexOf('Employee ID');
+            const mainPosIdIndex = mainHeaders.indexOf('Position ID');
+            let positionId = null;
+            for (let j = 1; j < mainData.length; j++) {
+                if (mainData[j][mainEmpIdIndex] === employeeId) {
+                    positionId = mainData[j][mainPosIdIndex];
+                    break;
+                }
+            }
+            if (!positionId) throw new Error(`Could not find Position ID for Employee ID: ${employeeId}`);
+
+            dataToSave = {
+                positionid: positionId,
+                employeename: rowData[headerMap.get('NewEmployeeName')]
+            };
+
+        } else if (requestType.includes('Position on Hold/Cancelled/Deleted')) {
+            logToSheet('Processing Position Status Change.');
+            const positionId = rowData[headerMap.get('PositionID')];
+            const action = rowData[headerMap.get('Action')];
+            if (!positionId || !action) throw new Error('PositionID and Action are required.');
+            
+            if (action.toUpperCase() === 'DELETED') {
+                deactivatePosition(positionId);
+                logToSheet('Updating implementation details for DELETED action.');
+                sheet.getRange(i + 1, headerMap.get('Status') + 1).setValue('Implemented');
+                sheet.getRange(i + 1, headerMap.get('ImplementerEmail') + 1).setValue(Session.getActiveUser().getEmail());
+                sheet.getRange(i + 1, headerMap.get('ImplementationTimestamp') + 1).setValue(new Date());
+                SpreadsheetApp.flush();
+                return { success: true, message: `Request ${requestId} has been implemented successfully.` };
+
+            } else { // On Hold, Cancelled
+                dataToSave = {
+                    positionid: positionId,
+                    positionstatus: action
+                };
+            }
         }
         
         logToSheet(`Data to save: ${JSON.stringify(dataToSave)}, mode: ${mode}`);
@@ -259,16 +391,32 @@ function implementApprovedChange(requestId) {
           const saveResult = saveEmployeeData(dataToSave, mode);
           logToSheet(`Save operation completed for request ${requestId}. Result: ${saveResult}`);
 
-          // It's good practice to check the result, even if saveEmployeeData currently throws errors on failure.
-          // This makes the code more robust if saveEmployeeData is changed to return a status object in the future.
           if (saveResult.includes('successfully')) {
             logToSheet('Updating implementation details in "Org Chart Requests" sheet.');
             sheet.getRange(i + 1, headerMap.get('Status') + 1).setValue('Implemented');
             sheet.getRange(i + 1, headerMap.get('ImplementerEmail') + 1).setValue(Session.getActiveUser().getEmail());
             sheet.getRange(i + 1, headerMap.get('ImplementationTimestamp') + 1).setValue(new Date());
             logToSheet('Implementation details updated.');
+
+            if (requestType.includes('Name Correction/Update')) {
+                const employeeId = rowData[headerMap.get('EmployeeID')];
+                const newEmployeeName = rowData[headerMap.get('NewEmployeeName')];
+                logToSheet(`Cascading name change for Employee ID ${employeeId} to "${newEmployeeName}".`);
+                const mainSheet = ss.getSheets()[0];
+                const mainData = mainSheet.getDataRange().getValues();
+                const mainHeaders = mainData[0];
+                const reportingToIdIndex = mainHeaders.indexOf('Reporting to ID');
+                const reportingToIndex = mainHeaders.indexOf('Reporting to');
+                if (reportingToIdIndex > -1 && reportingToIndex > -1) {
+                    for (let k = 1; k < mainData.length; k++) {
+                        if (mainData[k][reportingToIdIndex] === employeeId) {
+                            mainSheet.getRange(k + 1, reportingToIndex + 1).setValue(newEmployeeName);
+                            logToSheet(`Updated Reporting to name for row ${k + 1}.`);
+                        }
+                    }
+                }
+            }
           } else {
-             // If saveEmployeeData returns an error message instead of throwing an error.
             throw new Error(`Save operation failed for request ${requestId}: ${saveResult}`);
           }
         } else {

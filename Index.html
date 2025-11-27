@@ -35,6 +35,10 @@
   <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
   <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
 
+  <!-- Select2 Library -->
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
   <style>
     body {
       background-color: #f7fafc;
@@ -1565,6 +1569,13 @@
             <option value="Internal Transfer">Internal Transfer</option>
             <option value="Hiring of a new employee (newly created position)">Hiring of a new employee (newly created position)</option>
             <option value="Hiring of a new employee (replacement for vacancy)">Hiring of a new employee (replacement for vacancy)</option>
+            <option value="Change in Employment Status">Change in Employment Status</option>
+            <option value="Change in Reporting line">Change in Reporting line</option>
+            <option value="Job Title/Position Change (without promotion)">Job Title/Position Change (without promotion)</option>
+            <option value="Name Correction/Update of Employee Information">Name Correction/Update of Employee Information</option>
+            <option value="Position on Hold/Cancelled/Deleted">Position on Hold/Cancelled/Deleted</option>
+            <option value="Regularization">Regularization</option>
+            <option value="Resignation/Separation">Resignation/Separation</option>
           </select>
         </div>
         <div>
@@ -1573,6 +1584,32 @@
             <option value="">Loading approvers...</option>
           </select>
         </div>
+
+        <!-- New Employee Filter Section -->
+        <div id="employee-filter-section" class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 border-b pb-4 mb-4" style="display: none;">
+          <div class="md:col-span-2 font-bold text-indigo-700">Find Employee (for existing positions)</div>
+          <div>
+            <label class="block font-medium text-sm">Division</label>
+            <select id="filter-division" class="mt-1 p-2 w-full border rounded"></select>
+          </div>
+          <div>
+            <label class="block font-medium text-sm">Group</label>
+            <select id="filter-group" class="mt-1 p-2 w-full border rounded"></select>
+          </div>
+          <div>
+            <label class="block font-medium text-sm">Department</label>
+            <select id="filter-department" class="mt-1 p-2 w-full border rounded"></select>
+          </div>
+          <div>
+            <label class="block font-medium text-sm">Section</label>
+            <select id="filter-section" class="mt-1 p-2 w-full border rounded"></select>
+          </div>
+          <div class="md:col-span-2">
+            <label class="block font-medium text-sm">Employee Name</label>
+            <select id="filter-employee" class="mt-1 p-2 w-full border rounded"></select>
+          </div>
+        </div>
+
         <div id="request-fields" class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4"></div>
       </div>
       <div class="mt-6 flex justify-end gap-3">
@@ -1804,6 +1841,29 @@ const ATTACHMENT_CONFIG = {
   ],
   'Lateral Transfer': [
     'Approved Personnel Action Form (PAF)'
+  ],
+    'Change in Employment Status': [
+    'Approved Personnel Action Form (PAF)'
+  ],
+  'Change in Reporting line': [
+    'Approved Personnel Action Form (PAF)'
+  ],
+  'Job Title/Position Change (without promotion)': [
+    'Approved Personnel Action Form (PAF)'
+  ],
+    'Name Correction/Update of Employee Information': [
+    'Supporting Document (e.g., Birth Certificate, Marriage Certificate)'
+  ],
+  'Position on Hold/Cancelled/Deleted': [
+    'Management Approval'
+  ],
+  'Regularization': [
+    'Approved Personnel Action Form (PAF)',
+    'Performance Evaluation Form'
+  ],
+  'Resignation/Separation': [
+    'Resignation Letter',
+    'Clearance Form (if applicable)'
   ]
 };
 
@@ -5113,9 +5173,21 @@ function closeRequestModal() {
 function handleRequestTypeChange() {
   const requestType = document.getElementById('request-type').value;
   const fieldsContainer = document.getElementById('request-fields');
+  const filterSection = document.getElementById('employee-filter-section');
   fieldsContainer.innerHTML = '';
 
-  if (!requestType) return;
+  if (!requestType) {
+    filterSection.style.display = 'none';
+    return;
+  }
+
+  // Show filters for all request types except for 'newly created position'
+  if (requestType !== 'Hiring of a new employee (newly created position)') {
+    filterSection.style.display = 'grid';
+    initializeEmployeeFilters();
+  } else {
+    filterSection.style.display = 'none';
+  }
 
   // --- GENERATE ATTACHMENT SECTION DYNAMICALLY ---
   const attachmentsHtml = generateAttachmentsHTML(requestType);
@@ -5181,6 +5253,63 @@ function handleRequestTypeChange() {
         ${attachmentsHtml}
       `;
       break;
+    case 'Change in Employment Status':
+    case 'Regularization':
+    case 'Resignation/Separation':
+        fieldsHtml = `
+            <div class="md:col-span-2"><label class="block font-medium">Employee</label><div id="employee-request-dropdown" class="searchable-dropdown"></div></div>
+            <div><label class="block font-medium">New Status</label><div id="new-status-dropdown" class="searchable-dropdown"></div></div>
+            <div><label class="block font-medium">Effective Date</label><input type="date" name="EffectiveDate" class="mt-1 p-2 w-full border rounded"></div>
+            <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
+            ${attachmentsHtml}
+        `;
+        break;
+    case 'Change in Reporting line':
+        fieldsHtml = `
+            <div class="md:col-span-2"><label class="block font-medium">Employee</label><div id="employee-request-dropdown" class="searchable-dropdown"></div></div>
+            <div><label class="block font-medium">Current Reporting To</label><input type="text" id="current-reporting-to" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
+            <div><label class="block font-medium">New Reporting To</label><div id="new-reporting-to-dropdown" class="searchable-dropdown"></div></div>
+            <div><label class="block font-medium">Effective Date</label><input type="date" name="EffectiveDate" class="mt-1 p-2 w-full border rounded"></div>
+            <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
+            ${attachmentsHtml}
+        `;
+        break;
+    case 'Job Title/Position Change (without promotion)':
+        fieldsHtml = `
+            <div class="md:col-span-2"><label class="block font-medium">Employee</label><div id="employee-request-dropdown" class="searchable-dropdown"></div></div>
+            <div><label class="block font-medium">Current Job Title</label><input type="text" id="current-job-title" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
+            <div><label class="block font-medium">New Job Title</label><div id="new-job-title-dropdown" class="searchable-dropdown"></div></div>
+            <div><label class="block font-medium">Effective Date</label><input type="date" name="EffectiveDate" class="mt-1 p-2 w-full border rounded"></div>
+            <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
+            ${attachmentsHtml}
+        `;
+        break;
+    case 'Name Correction/Update of Employee Information':
+        fieldsHtml = `
+            <div class="md:col-span-2"><label class="block font-medium">Employee</label><div id="employee-request-dropdown" class="searchable-dropdown"></div></div>
+            <div><label class="block font-medium">Current Name</label><input type="text" id="current-name" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
+            <div><label class="block font-medium">New/Corrected Name</label><input type="text" name="NewName" class="mt-1 p-2 w-full border rounded"></div>
+            <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
+            ${attachmentsHtml}
+        `;
+        break;
+    case 'Position on Hold/Cancelled/Deleted':
+        fieldsHtml = `
+            <div class="md:col-span-2"><label class="block font-medium">Position ID</label><div id="position-id-dropdown" class="searchable-dropdown"></div></div>
+            <div class="md:col-span-2"><label class="block font-medium">Action</label>
+                <select name="Action" class="mt-1 p-2 w-full border rounded">
+                    <option>On Hold</option>
+                    <option>Cancelled</option>
+                    <option>Deleted</option>
+                </select>
+            </div>
+            <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
+            ${attachmentsHtml}
+        `;
+        break;
+    default:
+        fieldsHtml = '<p class="text-gray-500 md:col-span-2">This request type is not yet implemented.</p>';
+        break;
   }
   fieldsContainer.innerHTML = fieldsHtml;
 
@@ -5252,6 +5381,73 @@ function handleRequestTypeChange() {
   }
 }
 
+function initializeEmployeeFilters() {
+  const filters = ['division', 'group', 'department', 'section', 'employee'];
+  filters.forEach(id => {
+    $(`#filter-${id}`).select2({
+      placeholder: `Select a ${id.charAt(0).toUpperCase() + id.slice(1)}`,
+      allowClear: true
+    }).val(null).trigger('change');
+  });
+
+  // Populate Division
+  const divisions = [...new Set(fullEmployeeData.map(e => e.division).filter(String))].sort();
+  $('#filter-division').empty().append(new Option('', '', true, true)).append(...divisions.map(d => new Option(d, d)));
+
+  // Event Listeners
+  $('#filter-division').on('change', function() {
+    const selectedDivision = $(this).val();
+    const groups = [...new Set(fullEmployeeData.filter(e => e.division === selectedDivision).map(e => e.group).filter(String))].sort();
+    $('#filter-group').empty().append(new Option('', '', true, true)).append(...groups.map(g => new Option(g, g))).trigger('change');
+  });
+
+  $('#filter-group').on('change', function() {
+    const selectedDivision = $('#filter-division').val();
+    const selectedGroup = $(this).val();
+    const departments = [...new Set(fullEmployeeData.filter(e => e.division === selectedDivision && e.group === selectedGroup).map(e => e.department).filter(String))].sort();
+    $('#filter-department').empty().append(new Option('', '', true, true)).append(...departments.map(d => new Option(d, d))).trigger('change');
+  });
+
+  $('#filter-department').on('change', function() {
+    const selectedDivision = $('#filter-division').val();
+    const selectedGroup = $('#filter-group').val();
+    const selectedDepartment = $(this).val();
+    const sections = [...new Set(fullEmployeeData.filter(e => e.division === selectedDivision && e.group === selectedGroup && e.department === selectedDepartment).map(e => e.section).filter(String))].sort();
+    $('#filter-section').empty().append(new Option('', '', true, true)).append(...sections.map(s => new Option(s, s))).trigger('change');
+  });
+
+  $('#filter-section').on('change', function() {
+    const selectedDivision = $('#filter-division').val();
+    const selectedGroup = $('#filter-group').val();
+    const selectedDepartment = $('#filter-department').val();
+    const selectedSection = $(this).val();
+    const employees = fullEmployeeData.filter(e => e.employeeId && e.division === selectedDivision && e.group === selectedGroup && e.department === selectedDepartment && e.section === selectedSection).map(e => ({id: e.employeeId, text: e.employeeName})).sort((a,b) => a.text.localeCompare(b.text));
+    $('#filter-employee').empty().append(new Option('', '', true, true)).append(...employees.map(e => new Option(e.text, e.id))).trigger('change');
+  });
+
+  $('#filter-employee').on('change', function() {
+    const employeeId = $(this).val();
+    const employeeDropdown = document.getElementById('employee-request-dropdown');
+    if (employeeDropdown) {
+        const employeeName = $(this).find('option:selected').text();
+        setSearchableDropdownValue('employee-request-dropdown', employeeName);
+        // Manually trigger the onSelectCallback for the employee dropdown
+        const employee = fullEmployeeData.find(e => e.employeeName === employeeName);
+        if (employee) {
+            document.getElementById('current-position-id').value = employee.positionId;
+            google.script.run.withSuccessHandler(details => {
+                if (details) {
+                    document.getElementById('request-EmployeeID').value = details.employeeId || '';
+                    document.getElementById('request-DateHired').value = details.dateHired || '';
+                    document.getElementById('request-DateOfBirth').value = details.dateOfBirth || '';
+                    document.getElementById('request-Gender').value = details.gender || '';
+                }
+            }).getEmployeeDetails(employeeName);
+        }
+    }
+  });
+}
+
 function submitRequest() {
   const requestType = document.getElementById('request-type').value;
   if (!requestType) {
@@ -5317,14 +5513,19 @@ function submitRequest() {
   showSavingOverlay('Processing Files...');
 
   // Read files using FileReader
-  const filePromises = collectedFiles.map(file => {
+  const filePromises = Array.from(attachmentInputs).map(input => {
+    const file = input.files[0];
+    if (!file) {
+      return Promise.resolve(null); // Resolve with null if no file is selected
+    }
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const fileData = {
           name: file.name,
           mimeType: file.type,
-          content: e.target.result.split(',')[1] // Get base64 content
+          content: e.target.result.split(',')[1], // Get base64 content
+          label: input.dataset.label // Capture the data-label attribute
         };
         resolve(fileData);
       };
@@ -5334,13 +5535,16 @@ function submitRequest() {
   });
 
   Promise.all(filePromises).then(fileContents => {
+    // Filter out null values for inputs that didn't have a file
+    const validFiles = fileContents.filter(file => file !== null);
+
     const requestData = {
       // Common fields
       RequestType: requestType,
       ApproverEmail: document.getElementById('approver-email-select').value,
       Justification: document.getElementById('justification')?.value,
       EffectiveDate: document.getElementById('effective-date-request')?.value,
-      files: fileContents,
+      files: validFiles,
 
       // Transfer/Promotion fields
       EmployeeID: document.getElementById('request-EmployeeID')?.value,
@@ -6512,9 +6716,20 @@ function openDocumentViewer(requestId) {
                 // If there are multiple files, show a selection list.
                 let buttonsHtml = '<p class="mb-4">Please select a document to view:</p><div class="flex flex-col space-y-2">';
                 fileList.forEach(file => {
-                    // We need to escape the URL to handle special characters in file names
                     const escapedUrl = escape(file.url);
-                    buttonsHtml += `<button onclick="showDocumentInViewer(unescape('${escapedUrl}'))" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">${escapeHtml(file.name)}</button>`;
+                    const originalName = file.name;
+                    let displayName = '';
+                    const parts = originalName.split(' - ');
+
+                    if (parts.length > 1) {
+                        const label = escapeHtml(parts.shift().trim());
+                        const filename = escapeHtml(parts.join(' - ').trim());
+                        displayName = `<div class="text-left w-full"><strong class="font-semibold text-blue-200">${label}:</strong><span class="ml-2">${filename}</span></div>`;
+                    } else {
+                        displayName = `<div class="text-left w-full">${escapeHtml(originalName)}</div>`;
+                    }
+
+                    buttonsHtml += `<button onclick="showDocumentInViewer(unescape('${escapedUrl}'))" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex justify-start items-center">${displayName}</button>`;
                 });
                 buttonsHtml += '</div>';
                 contentArea.innerHTML = buttonsHtml;

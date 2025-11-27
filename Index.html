@@ -511,6 +511,55 @@
       background-color: #ffffff;
     }
 
+    /* --- NEW ATTACHMENT STYLES --- */
+.attachment-group {
+  background-color: #f8fafc;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  margin-top: 8px;
+}
+.attachment-row {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.attachment-row:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+.attachment-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #4b5563;
+  margin-bottom: 4px;
+}
+.required-star {
+  color: #ef4444;
+  margin-left: 2px;
+}
+.attachment-subtext {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-style: italic;
+}
+/* Validation Styles */
+.input-error {
+  border: 1px solid #ef4444 !important;
+  background-color: #fef2f2;
+}
+.error-message {
+  color: #ef4444;
+  font-size: 0.75rem;
+  margin-top: 4px;
+  display: none; /* Hidden by default */
+}
+.show-error {
+  display: block;
+}
+
   </style>
 </head>
 <body>
@@ -1733,6 +1782,78 @@
   var currentPreviewZoom = 1.0;
   var previewHighlightIds = [];
   var previewChangeDescription = '';
+
+  // --- NEW: ATTACHMENT CONFIGURATION & LOGIC ---
+
+const ATTACHMENT_CONFIG = {
+  'Hiring of a new employee (newly created position)': [
+    'Approved POMP (if applicable)',
+    'Workload Assessment (Job Description)',
+    'Email Approval from Department Head / Management'
+  ],
+  'Hiring of a new employee (replacement for vacancy)': [
+    'Approved POMP (if applicable)',
+    'Resignation Letter (if applicable)',
+    'Approved Personnel Requisition Form (PRF)'
+  ],
+  'Promotion': [
+    'Approved Personnel Action Form (PAF)'
+  ],
+  'Internal Transfer': [
+    'Approved Personnel Action Form (PAF)'
+  ],
+  'Lateral Transfer': [
+    'Approved Personnel Action Form (PAF)'
+  ]
+};
+
+/**
+ * Generates the HTML for the dynamic attachment section.
+ */
+function generateAttachmentsHTML(requestType) {
+  const requirements = ATTACHMENT_CONFIG[requestType] || [];
+  
+  if (requirements.length === 0) {
+    // Fallback if no specific config exists (though your list covers all current types)
+    return `
+      <div class="md:col-span-2">
+        <label class="block font-medium text-gray-700">Supporting Documents</label>
+        <p class="text-xs text-gray-500 mb-2">Upload up to 5 files.</p>
+        <input type="file" id="generic-upload" multiple class="dynamic-attachment-input block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+      </div>`;
+  }
+
+  let rowsHtml = requirements.map((reqText, index) => {
+    const isOptional = reqText.toLowerCase().includes('(if applicable)');
+    const isRequired = !isOptional;
+    const labelHtml = isRequired 
+      ? `${reqText} <span class="required-star">*</span>` 
+      : reqText;
+    
+    // We add data-required attribute to easily check validation later
+    return `
+      <div class="attachment-row">
+        <label class="attachment-label">${labelHtml}</label>
+        <input type="file" 
+               class="dynamic-attachment-input block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" 
+               data-label="${reqText}"
+               data-required="${isRequired}">
+        <div class="error-message">This attachment is required.</div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="md:col-span-2">
+      <label class="block font-medium text-gray-800 mb-1">Required Attachments</label>
+      <div class="attachment-group">
+        ${rowsHtml}
+      </div>
+      <p id="global-file-error" class="text-red-500 text-xs mt-2" style="display:none;"></p>
+      <p class="text-xs text-gray-400 mt-1 text-right">Total max files: 5</p>
+    </div>
+  `;
+}
 
   // --- CONSTANTS & CONFIG ---
   var levelColors = { 1: '#000000', 2: '#f56565', 3: '#4299e1', 4: '#48bb78', 5: '#9f7aea', 6: '#ed8936', 'default': '#a0aec0' };
@@ -4994,18 +5115,12 @@ function handleRequestTypeChange() {
   const fieldsContainer = document.getElementById('request-fields');
   fieldsContainer.innerHTML = '';
 
-  let fieldsHtml = '';
+  if (!requestType) return;
 
-  const fileUploadHtml = `
-    <div class="md:col-span-2">
-      <label class="block font-medium">Supporting Documents</label>
-      <div class="mt-1">
-        <input type="file" id="support-docs-input" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-      </div>
-      <div id="support-docs-list" class="mt-2 text-sm text-gray-600"></div>
-      <p id="file-limit-warning" class="text-red-500 text-xs mt-1" style="display: none;">You can upload a maximum of 5 files.</p>
-    </div>
-  `;
+  // --- GENERATE ATTACHMENT SECTION DYNAMICALLY ---
+  const attachmentsHtml = generateAttachmentsHTML(requestType);
+
+  let fieldsHtml = '';
 
   switch (requestType) {
     case 'Lateral Transfer':
@@ -5027,7 +5142,7 @@ function handleRequestTypeChange() {
         </div>
         <div><label class="block font-medium">Effective Date</label><input type="date" id="effective-date-request" name="EffectiveDate" class="mt-1 p-2 w-full border rounded"></div>
         <div class="md:col-span-2"><label class="block font-medium">Justification</label><textarea id="justification" name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
-        ${fileUploadHtml}
+        ${attachmentsHtml} 
       `;
       break;
     case 'Hiring of a new employee (newly created position)':
@@ -5043,7 +5158,7 @@ function handleRequestTypeChange() {
         <div><label class="block font-medium">Reporting To Employee ID</label><input type="text" id="reporting-to-id-request" name="ReportingToId" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
         
         <div class="md:col-span-2 mt-4"><label class="block font-medium">Justification</label><textarea id="justification" name="Justification" class="mt-1 p-2 w-full border rounded" rows="3"></textarea></div>
-        ${fileUploadHtml}
+        ${attachmentsHtml}
       `;
       break;
     case 'Hiring of a new employee (replacement for vacancy)':
@@ -5063,41 +5178,28 @@ function handleRequestTypeChange() {
         
         <div class="md:col-span-2 mt-4 font-bold text-indigo-700">Request Details</div>
         <div class="md:col-span-2"><label class="block font-medium">Justification</label><textarea id="justification" name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
-        ${fileUploadHtml}
+        ${attachmentsHtml}
       `;
       break;
   }
   fieldsContainer.innerHTML = fieldsHtml;
 
-  const fileInput = document.getElementById('support-docs-input');
-  if (fileInput) {
-    fileInput.addEventListener('change', handleFileUpload);
-  }
-
-  // Populate dropdowns
+  // --- RE-INITIALIZE DROPDOWNS (No change to this part) ---
   if (requestType.includes('Transfer') || requestType.includes('Promotion')) {
-    createSearchableDropdown('employee-request-dropdown', dropdownListData.managers || [], 'name', 'name', (employeeName) => { // Use name for lookup
+    createSearchableDropdown('employee-request-dropdown', dropdownListData.managers || [], 'name', 'name', (employeeName) => {
       const employee = fullEmployeeData.find(e => e.employeeName === employeeName);
       if (employee) {
         document.getElementById('current-position-id').value = employee.positionId;
-        
-        google.script.run
-          .withSuccessHandler(details => {
+        google.script.run.withSuccessHandler(details => {
             if (details) {
               document.getElementById('request-EmployeeID').value = details.employeeId || '';
               document.getElementById('request-DateHired').value = details.dateHired || '';
               document.getElementById('request-DateOfBirth').value = details.dateOfBirth || '';
               document.getElementById('request-Gender').value = details.gender || '';
             }
-          })
-          .getEmployeeDetails(employeeName);
-
+          }).getEmployeeDetails(employeeName);
       } else {
          document.getElementById('current-position-id').value = '';
-         document.getElementById('request-EmployeeID').value = '';
-         document.getElementById('request-DateHired').value = '';
-         document.getElementById('request-DateOfBirth').value = '';
-         document.getElementById('request-Gender').value = '';
       }
     });
     const vacantPositions = fullEmployeeData.filter(p => !p.employeeId).map(p => p.positionId);
@@ -5105,14 +5207,10 @@ function handleRequestTypeChange() {
         const input = document.querySelector('#new-position-dropdown .searchable-dropdown-input');
         input.name = "NewPositionID";
         input.value = positionId;
-
         const selectedPosition = fullEmployeeData.find(p => p.positionId === positionId);
         if (selectedPosition) {
             document.getElementById('request-NewReportingTo').value = selectedPosition.managerName || '';
             document.getElementById('request-NewReportingToId').value = selectedPosition.managerEmployeeId || '';
-        } else {
-            document.getElementById('request-NewReportingTo').value = '';
-            document.getElementById('request-NewReportingToId').value = '';
         }
     });
   }
@@ -5128,8 +5226,6 @@ function handleRequestTypeChange() {
     createSearchableDropdown('reporting-to-request-dropdown', dropdownListData.managers || [], 'name', 'id', (employeeId) => {
       document.getElementById('reporting-to-id-request').value = employeeId;
     });
-    
-    // Dependent dropdowns for new position location
     createSearchableDropdown('request-division-dropdown', dropdownListData.divisions || [], null, null, (sel) => updateRequestLocationDropdowns('division', sel));
     createSearchableDropdown('request-group-dropdown', [], null, null, (sel) => updateRequestLocationDropdowns('group', sel));
     createSearchableDropdown('request-department-dropdown', [], null, null, (sel) => updateRequestLocationDropdowns('department', sel));
@@ -5142,34 +5238,15 @@ function handleRequestTypeChange() {
       if (position) {
         document.getElementById('request-job-title').value = position.jobTitle || '';
         document.getElementById('request-reporting-to').value = position.managerName || '';
-        document.getElementById('request-reporting-to-id').value = position.managerEmployeeId || ''; // Corrected
+        document.getElementById('request-reporting-to-id').value = position.managerEmployeeId || ''; 
         document.getElementById('request-division').value = position.division || '';
         document.getElementById('request-group').value = position.group || '';
         document.getElementById('request-department').value = position.department || '';
         document.getElementById('request-section').value = position.section || '';
         document.getElementById('request-level').value = position.level || '';
-        
-        google.script.run
-          .withSuccessHandler(info => {
-            if (info && info.dateBecameVacant) {
-              document.getElementById('effective-date-request-readonly').value = info.dateBecameVacant;
-            } else {
-              document.getElementById('effective-date-request-readonly').value = '';
-            }
-          })
-          .getLastIncumbentInfo(positionId);
-
-      } else {
-        // Clear fields if no position is found
-        document.getElementById('request-job-title').value = '';
-        document.getElementById('request-reporting-to').value = '';
-        document.getElementById('request-reporting-to-id').value = '';
-        document.getElementById('request-division').value = '';
-        document.getElementById('request-group').value = '';
-        document.getElementById('request-department').value = '';
-        document.getElementById('request-section').value = '';
-        document.getElementById('request-level').value = '';
-        document.getElementById('effective-date-request-readonly').value = '';
+        google.script.run.withSuccessHandler(info => {
+            if (info && info.dateBecameVacant) document.getElementById('effective-date-request-readonly').value = info.dateBecameVacant;
+          }).getLastIncumbentInfo(positionId);
       }
     });
   }
@@ -5188,21 +5265,59 @@ function submitRequest() {
     return;
   }
 
-  const fileInput = document.getElementById('support-docs-input');
-  const files = fileInput.files;
+  // --- NEW: ATTACHMENT COLLECTION & VALIDATION ---
+  const attachmentInputs = document.querySelectorAll('.dynamic-attachment-input');
+  let collectedFiles = [];
+  let validationPassed = true;
+  let missingRequired = false;
 
-  if (files.length === 0) {
-    alert('You must add at least one supporting document.');
+  // Clear previous errors
+  document.querySelectorAll('.error-message').forEach(el => el.classList.remove('show-error'));
+  document.querySelectorAll('.dynamic-attachment-input').forEach(el => el.classList.remove('input-error'));
+  document.getElementById('global-file-error').style.display = 'none';
+
+  attachmentInputs.forEach(input => {
+    const file = input.files[0]; // Assuming single file per requirement row
+    const isRequired = input.dataset.required === 'true';
+
+    if (isRequired && !file) {
+      // Show error for this specific input
+      input.classList.add('input-error');
+      if(input.nextElementSibling && input.nextElementSibling.classList.contains('error-message')) {
+          input.nextElementSibling.classList.add('show-error');
+      }
+      validationPassed = false;
+      missingRequired = true;
+    }
+
+    if (file) {
+      collectedFiles.push(file);
+    }
+  });
+
+  if (missingRequired) {
+    alert("Please upload all required attachments marked with an asterisk (*).");
     return;
   }
-  if (files.length > 5) {
-    alert('You cannot upload more than 5 documents.');
+
+  if (collectedFiles.length === 0) {
+    document.getElementById('global-file-error').textContent = "You must upload at least one document.";
+    document.getElementById('global-file-error').style.display = 'block';
     return;
   }
+
+  if (collectedFiles.length > 5) {
+    document.getElementById('global-file-error').textContent = `You have selected ${collectedFiles.length} files. Maximum allowed is 5.`;
+    document.getElementById('global-file-error').style.display = 'block';
+    alert('You cannot upload more than 5 documents total.');
+    return;
+  }
+  // --- END NEW VALIDATION ---
 
   showSavingOverlay('Processing Files...');
 
-  const filePromises = Array.from(files).map(file => {
+  // Read files using FileReader
+  const filePromises = collectedFiles.map(file => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -5247,15 +5362,15 @@ function submitRequest() {
       Section: document.querySelector('#request-section-dropdown .searchable-dropdown-input')?.value,
       ReportingToId: document.getElementById('reporting-to-id-request')?.value,
       ReportingTo: document.querySelector('#reporting-to-request-dropdown .searchable-dropdown-input')?.value,
-      PositionStatus: document.querySelector('#position-status-request-dropdown .searchable-dropdown-input')?.value,
+      PositionStatus: document.querySelector('#position-status-request-dropdown .searchable-dropdown-input')?.value, // Note: This might be null if not in DOM, handled by ?.
 
       // Replacement fields
       VacantPositionID: document.querySelector('#vacant-position-dropdown .searchable-dropdown-input')?.value,
-      NewEmployeeName: document.getElementById('new-employee-name')?.value,
+      NewEmployeeName: document.getElementById('new-employee-name')?.value, // Note: These might not be present in replacement form based on HTML
       NewEmployeeID: document.getElementById('new-employee-id')?.value,
     };
     
-    // For replacement requests, overwrite/add fields with data from the readonly inputs
+    // For replacement requests, populate readonly fields
     if (requestType === 'Hiring of a new employee (replacement for vacancy)') {
         requestData.NewJobTitle = document.getElementById('request-job-title')?.value;
         requestData.ReportingTo = document.getElementById('request-reporting-to')?.value;
@@ -5265,8 +5380,6 @@ function submitRequest() {
         requestData.Department = document.getElementById('request-department')?.value;
         requestData.Section = document.getElementById('request-section')?.value;
         requestData.NewLevel = document.getElementById('request-level')?.value;
-        requestData.ContractType = document.getElementById('request-contract-type')?.value;
-        requestData.PositionStatus = document.getElementById('request-position-status')?.value;
     }
     
     showSavingOverlay('Submitting Request...');
@@ -5277,7 +5390,7 @@ function submitRequest() {
         alert('Request submitted successfully!');
         closeRequestModal();
         if (document.getElementById('my-requests-view').classList.contains('active')) {
-          drawMyRequestsTable();
+          refreshChangeRequestData(); // Ensure this function is available in scope
         }
       })
       .withFailureHandler((err) => {

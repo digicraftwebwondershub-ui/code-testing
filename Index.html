@@ -560,6 +560,7 @@
   display: block;
 }
 
+
   </style>
 </head>
 <body>
@@ -5140,6 +5141,146 @@ function closeRequestModal() {
   document.getElementById('request-form').reset();
 }
 
+// --- NEW: DYNAMIC REQUEST FILTER LOGIC ---
+
+/**
+ * Initializes the 5-level filter logic for the Request Modal.
+ * This replaces the simple employee dropdown initialization.
+ */
+// --- NEW: DYNAMIC REQUEST FILTER LOGIC (UPDATED) ---
+
+function initializeRequestFilterSystem() {
+  // Initial population of Division data
+  const divisions = [...new Set(fullEmployeeData.map(e => e.division).filter(String))].sort();
+  
+  // Helper to visually reset downstream dropdowns to empty boxes
+  const resetToEmpty = (id) => {
+    // Re-create the dropdown with an empty list []
+    createSearchableDropdown(id, [], null, null, null);
+    
+    // Optional: Clear the actual input value and add a visual indicator indicating it's waiting for data
+    const container = document.getElementById(id);
+    const input = container.querySelector('.searchable-dropdown-input');
+    if(input) {
+        input.value = '';
+        input.placeholder = "Select prev. filter first..."; // Helpful hint
+        container.setAttribute('data-empty', 'true'); // For CSS styling
+    }
+  };
+
+  // --- DEFINE HANDLERS (Reverse Order) ---
+
+  // 4. Section -> Employee Handler
+  function handleSectionChange(division, group, dept, section) {
+    const employees = fullEmployeeData
+      .filter(e => e.division === division && e.group === group && e.department === dept && e.section === section && e.employeeId)
+      .map(e => ({ name: e.employeeName, id: e.employeeId }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    // Populate Employee Dropdown
+    createSearchableDropdown('req-filter-employee', employees, 'name', 'id', (empId) => {
+       autoPopulateRequestFields(empId);
+       document.getElementById('req-filter-employee').removeAttribute('data-empty');
+    });
+    document.getElementById('req-filter-employee').removeAttribute('data-empty');
+  }
+
+  // 3. Department -> Section Handler
+  function handleDeptChange(division, group, dept) {
+    const sections = [...new Set(fullEmployeeData
+      .filter(e => e.division === division && e.group === group && e.department === dept)
+      .map(e => e.section).filter(String))].sort();
+
+    // Populate Section Dropdown
+    createSearchableDropdown('req-filter-section', sections, null, null, (selectedSec) => handleSectionChange(division, group, dept, selectedSec));
+    document.getElementById('req-filter-section').removeAttribute('data-empty');
+
+    // Reset Employee
+    resetToEmpty('req-filter-employee');
+  }
+
+  // 2. Group -> Department Handler
+  function handleGroupChange(division, group) {
+    const depts = [...new Set(fullEmployeeData
+      .filter(e => e.division === division && e.group === group)
+      .map(e => e.department).filter(String))].sort();
+
+    // Populate Department Dropdown
+    createSearchableDropdown('req-filter-department', depts, null, null, (selectedDept) => handleDeptChange(division, group, selectedDept));
+    document.getElementById('req-filter-department').removeAttribute('data-empty');
+
+    // Reset downstream
+    resetToEmpty('req-filter-section');
+    resetToEmpty('req-filter-employee');
+  }
+
+  // --- INITIALIZATION ---
+
+  // 1. Initialize Division (with data)
+  createSearchableDropdown('req-filter-division', divisions, null, null, (selectedDiv) => {
+    // Filter Groups based on Division
+    const groups = [...new Set(fullEmployeeData
+      .filter(e => e.division === selectedDiv)
+      .map(e => e.group).filter(String))].sort();
+    
+    // Populate Group Dropdown
+    createSearchableDropdown('req-filter-group', groups, null, null, (selectedGrp) => handleGroupChange(selectedDiv, selectedGrp));
+    document.getElementById('req-filter-group').removeAttribute('data-empty');
+
+    // Reset downstream
+    resetToEmpty('req-filter-department');
+    resetToEmpty('req-filter-section');
+    resetToEmpty('req-filter-employee');
+  });
+
+  // ⚠️ KEY CHANGE HERE: Immediately initialize the rest as empty boxes ⚠️
+  resetToEmpty('req-filter-group');
+  resetToEmpty('req-filter-department');
+  resetToEmpty('req-filter-section');
+  resetToEmpty('req-filter-employee');
+}
+
+
+/**
+ * Auto-populates the request form based on the selected Employee ID.
+ * Uses the local fullEmployeeData for instant performance.
+ * * UPDATED: Reverted to simple .value assignment for standard input fields.
+ */
+function autoPopulateRequestFields(employeeId) {
+  const employee = fullEmployeeData.find(e => String(e.employeeId).trim() === String(employeeId).trim());
+  
+  if (!employee) return;
+
+  // Common fields mapping (ID -> Value)
+  const fieldMap = {
+    'request-EmployeeID': employee.employeeId,
+    'request-DateHired': employee.dateHired,
+    'request-DateOfBirth': employee.dateOfBirth,
+    'request-Gender': employee.gender,
+    'current-position-id': employee.positionId,
+    'current-reporting-to': employee.managerName,
+    'current-job-title': employee.jobTitle,
+    'current-name': employee.employeeName
+  };
+
+  // Fill fields if they exist in the DOM
+  for (const [id, value] of Object.entries(fieldMap)) {
+    const el = document.getElementById(id);
+    if (el) {
+       el.value = value || '';
+    }
+  }
+
+  // Special handling for the Dropdown Input itself (ensure name is visible)
+  const empInput = document.querySelector('#req-filter-employee .searchable-dropdown-input');
+  if (empInput) empInput.value = employee.employeeName;
+}
+
+
+/**
+ * Handles the change event of the request type dropdown.
+ * Dynamically updates the form fields based on the selected request type.
+ */
 function handleRequestTypeChange() {
   const requestType = document.getElementById('request-type').value;
   const fieldsContainer = document.getElementById('request-fields');
@@ -5147,23 +5288,63 @@ function handleRequestTypeChange() {
 
   if (!requestType) return;
 
-  // --- GENERATE ATTACHMENT SECTION DYNAMICALLY ---
-  const attachmentsHtml = generateAttachmentsHTML(requestType);
+  // --- CONSTANT: THE NEW 5-LEVEL FILTER HTML ---
+  const FILTER_HTML = `
+      <div>
+          <label class="block font-medium">Filter by Division</label>
+          <div id="req-filter-division" class="searchable-dropdown"></div>
+      </div>
+      <div>
+          <label class="block font-medium">Filter by Group</label>
+          <div id="req-filter-group" class="searchable-dropdown"></div>
+      </div>
+      <div>
+          <label class="block font-medium">Filter by Department</label>
+          <div id="req-filter-department" class="searchable-dropdown"></div>
+      </div>
+      <div>
+          <label class="block font-medium">Filter by Section</label>
+          <div id="req-filter-section" class="searchable-dropdown"></div>
+      </div>
+      <div class="md:col-span-2">
+          <label class="block font-medium text-blue-700">Select Employee to Auto-Fill Request Details</label>
+          <div id="req-filter-employee" class="searchable-dropdown"></div>
+      </div>
+      <div class="md:col-span-2 border-b border-gray-200 my-2"></div>
+  `;
 
+  // --- UPDATED CONSTANT: STANDARDIZED READ-ONLY INPUTS (Matches rest of form) ---
+  const EMPLOYEE_DETAILS_HTML = `
+      <div>
+          <label class="block font-medium">Employee ID</label>
+          <input type="text" id="request-EmployeeID" name="EmployeeID" readonly class="mt-1 p-2 w-full border rounded bg-gray-100">
+      </div>
+      <div>
+          <label class="block font-medium">Date Hired</label>
+          <input type="text" id="request-DateHired" name="DateHired" readonly class="mt-1 p-2 w-full border rounded bg-gray-100">
+      </div>
+      <div>
+          <label class="block font-medium">Date of Birth</label>
+          <input type="text" id="request-DateOfBirth" name="DateOfBirth" readonly class="mt-1 p-2 w-full border rounded bg-gray-100">
+      </div>
+      <div>
+          <label class="block font-medium">Gender</label>
+          <input type="text" id="request-Gender" name="Gender" readonly class="mt-1 p-2 w-full border rounded bg-gray-100">
+      </div>
+  `;
+
+  const attachmentsHtml = generateAttachmentsHTML(requestType);
   let fieldsHtml = '';
+  let shouldUseFilters = false;
 
   switch (requestType) {
     case 'Lateral Transfer':
     case 'Promotion':
     case 'Internal Transfer':
+      shouldUseFilters = true;
       fieldsHtml = `
-        <div><label class="block font-medium">Employee</label><div id="employee-request-dropdown" class="searchable-dropdown"></div></div>
-        <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div><label class="block font-medium">Employee ID</label><input type="text" id="request-EmployeeID" name="EmployeeID" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
-          <div><label class="block font-medium">Date Hired</label><input type="text" id="request-DateHired" name="DateHired" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
-          <div><label class="block font-medium">Date of Birth</label><input type="text" id="request-DateOfBirth" name="DateOfBirth" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
-          <div><label class="block font-medium">Gender</label><input type="text" id="request-Gender" name="Gender" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
-        </div>
+        ${FILTER_HTML}
+        ${EMPLOYEE_DETAILS_HTML}
         <div><label class="block font-medium">Current Position ID</label><input type="text" id="current-position-id" name="CurrentPositionID" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
         <div><label class="block font-medium">New Position ID</label><div id="new-position-dropdown" class="searchable-dropdown"></div></div>
         <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -5175,7 +5356,9 @@ function handleRequestTypeChange() {
         ${attachmentsHtml} 
       `;
       break;
+
     case 'Hiring of a new employee (newly created position)':
+      shouldUseFilters = false;
       fieldsHtml = `
         <div class="md:col-span-2 font-bold text-indigo-700">Position Details</div>
         <div><label class="block font-medium">Division</label><div id="request-division-dropdown" class="searchable-dropdown"></div></div>
@@ -5186,16 +5369,16 @@ function handleRequestTypeChange() {
         <div><label class="block font-medium">New Position Level</label><div id="new-level-dropdown" class="searchable-dropdown"></div></div>
         <div><label class="block font-medium">Reporting To</label><div id="reporting-to-request-dropdown" class="searchable-dropdown"></div></div>
         <div><label class="block font-medium">Reporting To Employee ID</label><input type="text" id="reporting-to-id-request" name="ReportingToId" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
-        
         <div class="md:col-span-2 mt-4"><label class="block font-medium">Justification</label><textarea id="justification" name="Justification" class="mt-1 p-2 w-full border rounded" rows="3"></textarea></div>
         ${attachmentsHtml}
       `;
       break;
+
     case 'Hiring of a new employee (replacement for vacancy)':
+      shouldUseFilters = false;
       fieldsHtml = `
         <div class="md:col-span-2 font-bold text-indigo-700">Position to be Filled</div>
         <div class="md:col-span-2"><label class="block font-medium">Vacant Position ID</label><div id="vacant-position-dropdown" class="searchable-dropdown"></div></div>
-        
         <div><label class="block font-medium">Job Title</label><input type="text" id="request-job-title" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
         <div><label class="block font-medium">Reporting To</label><input type="text" id="request-reporting-to" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
         <div><label class="block font-medium">Reporting To ID</label><input type="text" id="request-reporting-to-id" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
@@ -5205,90 +5388,95 @@ function handleRequestTypeChange() {
         <div><label class="block font-medium">Section</label><input type="text" id="request-section" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
         <div><label class="block font-medium">Level</label><input type="text" id="request-level" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
         <div><label class="block font-medium">Effective Vacancy Date</label><input type="date" id="effective-date-request-readonly" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
-        
         <div class="md:col-span-2 mt-4 font-bold text-indigo-700">Request Details</div>
         <div class="md:col-span-2"><label class="block font-medium">Justification</label><textarea id="justification" name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
         ${attachmentsHtml}
       `;
       break;
+
     case 'Change in Employment Status':
     case 'Regularization':
     case 'Resignation/Separation':
-        fieldsHtml = `
-            <div class="md:col-span-2"><label class="block font-medium">Employee</label><div id="employee-request-dropdown" class="searchable-dropdown"></div></div>
-            <div><label class="block font-medium">New Status</label><div id="new-status-dropdown" class="searchable-dropdown"></div></div>
-            <div><label class="block font-medium">Effective Date</label><input type="date" name="EffectiveDate" class="mt-1 p-2 w-full border rounded"></div>
-            <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
-            ${attachmentsHtml}
-        `;
-        break;
+      shouldUseFilters = true;
+      fieldsHtml = `
+        ${FILTER_HTML}
+        ${EMPLOYEE_DETAILS_HTML}
+        <div><label class="block font-medium">New Status</label><div id="new-status-dropdown" class="searchable-dropdown"></div></div>
+        <div><label class="block font-medium">Effective Date</label><input type="date" name="EffectiveDate" class="mt-1 p-2 w-full border rounded"></div>
+        <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
+        ${attachmentsHtml}
+      `;
+      break;
+
     case 'Change in Reporting line':
-        fieldsHtml = `
-            <div class="md:col-span-2"><label class="block font-medium">Employee</label><div id="employee-request-dropdown" class="searchable-dropdown"></div></div>
-            <div><label class="block font-medium">Current Reporting To</label><input type="text" id="current-reporting-to" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
-            <div><label class="block font-medium">New Reporting To</label><div id="new-reporting-to-dropdown" class="searchable-dropdown"></div></div>
-            <div><label class="block font-medium">Effective Date</label><input type="date" name="EffectiveDate" class="mt-1 p-2 w-full border rounded"></div>
-            <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
-            ${attachmentsHtml}
-        `;
-        break;
+      shouldUseFilters = true;
+      fieldsHtml = `
+        ${FILTER_HTML}
+        ${EMPLOYEE_DETAILS_HTML}
+        <div><label class="block font-medium">Current Reporting To</label><input type="text" id="current-reporting-to" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
+        <div><label class="block font-medium">New Reporting To</label><div id="new-reporting-to-dropdown" class="searchable-dropdown"></div></div>
+        <div><label class="block font-medium">Effective Date</label><input type="date" name="EffectiveDate" class="mt-1 p-2 w-full border rounded"></div>
+        <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
+        ${attachmentsHtml}
+      `;
+      break;
+
     case 'Job Title/Position Change (without promotion)':
-        fieldsHtml = `
-            <div class="md:col-span-2"><label class="block font-medium">Employee</label><div id="employee-request-dropdown" class="searchable-dropdown"></div></div>
-            <div><label class="block font-medium">Current Job Title</label><input type="text" id="current-job-title" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
-            <div><label class="block font-medium">New Job Title</label><div id="new-job-title-dropdown" class="searchable-dropdown"></div></div>
-            <div><label class="block font-medium">Effective Date</label><input type="date" name="EffectiveDate" class="mt-1 p-2 w-full border rounded"></div>
-            <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
-            ${attachmentsHtml}
-        `;
-        break;
+      shouldUseFilters = true;
+      fieldsHtml = `
+        ${FILTER_HTML}
+        ${EMPLOYEE_DETAILS_HTML}
+        <div><label class="block font-medium">Current Job Title</label><input type="text" id="current-job-title" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
+        <div><label class="block font-medium">New Job Title</label><div id="new-job-title-dropdown" class="searchable-dropdown"></div></div>
+        <div><label class="block font-medium">Effective Date</label><input type="date" name="EffectiveDate" class="mt-1 p-2 w-full border rounded"></div>
+        <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
+        ${attachmentsHtml}
+      `;
+      break;
+
     case 'Name Correction/Update of Employee Information':
-        fieldsHtml = `
-            <div class="md:col-span-2"><label class="block font-medium">Employee</label><div id="employee-request-dropdown" class="searchable-dropdown"></div></div>
-            <div><label class="block font-medium">Current Name</label><input type="text" id="current-name" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
-            <div><label class="block font-medium">New/Corrected Name</label><input type="text" name="NewName" class="mt-1 p-2 w-full border rounded"></div>
-            <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
-            ${attachmentsHtml}
-        `;
-        break;
+      shouldUseFilters = true;
+      fieldsHtml = `
+        ${FILTER_HTML}
+        ${EMPLOYEE_DETAILS_HTML}
+        <div><label class="block font-medium">Current Name</label><input type="text" id="current-name" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
+        <div><label class="block font-medium">New/Corrected Name</label><input type="text" name="NewName" class="mt-1 p-2 w-full border rounded"></div>
+        <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
+        ${attachmentsHtml}
+      `;
+      break;
+
     case 'Position on Hold/Cancelled/Deleted':
-        fieldsHtml = `
-            <div class="md:col-span-2"><label class="block font-medium">Position ID</label><div id="position-id-dropdown" class="searchable-dropdown"></div></div>
-            <div class="md:col-span-2"><label class="block font-medium">Action</label>
-                <select name="Action" class="mt-1 p-2 w-full border rounded">
-                    <option>On Hold</option>
-                    <option>Cancelled</option>
-                    <option>Deleted</option>
-                </select>
-            </div>
-            <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
-            ${attachmentsHtml}
-        `;
-        break;
+      shouldUseFilters = false; 
+      fieldsHtml = `
+        <div class="md:col-span-2"><label class="block font-medium">Position ID</label><div id="position-id-dropdown" class="searchable-dropdown"></div></div>
+        <div class="md:col-span-2"><label class="block font-medium">Action</label>
+            <select name="Action" class="mt-1 p-2 w-full border rounded">
+                <option>On Hold</option>
+                <option>Cancelled</option>
+                <option>Deleted</option>
+            </select>
+        </div>
+        <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
+        ${attachmentsHtml}
+      `;
+      break;
+
     default:
         fieldsHtml = '<p class="text-gray-500 md:col-span-2">This request type is not yet implemented.</p>';
         break;
   }
+  
+  // INJECT HTML
   fieldsContainer.innerHTML = fieldsHtml;
 
-  // --- RE-INITIALIZE DROPDOWNS (No change to this part) ---
+  // --- INITIALIZE THE NEW FILTERS ---
+  if (shouldUseFilters) {
+    initializeRequestFilterSystem();
+  }
+
+  // --- RE-INITIALIZE STANDARD DROPDOWNS FOR SPECIFIC TYPES ---
   if (requestType.includes('Transfer') || requestType.includes('Promotion')) {
-    createSearchableDropdown('employee-request-dropdown', dropdownListData.managers || [], 'name', 'name', (employeeName) => {
-      const employee = fullEmployeeData.find(e => e.employeeName === employeeName);
-      if (employee) {
-        document.getElementById('current-position-id').value = employee.positionId;
-        google.script.run.withSuccessHandler(details => {
-            if (details) {
-              document.getElementById('request-EmployeeID').value = details.employeeId || '';
-              document.getElementById('request-DateHired').value = details.dateHired || '';
-              document.getElementById('request-DateOfBirth').value = details.dateOfBirth || '';
-              document.getElementById('request-Gender').value = details.gender || '';
-            }
-          }).getEmployeeDetails(employeeName);
-      } else {
-         document.getElementById('current-position-id').value = '';
-      }
-    });
     const vacantPositions = fullEmployeeData.filter(p => !p.employeeId).map(p => p.positionId);
     createSearchableDropdown('new-position-dropdown', vacantPositions, null, null, (positionId) => {
         const input = document.querySelector('#new-position-dropdown .searchable-dropdown-input');
@@ -5301,6 +5489,7 @@ function handleRequestTypeChange() {
         }
     });
   }
+
   if (requestType.includes('newly created')) {
     createSearchableDropdown('new-job-title-dropdown', dropdownListData.jobtitle || [], null, null, (val) => {
         const input = document.querySelector('#new-job-title-dropdown .searchable-dropdown-input');
@@ -5318,6 +5507,7 @@ function handleRequestTypeChange() {
     createSearchableDropdown('request-department-dropdown', [], null, null, (sel) => updateRequestLocationDropdowns('department', sel));
     createSearchableDropdown('request-section-dropdown', [], null, null, null);
   }
+
   if (requestType.includes('replacement')) {
     const vacantPositions = fullEmployeeData.filter(p => !p.employeeId).map(p => p.positionId);
     createSearchableDropdown('vacant-position-dropdown', vacantPositions, null, null, (positionId) => {
@@ -5337,8 +5527,44 @@ function handleRequestTypeChange() {
       }
     });
   }
+
+  // --- UPDATED SECTION: Status, Regularization, Resignation, Separation ---
+  if (requestType.includes('Status') || requestType.includes('Regularization') || requestType.includes('Resignation') || requestType.includes('Separation')) {
+      const statuses = dropdownListData.status || [];
+      createSearchableDropdown('new-status-dropdown', statuses, null, null, (val) => {
+          const input = document.querySelector('#new-status-dropdown .searchable-dropdown-input');
+          input.name = "NewStatus"; 
+      });
+  }
+
+  if (requestType.includes('Reporting line')) {
+      createSearchableDropdown('new-reporting-to-dropdown', dropdownListData.managers || [], 'name', 'name', (val) => {
+          const emp = fullEmployeeData.find(e => e.employeeName === val);
+          const input = document.querySelector('#new-reporting-to-dropdown .searchable-dropdown-input');
+          input.name = "NewReportingToName";
+      });
+  }
+
+  if (requestType.includes('Job Title/Position Change')) {
+      createSearchableDropdown('new-job-title-dropdown', dropdownListData.jobtitle || [], null, null, (val) => {
+          const input = document.querySelector('#new-job-title-dropdown .searchable-dropdown-input');
+          input.name = "NewJobTitle";
+      });
+  }
+  
+  if (requestType.includes('Position on Hold')) {
+      const allPositions = fullEmployeeData.map(p => p.positionId);
+      createSearchableDropdown('position-id-dropdown', allPositions, null, null, (val) => {
+          const input = document.querySelector('#position-id-dropdown .searchable-dropdown-input');
+          input.name = "PositionID";
+      });
+  }
 }
 
+/**
+ * Gathers all form data, validates attachments, and submits the request to the server.
+ * * UPDATED: Reverted to standard .value reading for all fields.
+ */
 function submitRequest() {
   const requestType = document.getElementById('request-type').value;
   if (!requestType) {
@@ -5352,23 +5578,21 @@ function submitRequest() {
     return;
   }
 
-  // --- NEW: ATTACHMENT COLLECTION & VALIDATION ---
+  // --- ATTACHMENT COLLECTION & VALIDATION ---
   const attachmentInputs = document.querySelectorAll('.dynamic-attachment-input');
   let collectedFiles = [];
   let validationPassed = true;
   let missingRequired = false;
 
-  // Clear previous errors
   document.querySelectorAll('.error-message').forEach(el => el.classList.remove('show-error'));
   document.querySelectorAll('.dynamic-attachment-input').forEach(el => el.classList.remove('input-error'));
   document.getElementById('global-file-error').style.display = 'none';
 
   attachmentInputs.forEach(input => {
-    const file = input.files[0]; // Assuming single file per requirement row
+    const file = input.files[0];
     const isRequired = input.dataset.required === 'true';
 
     if (isRequired && !file) {
-      // Show error for this specific input
       input.classList.add('input-error');
       if(input.nextElementSibling && input.nextElementSibling.classList.contains('error-message')) {
           input.nextElementSibling.classList.add('show-error');
@@ -5387,27 +5611,17 @@ function submitRequest() {
     return;
   }
 
-  if (collectedFiles.length === 0) {
-    document.getElementById('global-file-error').textContent = "You must upload at least one document.";
-    document.getElementById('global-file-error').style.display = 'block';
-    return;
-  }
-
   if (collectedFiles.length > 5) {
-    document.getElementById('global-file-error').textContent = `You have selected ${collectedFiles.length} files. Maximum allowed is 5.`;
-    document.getElementById('global-file-error').style.display = 'block';
     alert('You cannot upload more than 5 documents total.');
     return;
   }
-  // --- END NEW VALIDATION ---
 
   showSavingOverlay('Processing Files...');
 
-  // Read files using FileReader
   const filePromises = Array.from(attachmentInputs).map(input => {
     const file = input.files[0];
     if (!file) {
-      return Promise.resolve(null); // Resolve with null if no file is selected
+      return Promise.resolve(null); 
     }
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -5415,8 +5629,8 @@ function submitRequest() {
         const fileData = {
           name: file.name,
           mimeType: file.type,
-          content: e.target.result.split(',')[1], // Get base64 content
-          label: input.dataset.label // Capture the data-label attribute
+          content: e.target.result.split(',')[1],
+          label: input.dataset.label
         };
         resolve(fileData);
       };
@@ -5426,8 +5640,12 @@ function submitRequest() {
   });
 
   Promise.all(filePromises).then(fileContents => {
-    // Filter out null values for inputs that didn't have a file
     const validFiles = fileContents.filter(file => file !== null);
+
+    let empName = document.querySelector('#req-filter-employee .searchable-dropdown-input')?.value;
+    if (!empName) {
+        empName = document.querySelector('#employee-request-dropdown .searchable-dropdown-input')?.value;
+    }
 
     const requestData = {
       // Common fields
@@ -5436,19 +5654,19 @@ function submitRequest() {
       Justification: document.getElementById('justification')?.value,
       EffectiveDate: document.getElementById('effective-date-request')?.value,
       files: validFiles,
+      EmployeeName: empName,
 
-      // Transfer/Promotion fields
+      // --- UPDATED: Standard .value reading ---
       EmployeeID: document.getElementById('request-EmployeeID')?.value,
       DateHired: document.getElementById('request-DateHired')?.value,
       DateOfBirth: document.getElementById('request-DateOfBirth')?.value,
-      EmployeeName: document.querySelector('#employee-request-dropdown .searchable-dropdown-input')?.value,
+      Gender: document.getElementById('request-Gender')?.value,
+
+      // Other input fields
       CurrentPositionID: document.getElementById('current-position-id')?.value,
       NewPositionID: document.querySelector('#new-position-dropdown .searchable-dropdown-input')?.value,
-      Gender: document.getElementById('request-Gender')?.value,
       NewReportingTo: document.getElementById('request-NewReportingTo')?.value,
       NewReportingToId: document.getElementById('request-NewReportingToId')?.value,
-
-      // New Position fields
       NewJobTitle: document.querySelector('#new-job-title-dropdown .searchable-dropdown-input')?.value,
       NewLevel: document.querySelector('#new-level-dropdown .searchable-dropdown-input')?.value,
       Division: document.querySelector('#request-division-dropdown .searchable-dropdown-input')?.value,
@@ -5457,12 +5675,16 @@ function submitRequest() {
       Section: document.querySelector('#request-section-dropdown .searchable-dropdown-input')?.value,
       ReportingToId: document.getElementById('reporting-to-id-request')?.value,
       ReportingTo: document.querySelector('#reporting-to-request-dropdown .searchable-dropdown-input')?.value,
-      PositionStatus: document.querySelector('#position-status-request-dropdown .searchable-dropdown-input')?.value, // Note: This might be null if not in DOM, handled by ?.
+      NewStatus: document.querySelector('#new-status-dropdown .searchable-dropdown-input')?.value, 
+      ReasonForLeaving: document.querySelector('#new-status-dropdown .searchable-dropdown-input')?.value,
 
       // Replacement fields
       VacantPositionID: document.querySelector('#vacant-position-dropdown .searchable-dropdown-input')?.value,
-      NewEmployeeName: document.getElementById('new-employee-name')?.value, // Note: These might not be present in replacement form based on HTML
+      NewEmployeeName: document.getElementById('new-employee-name')?.value,
       NewEmployeeID: document.getElementById('new-employee-id')?.value,
+      
+      // Reporting Line Change
+      NewReportingToName: document.querySelector('#new-reporting-to-dropdown .searchable-dropdown-input')?.value
     };
     
     // For replacement requests, populate readonly fields
@@ -5484,8 +5706,8 @@ function submitRequest() {
         hideSavingOverlay();
         alert('Request submitted successfully!');
         closeRequestModal();
-        if (document.getElementById('my-requests-view').classList.contains('active')) {
-          refreshChangeRequestData(); // Ensure this function is available in scope
+        if (typeof refreshChangeRequestData === 'function') {
+             refreshChangeRequestData(); 
         }
       })
       .withFailureHandler((err) => {

@@ -1614,6 +1614,32 @@
 </div>
 <div id="custom-tooltip" onmouseover="clearTimeout(tooltipTimeout)" onmouseout="hideTooltip()"></div>
 
+<div id="return-modal" class="modal-overlay">
+  <div class="modal-content" style="max-width: 500px;">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-xl font-bold text-slate-800">Return Request</h2>
+      <button onclick="closeReturnModal()" class="text-gray-500 hover:text-gray-800 text-2xl font-bold">&times;</button>
+    </div>
+    
+    <p class="text-sm text-gray-600 mb-4">Please indicate why this request is being returned. Select the fields that need correction.</p>
+    
+    <form id="return-form" class="space-y-3 max-h-[60vh] overflow-y-auto p-1">
+        <div class="space-y-2" id="return-checklist-container">
+            </div>
+        
+        <div class="mt-4 pt-4 border-t">
+            <label class="block font-bold text-sm text-gray-700 mb-1">Additional Comments / Instructions</label>
+            <textarea id="return-general-comment" class="w-full p-2 border rounded text-sm" rows="3" placeholder="Provide overall instructions here..."></textarea>
+        </div>
+    </form>
+
+    <div class="mt-6 flex justify-end gap-3">
+      <button onclick="closeReturnModal()" class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Cancel</button>
+      <button onclick="submitReturnDecision()" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 font-bold">Return Request</button>
+    </div>
+  </div>
+ </div> 
+
 <!-- My Requests View -->
 <div id="my-requests-view" class="tab-content">
   <div class="p-4 sm:p-6 bg-white rounded-lg shadow-md">
@@ -5243,8 +5269,6 @@ function initializeRequestFilterSystem() {
 
 /**
  * Auto-populates the request form based on the selected Employee ID.
- * Uses the local fullEmployeeData for instant performance.
- * * UPDATED: Reverted to simple .value assignment for standard input fields.
  */
 function autoPopulateRequestFields(employeeId) {
   const employee = fullEmployeeData.find(e => String(e.employeeId).trim() === String(employeeId).trim());
@@ -5260,7 +5284,17 @@ function autoPopulateRequestFields(employeeId) {
     'current-position-id': employee.positionId,
     'current-reporting-to': employee.managerName,
     'current-job-title': employee.jobTitle,
-    'current-name': employee.employeeName
+    'current-name': employee.employeeName,
+    
+    // --- NEW: Map additional fields for Resignation ---
+    'request-Division': employee.division,
+    'request-Group': employee.group,
+    'request-Department': employee.department,
+    'request-Section': employee.section,
+    'request-JobTitle': employee.jobTitle,
+    'request-Level': employee.level,
+    'request-JobLevel': employee.jobLevel,
+    'request-ContractType': employee.contractType
   };
 
   // Fill fields if they exist in the DOM
@@ -5271,16 +5305,12 @@ function autoPopulateRequestFields(employeeId) {
     }
   }
 
-  // Special handling for the Dropdown Input itself (ensure name is visible)
+  // Special handling for the Dropdown Input itself
   const empInput = document.querySelector('#req-filter-employee .searchable-dropdown-input');
   if (empInput) empInput.value = employee.employeeName;
 }
 
 
-/**
- * Handles the change event of the request type dropdown.
- * Dynamically updates the form fields based on the selected request type.
- */
 function handleRequestTypeChange() {
   const requestType = document.getElementById('request-type').value;
   const fieldsContainer = document.getElementById('request-fields');
@@ -5288,49 +5318,31 @@ function handleRequestTypeChange() {
 
   if (!requestType) return;
 
-  // --- CONSTANT: THE NEW 5-LEVEL FILTER HTML ---
   const FILTER_HTML = `
-      <div>
-          <label class="block font-medium">Filter by Division</label>
-          <div id="req-filter-division" class="searchable-dropdown"></div>
-      </div>
-      <div>
-          <label class="block font-medium">Filter by Group</label>
-          <div id="req-filter-group" class="searchable-dropdown"></div>
-      </div>
-      <div>
-          <label class="block font-medium">Filter by Department</label>
-          <div id="req-filter-department" class="searchable-dropdown"></div>
-      </div>
-      <div>
-          <label class="block font-medium">Filter by Section</label>
-          <div id="req-filter-section" class="searchable-dropdown"></div>
-      </div>
-      <div class="md:col-span-2">
-          <label class="block font-medium text-blue-700">Select Employee to Auto-Fill Request Details</label>
-          <div id="req-filter-employee" class="searchable-dropdown"></div>
-      </div>
+      <div><label class="block font-medium">Filter by Division</label><div id="req-filter-division" class="searchable-dropdown"></div></div>
+      <div><label class="block font-medium">Filter by Group</label><div id="req-filter-group" class="searchable-dropdown"></div></div>
+      <div><label class="block font-medium">Filter by Department</label><div id="req-filter-department" class="searchable-dropdown"></div></div>
+      <div><label class="block font-medium">Filter by Section</label><div id="req-filter-section" class="searchable-dropdown"></div></div>
+      <div class="md:col-span-2"><label class="block font-medium text-blue-700">Select Employee to Auto-Fill Request Details</label><div id="req-filter-employee" class="searchable-dropdown"></div></div>
       <div class="md:col-span-2 border-b border-gray-200 my-2"></div>
   `;
 
-  // --- UPDATED CONSTANT: STANDARDIZED READ-ONLY INPUTS (Matches rest of form) ---
   const EMPLOYEE_DETAILS_HTML = `
-      <div>
-          <label class="block font-medium">Employee ID</label>
-          <input type="text" id="request-EmployeeID" name="EmployeeID" readonly class="mt-1 p-2 w-full border rounded bg-gray-100">
-      </div>
-      <div>
-          <label class="block font-medium">Date Hired</label>
-          <input type="text" id="request-DateHired" name="DateHired" readonly class="mt-1 p-2 w-full border rounded bg-gray-100">
-      </div>
-      <div>
-          <label class="block font-medium">Date of Birth</label>
-          <input type="text" id="request-DateOfBirth" name="DateOfBirth" readonly class="mt-1 p-2 w-full border rounded bg-gray-100">
-      </div>
-      <div>
-          <label class="block font-medium">Gender</label>
-          <input type="text" id="request-Gender" name="Gender" readonly class="mt-1 p-2 w-full border rounded bg-gray-100">
-      </div>
+      <div><label class="block font-medium">Employee ID</label><input type="text" id="request-EmployeeID" name="EmployeeID" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
+      <div><label class="block font-medium">Date Hired</label><input type="text" id="request-DateHired" name="DateHired" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
+      <div><label class="block font-medium">Date of Birth</label><input type="text" id="request-DateOfBirth" name="DateOfBirth" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
+      <div><label class="block font-medium">Gender</label><input type="text" id="request-Gender" name="Gender" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
+  `;
+
+  const RESIGNATION_DETAILS_HTML = `
+      <div><label class="block font-medium">Division</label><input type="text" id="request-Division" name="Division" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
+      <div><label class="block font-medium">Group</label><input type="text" id="request-Group" name="Group" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
+      <div><label class="block font-medium">Department</label><input type="text" id="request-Department" name="Department" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
+      <div><label class="block font-medium">Section</label><input type="text" id="request-Section" name="Section" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
+      <div><label class="block font-medium">Job Title</label><input type="text" id="request-JobTitle" name="JobTitle" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
+      <div><label class="block font-medium">Level</label><input type="text" id="request-Level" name="Level" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
+      <div><label class="block font-medium">Job Level</label><input type="text" id="request-JobLevel" name="JobLevel" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
+      <div><label class="block font-medium">Contract Type</label><input type="text" id="request-ContractType" name="ContractType" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
   `;
 
   const attachmentsHtml = generateAttachmentsHTML(requestType);
@@ -5394,16 +5406,29 @@ function handleRequestTypeChange() {
       `;
       break;
 
-    case 'Change in Employment Status':
-    case 'Regularization':
     case 'Resignation/Separation':
       shouldUseFilters = true;
       fieldsHtml = `
         ${FILTER_HTML}
         ${EMPLOYEE_DETAILS_HTML}
+        ${RESIGNATION_DETAILS_HTML}
         <div><label class="block font-medium">New Status</label><div id="new-status-dropdown" class="searchable-dropdown"></div></div>
-        <div><label class="block font-medium">Effective Date</label><input type="date" name="EffectiveDate" class="mt-1 p-2 w-full border rounded"></div>
-        <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
+        <div><label class="block font-medium">Reason for Leaving</label><div id="reason-leaving-request-dropdown" class="searchable-dropdown"></div></div>
+        <div><label class="block font-medium">Effective Date</label><input type="date" id="effective-date-request" name="EffectiveDate" class="mt-1 p-2 w-full border rounded"></div>
+        <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea id="justification" name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
+        ${attachmentsHtml}
+      `;
+      break;
+
+    case 'Change in Employment Status':
+    case 'Regularization':
+      shouldUseFilters = true;
+      fieldsHtml = `
+        ${FILTER_HTML}
+        ${EMPLOYEE_DETAILS_HTML}
+        <div><label class="block font-medium">New Status</label><div id="new-status-dropdown" class="searchable-dropdown"></div></div>
+        <div><label class="block font-medium">Effective Date</label><input type="date" id="effective-date-request" name="EffectiveDate" class="mt-1 p-2 w-full border rounded"></div>
+        <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea id="justification" name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
         ${attachmentsHtml}
       `;
       break;
@@ -5415,8 +5440,8 @@ function handleRequestTypeChange() {
         ${EMPLOYEE_DETAILS_HTML}
         <div><label class="block font-medium">Current Reporting To</label><input type="text" id="current-reporting-to" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
         <div><label class="block font-medium">New Reporting To</label><div id="new-reporting-to-dropdown" class="searchable-dropdown"></div></div>
-        <div><label class="block font-medium">Effective Date</label><input type="date" name="EffectiveDate" class="mt-1 p-2 w-full border rounded"></div>
-        <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
+        <div><label class="block font-medium">Effective Date</label><input type="date" id="effective-date-request" name="EffectiveDate" class="mt-1 p-2 w-full border rounded"></div>
+        <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea id="justification" name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
         ${attachmentsHtml}
       `;
       break;
@@ -5428,8 +5453,8 @@ function handleRequestTypeChange() {
         ${EMPLOYEE_DETAILS_HTML}
         <div><label class="block font-medium">Current Job Title</label><input type="text" id="current-job-title" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
         <div><label class="block font-medium">New Job Title</label><div id="new-job-title-dropdown" class="searchable-dropdown"></div></div>
-        <div><label class="block font-medium">Effective Date</label><input type="date" name="EffectiveDate" class="mt-1 p-2 w-full border rounded"></div>
-        <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
+        <div><label class="block font-medium">Effective Date</label><input type="date" id="effective-date-request" name="EffectiveDate" class="mt-1 p-2 w-full border rounded"></div>
+        <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea id="justification" name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
         ${attachmentsHtml}
       `;
       break;
@@ -5440,8 +5465,8 @@ function handleRequestTypeChange() {
         ${FILTER_HTML}
         ${EMPLOYEE_DETAILS_HTML}
         <div><label class="block font-medium">Current Name</label><input type="text" id="current-name" readonly class="mt-1 p-2 w-full border rounded bg-gray-100"></div>
-        <div><label class="block font-medium">New/Corrected Name</label><input type="text" name="NewName" class="mt-1 p-2 w-full border rounded"></div>
-        <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
+        <div><label class="block font-medium">New/Corrected Name</label><input type="text" id="new-employee-name" name="NewName" class="mt-1 p-2 w-full border rounded"></div>
+        <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea id="justification" name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
         ${attachmentsHtml}
       `;
       break;
@@ -5457,7 +5482,7 @@ function handleRequestTypeChange() {
                 <option>Deleted</option>
             </select>
         </div>
-        <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
+        <div class="md:col-span-2"><label class="block font-medium">Remarks/Justification</label><textarea id="justification" name="Justification" class="mt-1 p-2 w-full border rounded"></textarea></div>
         ${attachmentsHtml}
       `;
       break;
@@ -5467,47 +5492,51 @@ function handleRequestTypeChange() {
         break;
   }
   
-  // INJECT HTML
   fieldsContainer.innerHTML = fieldsHtml;
 
-  // --- INITIALIZE THE NEW FILTERS ---
-  if (shouldUseFilters) {
-    initializeRequestFilterSystem();
-  }
+  if (shouldUseFilters) initializeRequestFilterSystem();
 
-  // --- RE-INITIALIZE STANDARD DROPDOWNS FOR SPECIFIC TYPES ---
+  // --- RE-INITIALIZATION LOGIC ---
   if (requestType.includes('Transfer') || requestType.includes('Promotion')) {
+    // --- FIX: Filter for VACANT positions only ---
     const vacantPositions = fullEmployeeData.filter(p => !p.employeeId).map(p => p.positionId);
+    
     createSearchableDropdown('new-position-dropdown', vacantPositions, null, null, (positionId) => {
         const input = document.querySelector('#new-position-dropdown .searchable-dropdown-input');
-        input.name = "NewPositionID";
-        input.value = positionId;
+        input.name = "NewPositionID"; input.value = positionId;
         const selectedPosition = fullEmployeeData.find(p => p.positionId === positionId);
         if (selectedPosition) {
             document.getElementById('request-NewReportingTo').value = selectedPosition.managerName || '';
             document.getElementById('request-NewReportingToId').value = selectedPosition.managerEmployeeId || '';
         }
     });
+
+    // --- BLUR LISTENER: Allows searching whole DB if user types manual ID ---
+    const newPosInput = document.querySelector('#new-position-dropdown .searchable-dropdown-input');
+    if (newPosInput) {
+        newPosInput.addEventListener('blur', function() {
+            const typedId = this.value;
+            const selectedPosition = fullEmployeeData.find(p => p.positionId === typedId);
+            if (selectedPosition) {
+                document.getElementById('request-NewReportingTo').value = selectedPosition.managerName || '';
+                document.getElementById('request-NewReportingToId').value = selectedPosition.managerEmployeeId || '';
+            } else {
+                document.getElementById('request-NewReportingTo').value = '';
+                document.getElementById('request-NewReportingToId').value = '';
+            }
+        });
+    }
   }
 
   if (requestType.includes('newly created')) {
-    createSearchableDropdown('new-job-title-dropdown', dropdownListData.jobtitle || [], null, null, (val) => {
-        const input = document.querySelector('#new-job-title-dropdown .searchable-dropdown-input');
-        input.name = "NewJobTitle";
-    });
-    createSearchableDropdown('new-level-dropdown', dropdownListData.level || [], null, null, (val) => {
-        const input = document.querySelector('#new-level-dropdown .searchable-dropdown-input');
-        input.name = "NewLevel";
-    });
-    createSearchableDropdown('reporting-to-request-dropdown', dropdownListData.managers || [], 'name', 'id', (employeeId) => {
-      document.getElementById('reporting-to-id-request').value = employeeId;
-    });
+    createSearchableDropdown('new-job-title-dropdown', dropdownListData.jobtitle || [], null, null, (val) => { document.querySelector('#new-job-title-dropdown .searchable-dropdown-input').name = "NewJobTitle"; });
+    createSearchableDropdown('new-level-dropdown', dropdownListData.level || [], null, null, (val) => { document.querySelector('#new-level-dropdown .searchable-dropdown-input').name = "NewLevel"; });
+    createSearchableDropdown('reporting-to-request-dropdown', dropdownListData.managers || [], 'name', 'id', (id) => { document.getElementById('reporting-to-id-request').value = id; });
     createSearchableDropdown('request-division-dropdown', dropdownListData.divisions || [], null, null, (sel) => updateRequestLocationDropdowns('division', sel));
     createSearchableDropdown('request-group-dropdown', [], null, null, (sel) => updateRequestLocationDropdowns('group', sel));
     createSearchableDropdown('request-department-dropdown', [], null, null, (sel) => updateRequestLocationDropdowns('department', sel));
     createSearchableDropdown('request-section-dropdown', [], null, null, null);
   }
-
   if (requestType.includes('replacement')) {
     const vacantPositions = fullEmployeeData.filter(p => !p.employeeId).map(p => p.positionId);
     createSearchableDropdown('vacant-position-dropdown', vacantPositions, null, null, (positionId) => {
@@ -5521,67 +5550,62 @@ function handleRequestTypeChange() {
         document.getElementById('request-department').value = position.department || '';
         document.getElementById('request-section').value = position.section || '';
         document.getElementById('request-level').value = position.level || '';
-        google.script.run.withSuccessHandler(info => {
-            if (info && info.dateBecameVacant) document.getElementById('effective-date-request-readonly').value = info.dateBecameVacant;
-          }).getLastIncumbentInfo(positionId);
+        google.script.run.withSuccessHandler(info => { if (info && info.dateBecameVacant) document.getElementById('effective-date-request-readonly').value = info.dateBecameVacant; }).getLastIncumbentInfo(positionId);
       }
     });
   }
-
-  // --- UPDATED SECTION: Status, Regularization, Resignation, Separation ---
+  
   if (requestType.includes('Status') || requestType.includes('Regularization') || requestType.includes('Resignation') || requestType.includes('Separation')) {
-      const statuses = dropdownListData.status || [];
-      createSearchableDropdown('new-status-dropdown', statuses, null, null, (val) => {
-          const input = document.querySelector('#new-status-dropdown .searchable-dropdown-input');
-          input.name = "NewStatus"; 
-      });
-  }
-
-  if (requestType.includes('Reporting line')) {
-      createSearchableDropdown('new-reporting-to-dropdown', dropdownListData.managers || [], 'name', 'name', (val) => {
-          const emp = fullEmployeeData.find(e => e.employeeName === val);
-          const input = document.querySelector('#new-reporting-to-dropdown .searchable-dropdown-input');
-          input.name = "NewReportingToName";
-      });
-  }
-
-  if (requestType.includes('Job Title/Position Change')) {
-      createSearchableDropdown('new-job-title-dropdown', dropdownListData.jobtitle || [], null, null, (val) => {
-          const input = document.querySelector('#new-job-title-dropdown .searchable-dropdown-input');
-          input.name = "NewJobTitle";
-      });
+      createSearchableDropdown('new-status-dropdown', dropdownListData.status || [], null, null, (val) => { document.querySelector('#new-status-dropdown .searchable-dropdown-input').name = "NewStatus"; });
+      
+      if (requestType.includes('Resignation') || requestType.includes('Separation')) {
+          createSearchableDropdown('reason-leaving-request-dropdown', dropdownListData.reasonforleaving || [], null, null, (val) => {
+              const input = document.querySelector('#reason-leaving-request-dropdown .searchable-dropdown-input');
+              input.name = "ReasonForLeaving";
+          });
+      }
   }
   
+  if (requestType.includes('Reporting line')) {
+      createSearchableDropdown('new-reporting-to-dropdown', dropdownListData.managers || [], 'name', 'name', (val) => { document.querySelector('#new-reporting-to-dropdown .searchable-dropdown-input').name = "NewReportingToName"; });
+  }
+  if (requestType.includes('Job Title/Position Change')) {
+      createSearchableDropdown('new-job-title-dropdown', dropdownListData.jobtitle || [], null, null, (val) => { document.querySelector('#new-job-title-dropdown .searchable-dropdown-input').name = "NewJobTitle"; });
+  }
   if (requestType.includes('Position on Hold')) {
       const allPositions = fullEmployeeData.map(p => p.positionId);
-      createSearchableDropdown('position-id-dropdown', allPositions, null, null, (val) => {
-          const input = document.querySelector('#position-id-dropdown .searchable-dropdown-input');
-          input.name = "PositionID";
-      });
+      createSearchableDropdown('position-id-dropdown', allPositions, null, null, (val) => { document.querySelector('#position-id-dropdown .searchable-dropdown-input').name = "PositionID"; });
   }
 }
 
-/**
- * Gathers all form data, validates attachments, and submits the request to the server.
- * * UPDATED: Reverted to standard .value reading for all fields.
- */
 function submitRequest() {
   const requestType = document.getElementById('request-type').value;
-  if (!requestType) {
-    alert('Please select a request type.');
-    return;
-  }
+  if (!requestType) { alert('Please select a request type.'); return; }
 
   const approver = document.getElementById('approver-email-select').value;
-  if (!approver) {
-    alert('Please select an approver.');
-    return;
+  // --- FIX: Prevent submission if no approver selected ---
+  if (!approver || approver === "") { 
+    alert('Please select an approver before submitting.'); 
+    return; 
   }
 
-  // --- ATTACHMENT COLLECTION & VALIDATION ---
+  if (requestType.includes('Position on Hold') || requestType.includes('Cancelled') || requestType.includes('Deleted')) {
+      const posId = document.querySelector('#position-id-dropdown .searchable-dropdown-input')?.value;
+      const action = document.querySelector('select[name="Action"]')?.value;
+      if (!posId || !action) { alert('Please select both a Position ID and an Action.'); return; }
+  }
+
+  if (requestType.includes('Promotion') || requestType.includes('Transfer')) {
+      const newPosId = document.querySelector('#new-position-dropdown .searchable-dropdown-input')?.value;
+      if (!newPosId) { alert('Please select a New Position ID.'); return; }
+  }
+
+  // File Validation
+  const form = document.getElementById('request-form');
+  const hasExistingFiles = form.dataset.hasAttachments === 'true';
+  
   const attachmentInputs = document.querySelectorAll('.dynamic-attachment-input');
   let collectedFiles = [];
-  let validationPassed = true;
   let missingRequired = false;
 
   document.querySelectorAll('.error-message').forEach(el => el.classList.remove('show-error'));
@@ -5592,47 +5616,36 @@ function submitRequest() {
     const file = input.files[0];
     const isRequired = input.dataset.required === 'true';
 
-    if (isRequired && !file) {
+    if (isRequired && !file && !hasExistingFiles) {
       input.classList.add('input-error');
       if(input.nextElementSibling && input.nextElementSibling.classList.contains('error-message')) {
           input.nextElementSibling.classList.add('show-error');
       }
-      validationPassed = false;
       missingRequired = true;
     }
 
-    if (file) {
-      collectedFiles.push(file);
-    }
+    if (file) collectedFiles.push(file);
   });
 
   if (missingRequired) {
-    alert("Please upload all required attachments marked with an asterisk (*).");
+    alert("Please upload all required attachments.");
     return;
   }
 
-  if (collectedFiles.length > 5) {
-    alert('You cannot upload more than 5 documents total.');
-    return;
-  }
-
-  showSavingOverlay('Processing Files...');
+  showSavingOverlay('Processing Request...');
 
   const filePromises = Array.from(attachmentInputs).map(input => {
     const file = input.files[0];
-    if (!file) {
-      return Promise.resolve(null); 
-    }
+    if (!file) return Promise.resolve(null); 
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
-        const fileData = {
+        resolve({
           name: file.name,
           mimeType: file.type,
           content: e.target.result.split(',')[1],
           label: input.dataset.label
-        };
-        resolve(fileData);
+        });
       };
       reader.onerror = reject;
       reader.readAsDataURL(file);
@@ -5643,51 +5656,48 @@ function submitRequest() {
     const validFiles = fileContents.filter(file => file !== null);
 
     let empName = document.querySelector('#req-filter-employee .searchable-dropdown-input')?.value;
-    if (!empName) {
-        empName = document.querySelector('#employee-request-dropdown .searchable-dropdown-input')?.value;
-    }
+    if (!empName) empName = document.querySelector('#employee-request-dropdown .searchable-dropdown-input')?.value;
+
+    const hiddenIdInput = document.getElementById('edit-request-id');
+    const existingRequestId = hiddenIdInput ? hiddenIdInput.value : null;
 
     const requestData = {
-      // Common fields
+      RequestID: existingRequestId,
       RequestType: requestType,
-      ApproverEmail: document.getElementById('approver-email-select').value,
+      ApproverEmail: document.getElementById('approver-email-select').value, // This now grabs the correctly selected approver
       Justification: document.getElementById('justification')?.value,
       EffectiveDate: document.getElementById('effective-date-request')?.value,
       files: validFiles,
       EmployeeName: empName,
-
-      // --- UPDATED: Standard .value reading ---
       EmployeeID: document.getElementById('request-EmployeeID')?.value,
       DateHired: document.getElementById('request-DateHired')?.value,
       DateOfBirth: document.getElementById('request-DateOfBirth')?.value,
       Gender: document.getElementById('request-Gender')?.value,
-
-      // Other input fields
-      CurrentPositionID: document.getElementById('current-position-id')?.value,
+      Division: document.querySelector('#request-division-dropdown .searchable-dropdown-input')?.value || document.getElementById('request-Division')?.value,
+      Group: document.querySelector('#request-group-dropdown .searchable-dropdown-input')?.value || document.getElementById('request-Group')?.value,
+      Department: document.querySelector('#request-department-dropdown .searchable-dropdown-input')?.value || document.getElementById('request-Department')?.value,
+      Section: document.querySelector('#request-section-dropdown .searchable-dropdown-input')?.value || document.getElementById('request-Section')?.value,
+      JobTitle: document.querySelector('#new-job-title-dropdown .searchable-dropdown-input')?.value || document.getElementById('request-JobTitle')?.value,
+      Level: document.querySelector('#new-level-dropdown .searchable-dropdown-input')?.value || document.getElementById('request-Level')?.value,
+      JobLevel: document.getElementById('request-JobLevel')?.value,
+      ContractType: document.getElementById('request-ContractType')?.value,
+      CurrentPositionID: document.getElementById('current-position-id')?.value || document.querySelector('#position-id-dropdown .searchable-dropdown-input')?.value,
       NewPositionID: document.querySelector('#new-position-dropdown .searchable-dropdown-input')?.value,
       NewReportingTo: document.getElementById('request-NewReportingTo')?.value,
       NewReportingToId: document.getElementById('request-NewReportingToId')?.value,
-      NewJobTitle: document.querySelector('#new-job-title-dropdown .searchable-dropdown-input')?.value,
-      NewLevel: document.querySelector('#new-level-dropdown .searchable-dropdown-input')?.value,
-      Division: document.querySelector('#request-division-dropdown .searchable-dropdown-input')?.value,
-      Group: document.querySelector('#request-group-dropdown .searchable-dropdown-input')?.value,
-      Department: document.querySelector('#request-department-dropdown .searchable-dropdown-input')?.value,
-      Section: document.querySelector('#request-section-dropdown .searchable-dropdown-input')?.value,
+      NewJobTitle: document.querySelector('#new-job-title-dropdown .searchable-dropdown-input')?.value, 
+      NewLevel: document.querySelector('#new-level-dropdown .searchable-dropdown-input')?.value, 
       ReportingToId: document.getElementById('reporting-to-id-request')?.value,
       ReportingTo: document.querySelector('#reporting-to-request-dropdown .searchable-dropdown-input')?.value,
       NewStatus: document.querySelector('#new-status-dropdown .searchable-dropdown-input')?.value, 
-      ReasonForLeaving: document.querySelector('#new-status-dropdown .searchable-dropdown-input')?.value,
-
-      // Replacement fields
+      ReasonForLeaving: document.querySelector('#reason-leaving-request-dropdown .searchable-dropdown-input')?.value || document.querySelector('#new-status-dropdown .searchable-dropdown-input')?.value,
       VacantPositionID: document.querySelector('#vacant-position-dropdown .searchable-dropdown-input')?.value,
       NewEmployeeName: document.getElementById('new-employee-name')?.value,
       NewEmployeeID: document.getElementById('new-employee-id')?.value,
-      
-      // Reporting Line Change
-      NewReportingToName: document.querySelector('#new-reporting-to-dropdown .searchable-dropdown-input')?.value
+      NewReportingToName: document.querySelector('#new-reporting-to-dropdown .searchable-dropdown-input')?.value,
+      Action: document.querySelector('select[name="Action"]')?.value
     };
     
-    // For replacement requests, populate readonly fields
     if (requestType === 'Hiring of a new employee (replacement for vacancy)') {
         requestData.NewJobTitle = document.getElementById('request-job-title')?.value;
         requestData.ReportingTo = document.getElementById('request-reporting-to')?.value;
@@ -5699,16 +5709,12 @@ function submitRequest() {
         requestData.NewLevel = document.getElementById('request-level')?.value;
     }
     
-    showSavingOverlay('Submitting Request...');
-
     google.script.run
       .withSuccessHandler(() => {
         hideSavingOverlay();
         alert('Request submitted successfully!');
         closeRequestModal();
-        if (typeof refreshChangeRequestData === 'function') {
-             refreshChangeRequestData(); 
-        }
+        if (typeof refreshChangeRequestData === 'function') { refreshChangeRequestData(); }
       })
       .withFailureHandler((err) => {
         hideSavingOverlay();
@@ -6252,18 +6258,11 @@ function buildCategory(title) {
     return `<div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm"><div class="md:col-span-2 mt-3 mb-1"><h3 class="text-lg font-bold text-slate-700 border-b pb-1">${title}</h3></div></div>`;
 }
 
-/**
- * REBUILT FUNCTION: Shows the request details in the new categorized "Before/After" modal.
- * This function replaces the original showRequestDetails.
- */
 function showRequestDetails(requestId, context) {
-    // --- !! GUARD CLAUSE !! ---
-    // This check prevents the function from running if the main employee data hasn't been loaded yet.
     if (!fullEmployeeData || fullEmployeeData.length === 0) {
         alert("The main employee data is still loading. Please wait a moment and try again.");
         return;
     }
-    // --- END GUARD CLAUSE ---
 
     const modal = document.getElementById('request-details-modal');
     const title = document.getElementById('request-details-modal-title');
@@ -6272,9 +6271,8 @@ function showRequestDetails(requestId, context) {
 
     title.textContent = `Details for Request ID: ${requestId}`;
     body.innerHTML = '<p>Loading...</p>';
-    footer.innerHTML = ''; // Clear old buttons
+    footer.innerHTML = '';
 
-    // Get the specific request data from the global object
     const requestData = (context === 'my-requests')
       ? window.allChangeRequests.myRequests.find(r => r.RequestID == requestId)
       : window.allChangeRequests.approvals.find(r => r.RequestID == requestId);
@@ -6288,120 +6286,138 @@ function showRequestDetails(requestId, context) {
     const requestType = requestData.RequestType;
     let beforeData = {};
     let afterData = {};
-    let detailsHtml = `<div class="grid grid-cols-1 gap-y-1">`; // Use a single column for categories
 
-    // --- CATEGORIES AND LABELS (Using camelCase keys) ---
+    let detailsHtml = `<div class="md:col-span-2">`;
+
+    detailsHtml += `
+        <div class="mb-4 pb-2 border-b border-gray-200">
+            <span class="block text-xs font-bold text-gray-500 uppercase">Request Type</span>
+            <span class="text-xl font-bold text-slate-800">${requestType}</span>
+        </div>
+        <div class="grid grid-cols-1 gap-y-1">
+    `;
+
     const categories = {
         'EMPLOYEE DETAILS': ['employeeName', 'employeeId', 'gender', 'dateHired', 'dateOfBirth'],
-        'JOB DETAILS': ['jobTitle', 'level', 'status', 'contractType', 'competency', 'jobLevel', 'payrollType'],
+        'JOB DETAILS': ['jobTitle', 'level', 'status', 'contractType', 'competency', 'jobLevel', 'payrollType', 'effectiveDate'], 
         'ORGANIZATIONAL ASSIGNMENT': ['positionId', 'division', 'group', 'department', 'section', 'managerName', 'managerEmployeeId']
     };
 
     const keyToLabelMap = {
         employeeName: 'Name', employeeId: 'Employee ID', gender: 'Gender', dateHired: 'Date Hired', dateOfBirth: 'Date of Birth',
-        jobTitle: 'Job Title', level: 'Level', status: 'Status', contractType: 'Contract Type', contractEndDate: 'Contract End',
+        jobTitle: 'Job Title', level: 'Level', status: 'Status', contractType: 'Contract Type',
         positionId: 'Position ID', division: 'Division', group: 'Group', department: 'Department', section: 'Section',
         managerName: 'Reports To (Name)', managerEmployeeId: 'Reports To (ID)',
-        competency: 'Competency', jobLevel: 'Job Level', payrollType: 'Payroll Type',
-        // Request-specific fields
+        competency: 'Competency', jobLevel: 'Job Level', payrollType: 'Payroll Type', effectiveDate: 'Effective Date',
         RequestID: 'Request ID', RequestorEmail: 'Requestor', SubmissionTimestamp: 'Submitted', Status: 'Status', RequestType: 'RequestType',
         ApproverEmail: 'Approver', ApprovalTimestamp: 'Approved On', ApproverComments: 'Approver Comments', ImplementerEmail: 'Implemented By',
         ImplementationTimestamp: 'Implemented On', Justification: 'Justification', EffectiveDate: 'Effective Date',
         JiraTicket: 'Jira Ticket', SupportingDocuments: 'Documents'
     };
 
-    // --- Data Preparation ---
     try {
         if (requestType.includes('Transfer') || requestType.includes('Promotion')) {
-            const beforePos = fullEmployeeData.find(p => p.positionId === requestData.CurrentPositionID);
-            const afterPosBase = fullEmployeeData.find(p => p.positionId === requestData.NewPositionID);
-            if (!beforePos || !afterPosBase) { throw new Error("Could not find 'before' or 'after' position data. The org chart may have changed."); }
+            const curPosId = String(requestData.CurrentPositionID || '').trim();
+            const newPosId = String(requestData.NewPositionID || '').trim();
+
+            const beforePos = fullEmployeeData.find(p => String(p.positionId).trim() === curPosId);
+            const afterPosBase = fullEmployeeData.find(p => String(p.positionId).trim() === newPosId);
             
-            // "Before" is the original position
-            beforeData = { ...beforePos };
-            
-            // --- *** THIS IS THE FIX *** ---
-            // "After" is the destination position...
-            // ...explicitly populated with the employee details *from the request data*...
-            // ...and mapped from PascalCase (requestData) to camelCase (for the modal).
+            beforeData = beforePos || {}; 
             afterData = { 
-                ...afterPosBase, // Destination position details (e.g., new jobTitle, new manager)
-                
-                // Employee details from the request (requestData)
+                ...(afterPosBase || {}), 
                 employeeName: requestData.EmployeeName, 
                 employeeId: requestData.EmployeeID,
                 gender: requestData.Gender, 
                 dateHired: requestData.DateHired, 
                 dateOfBirth: requestData.DateOfBirth,
-                
-                // Request status details
                 status: requestData.RequestType, 
-                effectiveDate: requestData.EffectiveDate, 
-                
-                // Explicitly keep destination manager details
-                managerName: afterPosBase.managerName, 
-                managerEmployeeId: afterPosBase.managerEmployeeId
+                effectiveDate: requestData.EffectiveDate,
+                managerName: afterPosBase ? afterPosBase.managerName : '', 
+                managerEmployeeId: afterPosBase ? afterPosBase.managerEmployeeId : ''
             };
-            // --- *** END FIX *** ---
 
         } else if (requestType.includes('replacement for vacancy')) {
-            beforeData = fullEmployeeData.find(p => p.positionId === requestData.VacantPositionID);
-            if (!beforeData) { throw new Error("Could not find the vacant position to be filled."); }
+            const vacPosId = String(requestData.VacantPositionID || '').trim();
+            beforeData = fullEmployeeData.find(p => String(p.positionId).trim() === vacPosId) || {};
             afterData = {
                 ...beforeData, status: 'FILLED VACANCY', effectiveDate: requestData.EffectiveDate,
-                // These are blank because a "replacement" request doesn't include new hire details
-                employeeName: '', employeeId: '', gender: '', dateHired: '', dateOfBirth: ''
+                employeeName: requestData.NewEmployeeName, 
+                employeeId: requestData.NewEmployeeID, 
+                gender: '', dateHired: '', dateOfBirth: ''
             };
+
         } else if (requestType.includes('newly created position')) {
             beforeData = {}; 
             afterData = {
-                ...requestData, // Contains PascalCase keys from the request
-                // Map PascalCase from request to camelCase for the modal
-                positionId: 'TBD (New)', 
-                status: 'VACANT', 
-                jobTitle: requestData.NewJobTitle,
-                level: requestData.NewLevel,
-                managerName: requestData.ReportingTo, 
-                managerEmployeeId: requestData.ReportingToId,
-                // Blank employee details
+                ...requestData, 
+                positionId: 'TBD (New)', status: 'VACANT', 
+                jobTitle: requestData.NewJobTitle, level: requestData.NewLevel,
+                managerName: requestData.ReportingTo, managerEmployeeId: requestData.ReportingToId,
                 employeeName: '', employeeId: '', gender: '', dateHired: '', dateOfBirth: ''
             };
+        
+        } else if (requestType.includes('Resignation') || requestType.includes('Separation')) {
+            const empId = String(requestData.EmployeeID || '').trim();
+            beforeData = fullEmployeeData.find(p => String(p.employeeId).trim() === empId) || {};
+            afterData = { ...beforeData, status: 'RESIGNED', effectiveDate: requestData.EffectiveDate };
+        
+        } else if (requestType.includes('Employment Status') || requestType.includes('Regularization')) {
+            const empId = String(requestData.EmployeeID || '').trim();
+            beforeData = fullEmployeeData.find(p => String(p.employeeId).trim() === empId) || {};
+            const newStatus = requestType.includes('Regularization') ? 'REGULAR' : requestData.NewStatus;
+            afterData = { ...beforeData, status: newStatus, effectiveDate: requestData.EffectiveDate };
+        
+        } else if (requestType.includes('Reporting line')) {
+            const empId = String(requestData.EmployeeID || '').trim();
+            beforeData = fullEmployeeData.find(p => String(p.employeeId).trim() === empId) || {};
+            afterData = { ...beforeData, managerName: requestData.NewReportingToName, effectiveDate: requestData.EffectiveDate };
+        
+        } else if (requestType.includes('Job Title')) {
+            const empId = String(requestData.EmployeeID || '').trim();
+            beforeData = fullEmployeeData.find(p => String(p.employeeId).trim() === empId) || {};
+            afterData = { ...beforeData, jobTitle: requestData.NewJobTitle, effectiveDate: requestData.EffectiveDate };
+        
+        } else if (requestType.includes('Name Correction')) {
+            const empId = String(requestData.EmployeeID || '').trim();
+            beforeData = fullEmployeeData.find(p => String(p.employeeId).trim() === empId) || {};
+            const newName = requestData.NewName || requestData.NewEmployeeName;
+            afterData = { ...beforeData, employeeName: newName };
+        
+        } else if (requestType.includes('Position on Hold') || requestType.includes('Cancelled') || requestType.includes('Deleted')) {
+            const targetPosId = String(requestData.CurrentPositionID || requestData.PositionID || '').trim();
+            const foundPos = fullEmployeeData.find(p => String(p.positionId).trim() === targetPosId);
+            beforeData = foundPos || {};
+            afterData = { ...beforeData, status: requestData.Action };
         }
+
     } catch (e) {
+        console.error(e);
         body.innerHTML = `<p class="text-red-500">Error preparing comparison: ${e.message}</p>`;
         footer.innerHTML = `<button onclick="closeRequestDetailsModal()" class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Close</button>`;
         modal.style.display = 'flex';
         return;
     }
-    
-    // --- Build HTML (Comparison Sections) ---
+
     for (const [category, keys] of Object.entries(categories)) {
         let categoryHtml = '';
-
-        // This correctly skips the employee section for non-promotion/transfer requests
-        if (category === 'EMPLOYEE DETAILS' && !(requestType.includes('Transfer') || requestType.includes('Promotion'))) {
+        if (category === 'EMPLOYEE DETAILS' && !(requestType.includes('Transfer') || requestType.includes('Promotion') || requestType.includes('Name') || requestType.includes('replacement'))) {
             continue;
         }
-
         for (const key of keys) {
-            // key is camelCase (e.g., 'employeeName')
             const dataKey = key; 
+            let beforeStr = (beforeData[dataKey] === null || typeof beforeData[dataKey] === 'undefined') ? '' : String(beforeData[dataKey]);
+            let afterStr = (afterData[dataKey] === null || typeof afterData[dataKey] === 'undefined') ? '' : String(afterData[dataKey]);
             
-            if (beforeData[dataKey] || afterData[dataKey] || (beforeData[dataKey] !== afterData[dataKey])) {
-                
+            if (key.toLowerCase().includes('date') && beforeStr) beforeStr = new Date(beforeStr).toLocaleDateString();
+            if (key.toLowerCase().includes('date') && afterStr) afterStr = new Date(afterStr).toLocaleDateString();
+
+            if (beforeStr || afterStr || (beforeStr !== afterStr)) {
                 const label = keyToLabelMap[key] || key;
-                
-                // --- *** THIS IS THE SECOND FIX *** ---
-                // Removed the flawed logical swap. "Before" is always beforeData. "After" is always afterData.
-                let beforeStr = (beforeData[dataKey] === null || typeof beforeData[dataKey] === 'undefined') ? '' : String(beforeData[dataKey]);
-                let afterStr = (afterData[dataKey] === null || typeof afterData[dataKey] === 'undefined') ? '' : String(afterData[dataKey]);
-                // --- *** END FIX *** ---
-                
                 const before = beforeStr || '<i class="text-gray-400">N/A</i>';
                 const after = afterStr || '<i class="text-gray-400">N/A</i>';
-
                 let afterClass = 'text-gray-800 text-left whitespace-nowrap';
-                // This comparison now works correctly
+                
                 if (beforeStr !== afterStr) {
                     afterClass = 'text-blue-600 font-bold bg-blue-100 px-1 rounded text-left whitespace-nowrap';
                 }
@@ -6416,35 +6432,27 @@ function showRequestDetails(requestId, context) {
         
         if (categoryHtml) {
             detailsHtml += buildCategory(category);
-            
             detailsHtml += `
                 <div class="grid grid-cols-[160px,1fr,1fr] gap-x-4">
                     <div class="py-2"></div>
                     <div class="font-bold text-gray-800 text-left py-2">Before</div>
                     <div class="font-bold text-gray-800 text-left py-2">After</div>
-                    
                     ${categoryHtml}
                 </div>
             `;
         }
     }
     
-    // --- Add Request-Specific Details (non-comparison) ---
-    detailsHtml += buildCategory('REQUEST DETAILS');
-    const requestFields = ['RequestID', 'RequestType', 'Status', 'RequestorEmail', 'SubmissionTimestamp', 'ApproverEmail', 'ApprovalTimestamp', 'ImplementerEmail', 'ImplementationTimestamp', 'EffectiveDate', 'Justification', 'ApproverComments', 'JiraTicket', 'SupportingDocuments'];
+    detailsHtml += buildCategory('ADDITIONAL DETAILS');
+    const requestFields = ['RequestID', 'RequestorEmail', 'SubmissionTimestamp', 'ApproverEmail', 'ApprovalTimestamp', 'ImplementerEmail', 'ImplementationTimestamp', 'Justification', 'ApproverComments', 'JiraTicket', 'SupportingDocuments'];
     
     requestFields.forEach(key => {
         if (requestData.hasOwnProperty(key) && requestData[key]) {
-            // Don't show effective date here if it was already shown in the 'after' column
-            if (key === 'EffectiveDate' && (requestType.includes('replacement') || requestType.includes('Transfer') || requestType.includes('Promotion'))) { return; }
-            
             let value = requestData[key];
             if (key === 'SupportingDocuments') {
                 value = `<button onclick="openDocumentViewer('${requestData.RequestID}')" class="text-blue-600 hover:underline">View Documents</button>`;
             } else if (key.includes('Timestamp') && value) {
                 value = new Date(value).toLocaleDateString() + ' ' + new Date(value).toLocaleTimeString();
-            } else if (key === 'EffectiveDate' && value) {
-                value = new Date(value).toLocaleDateString();
             }
             
             detailsHtml += `
@@ -6456,10 +6464,28 @@ function showRequestDetails(requestId, context) {
         }
     });
 
-    detailsHtml += `</div>`;
+    if (requestData.AuditTrail) {
+        detailsHtml += buildCategory('AUDIT TRAIL / HISTORY');
+        const logs = requestData.AuditTrail.split('\n').filter(line => line.trim() !== '');
+        
+        let logHtml = '<div class="space-y-2 bg-gray-50 p-3 rounded border">';
+        logs.forEach(log => {
+            let colorClass = 'text-gray-600';
+            if(log.includes('RETURNED')) colorClass = 'text-yellow-700 font-bold';
+            if(log.includes('REJECTED')) colorClass = 'text-red-700 font-bold';
+            if(log.includes('APPROVED')) colorClass = 'text-green-700 font-bold';
+            if(log.includes('RESUBMITTED')) colorClass = 'text-blue-700 font-bold';
+            
+            logHtml += `<div class="text-xs ${colorClass} border-b border-gray-200 pb-1 last:border-0">${log}</div>`;
+        });
+        logHtml += '</div>';
+        
+        detailsHtml += logHtml;
+    }
+
+    detailsHtml += `</div></div>`;
     body.innerHTML = detailsHtml;
 
-    // --- Footer & Action Buttons (Unchanged) ---
     footer.innerHTML = `<button onclick="closeRequestDetailsModal()" class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Close</button>`;
     let actionButtons = '';
     if (['Pending', 'Approved', 'Implemented'].includes(requestData.Status)) {
@@ -6500,31 +6526,186 @@ function renderMyRequestsTable() {
 
     table.DataTable({
         data: requests,
-            columns: [
+        columns: [
             { title: 'Request ID', data: 'RequestID', render: function(data, type, row) {
                 return `<span class="text-blue-600 hover:underline cursor-pointer" onclick="showRequestDetails('${row.RequestID}', 'my-requests')">${data}</span>`;
               }
             },
             { title: 'Requestor', data: 'RequestorEmail' },
             { title: 'Type of Request', data: 'RequestType' },
-            { title: 'Status', data: 'Status' },
-            {
-              title: 'Documents',
-              data: 'SupportingDocuments',
-              render: function(data, type, row) {
-                if (row.SupportingDocuments) { 
-                  return `<button onclick="openDocumentViewer('${row.RequestID}')" class="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600">View</button>`;
+            { title: 'Status', data: 'Status', render: function(data, type, row) {
+                let color = 'text-gray-600';
+                if(data === 'Approved') color = 'text-green-600 font-bold';
+                if(data === 'Rejected') color = 'text-red-600 font-bold';
+                if(data === 'Returned') color = 'text-yellow-600 font-bold';
+                return `<span class="${color}">${data}</span>`;
+            }},
+            { title: 'Action', data: null, render: function(data, type, row) {
+                if (row.Status === 'Returned') {
+                    return `<button onclick="editChangeRequest('${row.RequestID}')" class="px-2 py-1 bg-yellow-500 text-white text-xs rounded hover:bg-yellow-600 shadow">Edit</button>`;
                 }
-                return 'N/A';
-              },
-              className: 'text-center'
-            }
+                return '';
+            }}
         ],
         responsive: false,
         scrollX: true,
         dom: 'Bfrtip',
         buttons: ['colvis']
     });
+}
+
+function editChangeRequest(requestId) {
+    const request = window.allChangeRequests.myRequests.find(r => r.RequestID === requestId);
+    if (!request) { alert("Request data not found."); return; }
+
+    // 1. Open Modal
+    document.getElementById('request-modal').style.display = 'flex';
+
+    // --- FIX: LOAD APPROVERS IMMEDIATELY ---
+    const approverSelect = document.getElementById('approver-email-select');
+    approverSelect.innerHTML = '<option value="">Loading approvers...</option>';
+    
+    google.script.run
+        .withSuccessHandler(approvers => {
+            approverSelect.innerHTML = '<option value="">-- Select an Approver --</option>';
+            if (approvers && approvers.length > 0) {
+                approvers.forEach(approver => {
+                    const option = document.createElement('option');
+                    option.value = approver.email;
+                    option.textContent = approver.email;
+                    approverSelect.appendChild(option);
+                });
+                
+                // Set the previously selected approver if available
+                if (request.ApproverEmail) {
+                    approverSelect.value = request.ApproverEmail;
+                }
+            } else {
+                approverSelect.innerHTML = '<option value="">No approvers found (Check Permissions Sheet)</option>';
+            }
+        })
+        .withFailureHandler(err => {
+            approverSelect.innerHTML = `<option value="">Error loading approvers</option>`;
+            console.error("Failed to load approvers:", err);
+        })
+        .getApproverList();
+
+    // 2. Set Request Type and Trigger Change to build HTML
+    const typeSelect = document.getElementById('request-type');
+    typeSelect.value = request.RequestType;
+    handleRequestTypeChange(); // Build fields
+
+    // 3. Populate Fields (Delayed to ensure DOM is ready)
+    setTimeout(() => {
+        // --- FIX: RE-FETCH LIVE EMPLOYEE DATA ---
+        let liveEmpData = {};
+        if (request.EmployeeID) {
+             const foundEmp = fullEmployeeData.find(e => String(e.employeeId).trim() === String(request.EmployeeID).trim());
+             if (foundEmp) liveEmpData = foundEmp;
+        }
+
+        const map = {
+            'justification': request.Justification,
+            'effective-date-request': request.EffectiveDate ? new Date(request.EffectiveDate).toISOString().split('T')[0] : '',
+            
+            'request-EmployeeID': request.EmployeeID,
+            'request-DateHired': request.DateHired ? new Date(request.DateHired).toISOString().split('T')[0] : (liveEmpData.dateHired || ''),
+            'request-DateOfBirth': request.DateOfBirth ? new Date(request.DateOfBirth).toISOString().split('T')[0] : (liveEmpData.dateOfBirth || ''),
+            'request-Gender': request.Gender || liveEmpData.gender,
+
+            'request-Division': request.Division || liveEmpData.division,
+            'request-Group': request.Group || liveEmpData.group,
+            'request-Department': request.Department || liveEmpData.department,
+            'request-Section': request.Section || liveEmpData.section,
+            'request-JobTitle': request.JobTitle || liveEmpData.jobTitle,
+            'request-Level': request.Level || liveEmpData.level,
+            'request-JobLevel': request.JobLevel || liveEmpData.jobLevel,
+            'request-ContractType': request.ContractType || liveEmpData.contractType,
+
+            'current-position-id': request.CurrentPositionID || liveEmpData.positionId,
+            'current-reporting-to': request.CurrentReportingTo || liveEmpData.managerName,
+            'current-job-title': request.CurrentJobTitle || liveEmpData.jobTitle,
+            'current-name': request.EmployeeName || liveEmpData.employeeName,
+            'reporting-to-id-request': request.ReportingToId,
+            'request-NewReportingTo': request.NewReportingTo,
+            'request-NewReportingToId': request.NewReportingToId,
+            'request-job-title': request.NewJobTitle,
+            'request-reporting-to': request.ReportingTo,
+            'request-reporting-to-id': request.ReportingToId
+        };
+
+        for (const [id, val] of Object.entries(map)) {
+            const el = document.getElementById(id);
+            if(el) el.value = val || '';
+        }
+
+        const setDrop = (id, val) => {
+            const container = document.getElementById(id);
+            if (container) {
+                const input = container.querySelector('.searchable-dropdown-input');
+                if(input) input.value = val || '';
+                if (val && id.startsWith('req-filter')) container.removeAttribute('data-empty');
+            }
+        };
+
+        setDrop('req-filter-employee', request.EmployeeName || liveEmpData.employeeName);
+        setDrop('req-filter-division', request.Division || liveEmpData.division);
+        setDrop('req-filter-group', request.Group || liveEmpData.group);
+        setDrop('req-filter-department', request.Department || liveEmpData.department);
+        setDrop('req-filter-section', request.Section || liveEmpData.section);
+
+        setDrop('new-position-dropdown', request.NewPositionID);
+        setDrop('new-job-title-dropdown', request.NewJobTitle);
+        setDrop('vacant-position-dropdown', request.VacantPositionID);
+        setDrop('new-status-dropdown', request.NewStatus);
+        setDrop('position-id-dropdown', request.CurrentPositionID || request.PositionID);
+        setDrop('new-reporting-to-dropdown', request.NewReportingToName);
+        setDrop('reason-leaving-request-dropdown', request.ReasonForLeaving);
+
+        setDrop('request-division-dropdown', request.Division);
+        setDrop('request-group-dropdown', request.Group);
+        setDrop('request-department-dropdown', request.Department);
+        setDrop('request-section-dropdown', request.Section);
+
+        const actionSelect = document.querySelector('select[name="Action"]');
+        if(actionSelect && request.Action) actionSelect.value = request.Action;
+
+        // Handle Files
+        const oldMsg = document.getElementById('existing-docs-msg');
+        if(oldMsg) oldMsg.remove();
+
+        const form = document.getElementById('request-form');
+        if (request.SupportingDocuments && request.SupportingDocuments !== '') {
+            form.dataset.hasAttachments = 'true';
+            const attachContainer = document.querySelector('.attachment-group');
+            if(attachContainer) {
+                const msg = document.createElement('div');
+                msg.id = 'existing-docs-msg';
+                msg.className = 'text-xs text-green-600 font-bold mt-2 p-2 bg-green-50 border border-green-200 rounded';
+                msg.innerHTML = `✅ Previous documents attached. <span onclick="openDocumentViewer('${request.RequestID}')" class="underline text-blue-600 cursor-pointer">View</span>`;
+                attachContainer.parentNode.insertBefore(msg, attachContainer.nextSibling);
+            }
+        } else {
+            form.dataset.hasAttachments = 'false';
+        }
+
+        let hiddenId = document.getElementById('edit-request-id');
+        if(!hiddenId) {
+            hiddenId = document.createElement('input');
+            hiddenId.type = 'hidden';
+            hiddenId.id = 'edit-request-id';
+            document.getElementById('request-form').appendChild(hiddenId);
+        }
+        hiddenId.value = requestId;
+
+        const submitBtn = document.querySelector('#request-form button[onclick="submitRequest()"]');
+        if (submitBtn) {
+            submitBtn.textContent = "Resubmit Request";
+            submitBtn.classList.remove('bg-blue-600');
+            submitBtn.classList.add('bg-yellow-600');
+        }
+
+    }, 200);
 }
 
 function renderApprovalsTable() {
@@ -6609,8 +6790,15 @@ function refreshChangeRequestData() {
 }
 
 function handleApprovalAction(requestId, action) {
+  // If action is "Returned", use the new Modal flow
+  if (action === 'Returned') {
+      openReturnModal(requestId);
+      return; 
+  }
+
+  // Existing logic for Approve/Reject
   let comments = '';
-  if (action === 'Returned' || action === 'Rejected') {
+  if (action === 'Rejected') {
     comments = prompt(`Comments are required for this action (${action}):`);
     if (comments === null) return;
     if (!comments.trim()) {
@@ -6618,23 +6806,23 @@ function handleApprovalAction(requestId, action) {
       return;
     }
   } else {
-    // For "Approve", comments are optional.
     comments = prompt(`Please provide optional comments for this action (${action}):`);
-    if (comments === null) return; // User clicked cancel, so we stop.
+    if (comments === null) return;
   }
   
+  processActionBackend(requestId, action, comments);
+}
+
+// Helper to call backend (refactored to avoid code duplication)
+function processActionBackend(requestId, action, comments) {
   showSavingOverlay('Processing Action...');
   google.script.run
     .withSuccessHandler(response => {
       hideSavingOverlay();
       alert(response);
       closeRequestDetailsModal();
-      
-      // Force a refresh of the data and redraw the currently active table
-      // changeRequestsDataLoaded = false; // This line is now removed
-      loadChangeRequestData(renderApprovalsTable); // Redraw the approvals table specifically
-
-      google.script.run.withSuccessHandler(updateNotificationBadges).getRequestCounts();
+      closeReturnModal(); // Ensure return modal is closed if open
+      refreshChangeRequestData(); // Refresh tables
     })
     .withFailureHandler(err => {
       hideSavingOverlay();
@@ -6642,6 +6830,96 @@ function handleApprovalAction(requestId, action) {
     })
     .processRequestAction(requestId, action, comments);
 }
+
+// --- RETURN MODAL LOGIC START ---
+
+// Global variable to store the ID of the request currently being returned
+let currentReturnRequestId = null;
+
+function openReturnModal(requestId) {
+    currentReturnRequestId = requestId;
+    const container = document.getElementById('return-checklist-container');
+    container.innerHTML = '';
+    
+    // Define standard fields to check
+    const fieldsToCheck = [
+        { id: 'chk-effective', label: 'Effective Date' },
+        { id: 'chk-employee', label: 'Employee Details (Name/ID)' },
+        { id: 'chk-position', label: 'Position / Job Details' },
+        { id: 'chk-justification', label: 'Justification' },
+        { id: 'chk-documents', label: 'Attachments / Documents' },
+        { id: 'chk-reason', label: 'Reason for Leaving' },
+        { id: 'chk-other', label: 'Other' }
+    ];
+
+    fieldsToCheck.forEach(field => {
+        const item = document.createElement('div');
+        item.className = "bg-gray-50 p-2 rounded border border-gray-200";
+        item.innerHTML = `
+            <div class="flex items-center">
+                <input type="checkbox" id="${field.id}" class="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer" onchange="toggleCommentBox('${field.id}')">
+                <label for="${field.id}" class="ml-2 block text-sm font-medium text-gray-700 cursor-pointer select-none">${field.label}</label>
+            </div>
+            <input type="text" id="${field.id}-comment" class="mt-2 w-full p-1 text-sm border-b border-gray-300 bg-transparent focus:outline-none focus:border-blue-500" placeholder="Specify error (e.g., Wrong date)..." style="display:none;">
+        `;
+        container.appendChild(item);
+    });
+
+    document.getElementById('return-general-comment').value = '';
+    document.getElementById('return-modal').style.display = 'flex';
+}
+
+function toggleCommentBox(checkboxId) {
+    const checkbox = document.getElementById(checkboxId);
+    const commentBox = document.getElementById(checkboxId + '-comment');
+    if (checkbox.checked) {
+        commentBox.style.display = 'block';
+        commentBox.focus();
+    } else {
+        commentBox.style.display = 'none';
+        commentBox.value = '';
+    }
+}
+
+function closeReturnModal() {
+    document.getElementById('return-modal').style.display = 'none';
+    currentReturnRequestId = null;
+}
+
+function submitReturnDecision() {
+    if (!currentReturnRequestId) return;
+
+    // 1. Gather checked items
+    const checkboxes = document.querySelectorAll('#return-checklist-container input[type="checkbox"]:checked');
+    // Allow return if EITHER a checkbox is checked OR a general comment is written
+    const generalComment = document.getElementById('return-general-comment').value.trim();
+    
+    if (checkboxes.length === 0 && !generalComment) {
+        alert("Please select at least one field or provide a general comment.");
+        return;
+    }
+
+    let structuredComments = [];
+    
+    checkboxes.forEach(cb => {
+        const label = cb.nextElementSibling.textContent;
+        const commentInput = document.getElementById(cb.id + '-comment');
+        const specificComment = commentInput.value.trim() ? `: ${commentInput.value.trim()}` : '';
+        structuredComments.push(`[${label}${specificComment}]`);
+    });
+
+    if (generalComment) {
+        structuredComments.push(`Note: ${generalComment}`);
+    }
+
+    // 3. Combine into final string
+    const finalCommentString = structuredComments.join('\n');
+
+    // 4. Send to Backend using the helper function
+    processActionBackend(currentReturnRequestId, 'Returned', finalCommentString);
+}
+
+// --- RETURN MODAL LOGIC END ---
 
 function handleImplementAction(requestId) {
   if (!confirm('Are you sure you want to implement this change? This will permanently alter the main org chart.')) {
@@ -6823,28 +7101,16 @@ function openDocumentViewer(requestId) {
             if (fileList.length === 0) {
                 contentArea.innerHTML = '<p class="text-center text-gray-600 font-bold">No documents are attached to this request.</p>';
             } else if (fileList.length === 1) {
-                // If there's only one file, show it directly.
                 showDocumentInViewer(fileList[0].url);
             } else {
-                // If there are multiple files, show a selection list.
                 let buttonsHtml = '<p class="mb-4">Please select a document to view:</p><div class="flex flex-col space-y-2">';
                 fileList.forEach(file => {
-                    const escapedUrl = escape(file.url);
+                    const escapedUrl = encodeURIComponent(file.url); // Use encodeURIComponent
                     const originalName = file.name;
-                    let displayName = '';
-                    const match = originalName.match(/^\[(.*?)\]\s*(.*)$/);
-
-                    if (match && match[1] && match[2]) {
-                        // Format: [Label] Filename.ext
-                        const label = escapeHtml(match[1]);
-                        const filename = escapeHtml(match[2]);
-                        displayName = `<div class="text-left w-full"><strong class="font-semibold text-blue-200">${label}:</strong><span class="ml-2">${filename}</span></div>`;
-                    } else {
-                        // Fallback for old files without the label
-                        displayName = `<div class="text-left w-full">${escapeHtml(originalName)}</div>`;
-                    }
+                    let displayName = `<div class="text-left w-full">${escapeHtml(originalName)}</div>`;
                     
-                    buttonsHtml += `<button onclick="showDocumentInViewer(unescape('${escapedUrl}'))" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex justify-start items-center">${displayName}</button>`;
+                    // Use decodeURIComponent in the onclick to get the URL back
+                    buttonsHtml += `<button onclick="showDocumentInViewer(decodeURIComponent('${escapedUrl}'))" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex justify-start items-center">${displayName}</button>`;
                 });
                 buttonsHtml += '</div>';
                 contentArea.innerHTML = buttonsHtml;
@@ -6854,6 +7120,26 @@ function openDocumentViewer(requestId) {
             contentArea.innerHTML = `<p class="text-red-500 text-center font-bold">Failed to retrieve documents. Error: ${err.message}</p>`;
         })
         .getRequestDocumentList(requestId);
+}
+
+function showDocumentInViewer(url) {
+    const contentArea = document.getElementById('jd-content-area');
+    // Convert /view to /preview for embedding if possible, but keep original for button
+    let embedUrl = url;
+    if (url.includes('/view')) {
+        embedUrl = url.replace('/view', '/preview');
+    }
+
+    if (url && url.startsWith('http')) {
+        contentArea.innerHTML = `
+            <div class="flex justify-end mb-2">
+                <a href="${url}" target="_blank" class="px-3 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700">Open in New Tab</a>
+            </div>
+            <iframe src="${embedUrl}" style="width:100%; height:60vh; border:none;"></iframe>
+        `;
+    } else {
+        contentArea.innerHTML = '<p class="text-center text-red-600 font-bold">Invalid document URL provided.</p>';
+    }
 }
 
 /**

@@ -5134,9 +5134,38 @@ function initializeCompetencyView() {
 }
 
 function openRequestModal() {
-  document.getElementById('request-modal').style.display = 'flex';
-  document.getElementById('request-type').addEventListener('change', handleRequestTypeChange);
+  // --- FIX: RESET EDIT MODE ARTIFACTS ---
+  // 1. Clear the hidden Request ID so we don't overwrite existing rows
+  const hiddenId = document.getElementById('edit-request-id');
+  if (hiddenId) hiddenId.value = '';
 
+  // 2. Reset Submit Button Text & Color
+  const submitBtn = document.querySelector('#request-form button[onclick="submitRequest()"]');
+  if (submitBtn) {
+      submitBtn.textContent = "Submit Request";
+      submitBtn.classList.remove('bg-yellow-600');
+      submitBtn.classList.add('bg-blue-600');
+  }
+
+  // 3. Clear "Previous documents attached" message/flag
+  const form = document.getElementById('request-form');
+  if (form) delete form.dataset.hasAttachments;
+  
+  const oldMsg = document.getElementById('existing-docs-msg');
+  if (oldMsg) oldMsg.remove();
+
+  // --- OPEN MODAL LOGIC ---
+  document.getElementById('request-modal').style.display = 'flex';
+  document.getElementById('request-fields').innerHTML = ''; // Clear old fields
+  document.getElementById('request-form').reset(); // Reset form inputs
+  
+  // Re-attach event listener
+  const typeSelect = document.getElementById('request-type');
+  // Remove old listener to prevent duplicates, then add new one
+  typeSelect.removeEventListener('change', handleRequestTypeChange); 
+  typeSelect.addEventListener('change', handleRequestTypeChange);
+
+  // Load Approvers
   const approverSelect = document.getElementById('approver-email-select');
   approverSelect.innerHTML = '<option value="">Loading approvers...</option>';
   
@@ -5162,9 +5191,25 @@ function openRequestModal() {
 
 function closeRequestModal() {
   document.getElementById('request-modal').style.display = 'none';
+  
+  // Reset Edit Mode Variables
+  const hiddenId = document.getElementById('edit-request-id');
+  if(hiddenId) hiddenId.value = '';
+  
+  const submitBtn = document.querySelector('#request-form button[onclick="submitRequest()"]');
+  if(submitBtn) {
+      submitBtn.textContent = "Submit Request";
+      submitBtn.classList.remove('bg-yellow-600');
+      submitBtn.classList.add('bg-blue-600');
+  }
+
+  // Clean up DOM
   document.getElementById('request-type').removeEventListener('change', handleRequestTypeChange);
   document.getElementById('request-fields').innerHTML = '';
   document.getElementById('request-form').reset();
+  
+  const oldMsg = document.getElementById('existing-docs-msg');
+  if (oldMsg) oldMsg.remove();
 }
 
 // --- NEW: DYNAMIC REQUEST FILTER LOGIC ---

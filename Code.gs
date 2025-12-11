@@ -55,16 +55,16 @@ function getAllCompetencies() {
 // IMPORTANT: You MUST update this URL if you create a new web app deployment that changes its link!
 // Please ensure this is the exact URL of your deployed web app that has "Execute as: Me" and "Who has access: Anyone".
 const WEB_APP_URL = "YOUR_WEB_APP_URL_GOES_HERE"; // PASTE YOUR NEW DEPLOYMENT URL HERE
-const JD_GENERAL_FOLDER_ID = '1b-I5ENMnACXGPshaBqBBj2174H2yhPhW';
-const JD_INCUMBENT_FOLDER_ID = '1DGUtgd3_3sL_FtDl6_tbB1uS-Cx6T8pq';
-const CHANGE_REQUESTS_FOLDER_ID = '13v2wJoJm7LHf6O47rhkRbOAvjO1kQOj8';
+const JD_GENERAL_FOLDER_ID = '1Sv7uvDKlzFhEiM1ljCrRGvC51KgIZJfp';
+const JD_INCUMBENT_FOLDER_ID = '1ryXesBBwLs8Y1oEfLYDhDIxPQdeB_Ngx';
+const CHANGE_REQUESTS_FOLDER_ID = '1XSW0ktaHt6eRkoZAuHdx8nCo1T2XCSn8';
 
 
 // Defines the sequential order of approval roles
 const APPROVAL_ROLES = ['Prepared By', 'Reviewed By', 'Noted By', 'Approved By'];
-const MASTERLIST_EXPORT_FOLDER_ID = '1aDBVm310V2ATGMujHVEYwz2EMNrMh4Bi'; // <-- ADD THIS LINE
+const MASTERLIST_EXPORT_FOLDER_ID = '1NcOH0Cx5lPRiRilGKkiO1tRiWn1d3P5q'; // <-- ADD THIS LINE
 const TALENT_DATA_SPREADSHEET_ID = '1sBy8d-uuenTRu_jeT7paTtDmnxcHFOjGgn-eEG91knY'; // <-- ADD THIS LINE
-const COMPETENCY_SPREADSHEET_ID = '1D170oJ4KlWMdT0ankBGXEiwjO9PNExEKIz2aIBaMJEU'; // <-- ADD THIS LINE
+const COMPETENCY_SPREADSHEET_ID = '1cj_RuroWG5Tl1OqzalyK7t4dLDck-7Ytj5O1eb-Ks5c'; // <-- ADD THIS LINE
 // --- END CONFIGURATION ---
 
 
@@ -4549,5 +4549,308 @@ function getPreviewOrgChartData(requestId) {
   } catch (e) {
     Logger.log('Error in getPreviewOrgChartData for request ID ' + requestId + ': ' + e.message + ' Stack: ' + e.stack);
     return { error: 'Failed to generate preview data. ' + e.message };
+  }
+}
+
+/**
+ * =================================================================================================
+ * AI JOB DESCRIPTION BUILDER MODULE
+ * =================================================================================================
+ */
+
+/**
+ * Main entry point for generating a JD via AI.
+ * @param {Object} inputData - Contains type ('workload' or 'upload'), job details, and content.
+ * @returns {Object} Structured JSON following the organization's JD format.
+ */
+function generateJobDescriptionAI(inputData) {
+  let contentToProcess = inputData.content;
+
+  if (inputData.type === 'upload' && inputData.file) {
+    contentToProcess = extractTextFromUploadedFile(inputData.file);
+  }
+
+  const systemPrompt = `... (Keep your existing system prompt here) ...`;
+
+  let userPrompt = "";
+  
+  // --- UPDATED LOGIC HERE ---
+  if (inputData.type === 'workload') {
+    userPrompt = `
+      Create a JD for:
+      Job Title: ${inputData.jobTitle}
+      Level: ${inputData.level}
+      Department: ${inputData.department}
+      
+      Based on this Workload Assessment:
+      "${contentToProcess}"
+    `;
+  } else {
+    // Now creates a prompt that includes the Job Title even for uploads
+    userPrompt = `
+      Context: Job Title is "${inputData.jobTitle}".
+      Restructure the following uploaded JD content into the official PLOC format:
+      "${contentToProcess}"
+    `;
+  }
+  // --------------------------
+
+  try {
+    return callGenerativeAIService(systemPrompt, userPrompt);
+  } catch (e) {
+    return { error: "Failed to generate JD. " + e.message };
+  }
+}
+
+/**
+ * Connects to an LLM (Gemini or OpenAI).
+ * NOTE: You must set a Script Property 'AI_API_KEY' for this to work with a real API.
+ * If no key is found, it returns MOCK DATA for testing.
+ */
+function callGenerativeAIService(system, user) {
+  const scriptProperties = PropertiesService.getScriptProperties();
+  const apiKey = scriptProperties.getProperty('AI_API_KEY'); 
+
+  // 1. If no key exists, go straight to Mock
+  if (!apiKey) {
+    return getMockJDData(user); 
+  }
+
+  // 2. Setup Real API Call
+  // Using the Lite model as it's the most efficient for your key
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`;
+  
+  const payload = {
+    contents: [{
+      parts: [{ text: system + "\n\nUSER INPUT:\n" + user }]
+    }],
+    generationConfig: {
+      response_mime_type: "application/json"
+    }
+  };
+
+  const options = {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true // Allows us to read the error code (429) instead of crashing
+  };
+
+  // 3. Attempt Call with Auto-Fallback
+  try {
+    const response = UrlFetchApp.fetch(url, options);
+    const responseCode = response.getResponseCode();
+    const responseText = response.getContentText();
+
+    // SUCCESS CASE (200 OK)
+    if (responseCode === 200) {
+      const json = JSON.parse(responseText);
+      if (json.candidates && json.candidates[0].content) {
+        let text = json.candidates[0].content.parts[0].text;
+        
+        try {
+          return JSON.parse(text);
+        } catch (e) {
+          // JSON Cleaning Fallback
+          const firstBrace = text.indexOf('{');
+          const lastBrace = text.lastIndexOf('}');
+          if (firstBrace !== -1 && lastBrace !== -1) {
+             return JSON.parse(text.substring(firstBrace, lastBrace + 1));
+          }
+        }
+      }
+    }
+
+    // --- FALLBACK TRIGGERED ---
+    // If we get here, it means responseCode was NOT 200 (e.g. 429 Quota, 503 Overload, 500 Error)
+    Logger.log(`API Failed (Code ${responseCode}). Switching to Mock Data. Details: ${responseText}`);
+    
+    // Get the mock data
+    const mockData = getMockJDData(user);
+    
+    // Optional: Add a tag to the Role Summary so the user knows this is Mock Data
+    if (mockData.OrganizationalRole) {
+        mockData.OrganizationalRole = "[⚠️ API Quota Exceeded - Showing Example Data] " + mockData.OrganizationalRole;
+    }
+    
+    return mockData;
+
+  } catch (e) {
+    // NETWORK/SCRIPT ERROR FALLBACK
+    // If the internet is down or script crashes, also return Mock Data
+    Logger.log(`Script Error: ${e.message}. Switching to Mock Data.`);
+    
+    const mockData = getMockJDData(user);
+    mockData.OrganizationalRole = "[⚠️ Network Error - Showing Example Data] " + mockData.OrganizationalRole;
+    return mockData;
+  }
+}
+
+/**
+ * Extracts text from an uploaded file blob.
+ * For complex PDFs/Docs, this requires the Advanced Drive Service enabled.
+ * Falling back to a simple string for this demo.
+ */
+function extractTextFromUploadedFile(fileObj) {
+  try {
+    const decoded = Utilities.base64Decode(fileObj.content);
+    const blob = Utilities.newBlob(decoded, fileObj.mimeType, fileObj.name);
+    
+    // Basic text file handling
+    if (fileObj.mimeType === 'text/plain') {
+      return blob.getDataAsString();
+    }
+    
+    // For PDFs/Docs, in a standard GAS environment without libraries, 
+    // robust text extraction is complex. 
+    // We return a placeholder instructing the user if we can't parse it easily.
+    // A real implementation would use Drive.Files.insert({ocr: true})
+    return "Uploaded File Content: " + fileObj.name + ". (Note: Text extraction requires Drive API enablement. Please paste text directly for best results in this demo.)";
+  } catch (e) {
+    return "Error reading file: " + e.message;
+  }
+}
+
+/**
+ * Returns dummy data so the UI works immediately without an API key.
+ */
+function getMockJDData(userPrompt) {
+  // Try to extract the Job Title from the input string to prove data flow works
+  let detectedTitle = "Generic Role";
+  if (userPrompt) {
+    const match = userPrompt.match(/Job Title:?\s*["']?(.*?)["']?(\n|$|\.)/i);
+    if (match && match[1]) detectedTitle = match[1].trim();
+  }
+
+  return {
+    "OrganizationalRole": `[MOCK GENERATED] This is a generated description for the ${detectedTitle} position. (Connect API Key for real content).`,
+    "KPIs": [`${detectedTitle} Efficiency Score`, "Zero Compliance Issues", "Team Engagement > 80%"],
+    "CoreResponsibilities": {
+      "Planning": [`Develop annual strategic plans for ${detectedTitle}.`, "Forecast departmental resource needs."],
+      "Leading": [`Mentor junior ${detectedTitle} staff.`, "Facilitate weekly team syncs."],
+      "Organizing": ["Maintain updated process documentation.", "Allocate resources to priority projects."],
+      "Controlling": ["Conduct quarterly performance audits.", "Monitor budget variance."]
+    },
+    "SupportingResponsibilities": {
+      "Planning": ["Assist in company-wide event planning."],
+      "Leading": ["Facilitate cross-department workshops."],
+      "Organizing": ["Organize digital file archives."],
+      "Controlling": ["Review safety logs."]
+    },
+    "ProductivityTools": ["Jira", "Slack", "Google Workspace", "SAP"],
+    "OrganizationalRelationship": `Reports to Division Head; Supervises ${detectedTitle} Associates.`,
+    "WorkingConditions": "Hybrid Work Setup (3 days office, 2 days remote).",
+    "KeyQualifications": {
+      "Knowledge": [`Principles of ${detectedTitle}`, "Agile Methodologies"],
+      "Experience": [`5+ Years in ${detectedTitle} roles`],
+      "Competencies": ["Strategic Thinking", "Communication"],
+      "PersonalAttributes": ["Integrity", "Adaptability"]
+    },
+    "PreferredInternal": "Senior Analyst ready for promotion.",
+    "PreferredExternal": "Manager from relevant industry.",
+    "LDMatrix": ["Advanced Leadership Course", "Six Sigma Green Belt"]
+  };
+}
+function debugModelList() {
+  const scriptProperties = PropertiesService.getScriptProperties();
+  const apiKey = scriptProperties.getProperty('AI_API_KEY');
+  
+  if (!apiKey) {
+    Logger.log("ERROR: No API Key found in Script Properties.");
+    return;
+  }
+
+  // We check the v1beta endpoint to see all available models
+  const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+  
+  try {
+    const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+    const json = JSON.parse(response.getContentText());
+    
+    if (json.error) {
+      Logger.log("API Error: " + JSON.stringify(json.error));
+    } else if (json.models) {
+      Logger.log("--- AVAILABLE MODELS ---");
+      // Filter for models that support 'generateContent'
+      const contentModels = json.models.filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"));
+      contentModels.forEach(m => Logger.log(m.name));
+      Logger.log("------------------------");
+    } else {
+      Logger.log("Unexpected response: " + response.getContentText());
+    }
+  } catch (e) {
+    Logger.log("Fetch failed: " + e.message);
+  }
+}
+
+/**
+ * SAVES THE JD PDF TO GOOGLE DRIVE
+ * Folder: JD_GENERAL_FOLDER_ID (Defined at the top of your script)
+ * Filename: POSITION ID JOB TITLE (All Caps)
+ */
+function saveJDToDrive(dataURI, positionId, jobTitle) {
+  try {
+    // 1. Prepare Filename (Uppercase, Cleaned)
+    const cleanPosId = (positionId || "NO-ID").toString().toUpperCase().trim();
+    const cleanTitle = (jobTitle || "JOB-TITLE").toString().toUpperCase().trim();
+    const fileName = `${cleanPosId} ${cleanTitle}.pdf`;
+
+    // 2. Process Base64 Data
+    const base64Data = dataURI.split(',')[1]; // Remove the "data:application/pdf;base64," prefix
+    const decoded = Utilities.base64Decode(base64Data);
+    const blob = Utilities.newBlob(decoded, "application/pdf", fileName);
+
+    // 3. Get Folder and Create File
+    // uses the existing global constant JD_GENERAL_FOLDER_ID from your Code.gs
+    const folder = DriveApp.getFolderById(JD_GENERAL_FOLDER_ID); 
+    const file = folder.createFile(blob);
+    
+    return { 
+      success: true, 
+      url: file.getUrl(), 
+      name: file.getName() 
+    };
+
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * REGENERATES A SPECIFIC SECTION OF THE JD
+ */
+function regenerateJDSection(sectionName, jobContext) {
+  const systemPrompt = `
+    You are an HR Specialist. Your task is to rewrite ONLY the "${sectionName}" section for a Job Description.
+    
+    JOB CONTEXT:
+    - Title: ${jobContext.jobTitle}
+    - Level: ${jobContext.level}
+    - Department: ${jobContext.department}
+    - Input Data: "${jobContext.content}"
+
+    RULES:
+    1. Output ONLY the JSON content for this specific section. Do not output the whole JD.
+    2. If the section is "CoreResponsibilities" or "SupportingResponsibilities", you MUST return it categorized by PLOC (Planning, Leading, Organizing, Controlling).
+    3. Return valid JSON only. No markdown.
+  `;
+
+  // Map the section name to the expected JSON key
+  let targetKey = sectionName; // default
+  if (sectionName === "KPIs") targetKey = "KPIs";
+  if (sectionName === "Core Responsibilities") targetKey = "CoreResponsibilities";
+  if (sectionName === "Supporting Responsibilities") targetKey = "SupportingResponsibilities";
+  if (sectionName === "Productivity Tools") targetKey = "ProductivityTools";
+  if (sectionName === "Key Qualifications") targetKey = "KeyQualifications";
+
+  const userPrompt = `Regenerate the "${sectionName}" section based on the context provided. Provide diverse and professional outputs.`;
+
+  // Reuse your existing robust AI caller
+  try {
+    const result = callGenerativeAIService(systemPrompt, userPrompt);
+    // Return with a standard key so frontend knows where to look
+    return { [targetKey]: result[targetKey] || result }; 
+  } catch (e) {
+    return { error: e.message };
   }
 }

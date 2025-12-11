@@ -1618,10 +1618,16 @@
         </div>
 
         <form id="ai-jd-form" class="space-y-4 flex-grow">
-          
           <div>
-            <label class="block text-sm font-bold text-gray-700">Job Title</label>
-            <input type="text" id="ai-job-title" class="mt-1 w-full p-2 border rounded text-sm" placeholder="e.g. HR Manager">
+            <label class="block text-sm font-bold text-gray-700">Position ID <span class="text-gray-400 font-normal">(Required for filename)</span></label>
+            <input type="text" id="ai-position-id" class="mt-1 w-full p-2 border rounded text-sm" placeholder="e.g. 04-CSD-001">
+          </div>
+
+          <div>
+            <label class="block text-sm font-bold text-gray-700">Select Position (Search from Org Chart)</label>
+            <div id="ai-job-title-dropdown-container" class="searchable-dropdown"></div>
+  
+            <input type="hidden" id="ai-job-title">
           </div>
           
           <div id="ai-workload-fields">
@@ -1670,7 +1676,7 @@
           <h3 class="font-bold text-gray-700">Preview & Edit</h3>
           <div class="flex space-x-2">
             <button onclick="copyJDToClipboard()" class="text-xs bg-white border border-gray-300 px-3 py-1 rounded hover:bg-gray-100">Copy Text</button>
-            <button class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Save / Export</button>
+            <button onclick="saveAIJD()" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Save / Export</button>
           </div>
         </div>
         
@@ -7456,10 +7462,31 @@ function viewCompetencyProfile(rawEmployeeId) {
 
 function openAIJDModal() {
   document.getElementById('ai-jd-modal').style.display = 'flex';
+  
+  // Initialize the Org Chart Search Logic
+  initializeAIJobSelector();
 }
 
 function closeAIJDModal() {
   document.getElementById('ai-jd-modal').style.display = 'none';
+  resetAIJDForm(); // <--- Auto-clear data on close
+}
+
+function resetAIJDForm() {
+  // 1. Reset all input fields
+  document.getElementById('ai-jd-form').reset();
+  
+  // 2. Explicitly clear text area and file input to be safe
+  document.getElementById('ai-workload-text').value = '';
+  document.getElementById('ai-upload-file').value = '';
+
+  // 3. Reset the Preview Column to its default "Empty" state
+  document.getElementById('ai-preview-content').innerHTML = `
+    <div class="text-center text-gray-400 mt-20">
+      <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+      <p>Generated content will appear here.</p>
+    </div>
+  `;
 }
 
 function switchAIInputTab(mode) {
@@ -7532,6 +7559,123 @@ function submitAIRequest(payload, loader) {
     .generateJobDescriptionAI(payload);
 }
 
+/* =========================================================================
+   GLOBAL HELPER FUNCTIONS
+   (Keep these OUTSIDE of renderAIOutput so "Regenerate" buttons can use them)
+   ========================================================================= */
+
+// 1. Helper to generate the "Regenerate" button icon
+const regenBtn = (section) => `
+  <button onclick="triggerRegenerate('${section}')" class="ml-2 text-gray-400 hover:text-purple-600 transition-colors" title="Regenerate this section">
+    <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+  </button>
+`;
+
+// 2. Data Unwrapper: Fixes [object Object] by grabbing the first text value inside
+function unwrap(val) {
+  if (!val) return null;
+  if (typeof val === 'string') return val;
+  if (Array.isArray(val)) return val;
+  // If it's an object, grab the first value
+  const keys = Object.keys(val);
+  if (keys.length > 0) return unwrap(val[keys[0]]);
+  return JSON.stringify(val);
+}
+
+// 3. Robust Recursive Search: Finds keys anywhere in the JSON
+function deepSearch(obj, targetKeys) {
+  if (!obj || typeof obj !== 'object') return null;
+  
+  // Check current level
+  const foundKey = Object.keys(obj).find(k => targetKeys.includes(k.toLowerCase().replace(/_/g, '').replace(/\s/g, '')));
+  if (foundKey) return obj[foundKey];
+
+  // Dig deeper
+  for (const key in obj) {
+    if (typeof obj[key] === 'object' && obj[key] !== null) {
+      const result = deepSearch(obj[key], targetKeys);
+      if (result) return result;
+    }
+  }
+  return null;
+}
+
+// 4. Render Simple List (Tags style for KPIs)
+function renderListSimple(items, emptyMsg) {
+  if (!items) return `<span class="text-gray-400 italic text-xs">${emptyMsg}</span>`;
+  if (typeof items === 'string') items = items.split(',').map(s => s.trim());
+  if (!Array.isArray(items)) items = [unwrap(items)];
+  return items.map(k => `<span class="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-xs font-semibold mb-1 mr-1 inline-block">${k}</span>`).join('');
+}
+
+// 5. Render Bullet List (Standard UL/LI)
+function renderListBullets(items) {
+  if (!items) return '';
+  if (typeof items === 'string') return `<li>${items}</li>`;
+  if (!Array.isArray(items)) items = [unwrap(items)];
+  return items.map(i => `<li>${i}</li>`).join('');
+}
+
+// 6. Render PLOC (Handles both Structured Objects AND Flat Lists)
+function renderPLOC(respObj) {
+  if (!respObj) return '<p class="text-gray-400 italic text-xs">No data found.</p>';
+
+  // Scenario A: AI returned a simple flat list (didn't categorize)
+  if (Array.isArray(respObj)) {
+      return `<ul class="list-disc ml-4 text-gray-700 text-xs space-y-1">${renderListBullets(respObj)}</ul>`;
+  }
+
+  // Scenario B: AI returned structured categories (Planning, Leading, etc.)
+  const categories = ['Planning', 'Leading', 'Organizing', 'Controlling'];
+  const colors = {'Planning': 'blue', 'Leading': 'purple', 'Organizing': 'yellow', 'Controlling': 'green'};
+  
+  let html = '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">';
+  let foundAny = false;
+
+  categories.forEach(cat => {
+    // Find key matching "Planning", "P", "Plan", etc.
+    const key = Object.keys(respObj).find(k => k.toLowerCase().includes(cat.toLowerCase()));
+    const items = key ? respObj[key] : [];
+    
+    // Ensure it's an array
+    const listItems = typeof items === 'string' ? [items] : (Array.isArray(items) ? items : []);
+
+    if (listItems.length > 0) foundAny = true;
+
+    const color = colors[cat];
+    html += `
+      <div class="border rounded p-3 bg-${color}-50 border-${color}-200">
+        <h5 class="font-bold text-${color}-800 mb-2 uppercase text-xs tracking-wider">${cat.charAt(0)} - ${cat}</h5>
+        <ul class="list-disc list-outside ml-4 text-gray-700 space-y-1 text-xs">
+          ${listItems.length > 0 ? renderListBullets(listItems) : '<li class="text-gray-400 italic">None</li>'}
+        </ul>
+      </div>
+    `;
+  });
+  html += '</div>';
+
+  // Fallback: If respObj was an object but had no PLOC keys (e.g. { "Duties": [...] })
+  if (!foundAny) {
+      const values = Object.values(respObj).flat();
+      return `<ul class="list-disc ml-4 text-gray-700 text-xs space-y-1">${renderListBullets(values)}</ul>`;
+  }
+
+  return html;
+}
+
+// 7. Extract Qualification List
+function getQualList(obj, keys) {
+  const found = deepSearch(obj, keys);
+  if (!found) return [];
+  if (typeof found === 'string') return [found];
+  return Array.isArray(found) ? found : [JSON.stringify(found)];
+}
+
+
+/* =========================================================================
+   MAIN RENDER FUNCTION
+   ========================================================================= */
+
 function renderAIOutput(data) {
   document.getElementById('ai-loading-overlay').style.display = 'none';
   
@@ -7540,77 +7684,105 @@ function renderAIOutput(data) {
     return;
   }
 
-  // Helper to generate PLOC Grid
-  const renderPLOC = (respObj) => {
-    if (!respObj) return '<p class="text-gray-400 italic">No data</p>';
-    const categories = ['Planning', 'Leading', 'Organizing', 'Controlling'];
-    const colors = {'Planning': 'blue', 'Leading': 'purple', 'Organizing': 'yellow', 'Controlling': 'green'};
+  // --- KEY MAPPINGS (Synonyms) ---
+  const getters = {
+    role: ['organizationalrole', 'role', 'jobsummary', 'rolesummary', 'summary', 'description', 'jobdescription', 'position_summary'],
+    kpis: ['kpis', 'keyperformanceindicators', 'metrics', 'measures', 'indicators'],
+    core: ['coreresponsibilities', 'coreduties', 'responsibilities', 'duties', 'primaryresponsibilities', 'core'],
+    support: ['supportingresponsibilities', 'secondaryduties', 'supportingduties', 'additionalresponsibilities', 'supporting', 'otherduties'],
+    tools: ['productivitytools', 'tools', 'software', 'technology', 'technologies', 'equipment', 'systemsandtools'],
+    conditions: ['workingconditions', 'workenvironment', 'conditions', 'environment'],
+    ld: ['ldmatrix', 'learninganddevelopment', 'training', 'development', 'trainingmatrix', 'courses'],
     
-    let html = '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">';
-    categories.forEach(cat => {
-      const items = respObj[cat] || [];
-      const color = colors[cat];
-      html += `
-        <div class="border rounded p-3 bg-${color}-50 border-${color}-200">
-          <h5 class="font-bold text-${color}-800 mb-2 uppercase text-xs tracking-wider">${cat.charAt(0)} - ${cat}</h5>
-          <ul class="list-disc list-outside ml-4 text-gray-700 space-y-1">
-            ${items.length > 0 ? items.map(i => `<li>${i}</li>`).join('') : '<li class="text-gray-400 italic text-xs">None</li>'}
-          </ul>
-        </div>
-      `;
-    });
-    html += '</div>';
-    return html;
+    // Qualification Sub-keys
+    kn: ['knowledge', 'technicalknowledge', 'education', 'educationalrequirements'],
+    ex: ['experience', 'workexperience', 'jobexperience'],
+    co: ['competencies', 'skills', 'keyskills', 'corecompetencies'],
+    at: ['personalattributes', 'attributes', 'softskills', 'personality', 'traits']
   };
 
+  // --- EXTRACT DATA (Using Global Search) ---
+  let orgRole = unwrap(deepSearch(data, getters.role));
+  let kpis = deepSearch(data, getters.kpis);
+  let tools = deepSearch(data, getters.tools);
+  let conditions = unwrap(deepSearch(data, getters.conditions));
+  let qualifications = deepSearch(data, getters.quals); // Search for parent first
+  
+  // If parent "Key Qualifications" not found, search globally for children
+  if (!qualifications) qualifications = data; 
+
+  let ldMatrix = deepSearch(data, getters.ld);
+  let coreResp = deepSearch(data, getters.core);
+  let suppResp = deepSearch(data, getters.support);
+
+  // --- BUILD HTML TEMPLATE ---
   const html = `
     <div class="border-b pb-4 mb-4">
       <h1 class="text-2xl font-bold text-gray-900">${document.getElementById('ai-job-title').value}</h1>
-      <p class="text-gray-600 mt-2 italic">${data.OrganizationalRole || 'N/A'}</p>
+      <p class="text-gray-600 mt-2 italic text-sm">${orgRole || 'Role summary not generated.'}</p>
     </div>
 
-    <div class="mb-6">
-      <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b">Recommended KPIs</h4>
-      <div class="flex flex-wrap gap-2">
-        ${(data.KPIs || []).map(k => `<span class="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-xs font-semibold">${k}</span>`).join('')}
+    <div class="mb-6" id="section-kpis">
+      <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b flex items-center">
+        Recommended KPIs ${regenBtn('KPIs')}
+      </h4>
+      <div class="flex flex-wrap content-area">
+        ${renderListSimple(kpis, "No KPIs generated")}
       </div>
     </div>
 
-    <div class="mb-8">
-      <h4 class="font-bold text-gray-800 mb-3 uppercase text-sm border-b pb-1 bg-gray-100 p-1">Core Responsibilities (PLOC)</h4>
-      ${renderPLOC(data.CoreResponsibilities)}
+    <div class="mb-8" id="section-core">
+      <h4 class="font-bold text-gray-800 mb-3 uppercase text-sm border-b pb-1 bg-gray-100 p-1 flex items-center justify-between">
+        Core Responsibilities (PLOC) ${regenBtn('Core Responsibilities')}
+      </h4>
+      <div class="content-area">${renderPLOC(coreResp)}</div>
     </div>
 
-    <div class="mb-8">
-      <h4 class="font-bold text-gray-800 mb-3 uppercase text-sm border-b pb-1 bg-gray-100 p-1">Supporting Responsibilities (PLOC)</h4>
-      ${renderPLOC(data.SupportingResponsibilities)}
+    <div class="mb-8" id="section-support">
+      <h4 class="font-bold text-gray-800 mb-3 uppercase text-sm border-b pb-1 bg-gray-100 p-1 flex items-center justify-between">
+        Supporting Responsibilities (PLOC) ${regenBtn('Supporting Responsibilities')}
+      </h4>
+      <div class="content-area">${renderPLOC(suppResp)}</div>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-      <div>
-        <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b">Productivity Tools</h4>
-        <ul class="list-disc ml-4 text-gray-700">${(data.ProductivityTools || []).map(t => `<li>${t}</li>`).join('')}</ul>
+      <div id="section-tools">
+        <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b flex items-center">
+          Productivity Tools ${regenBtn('Productivity Tools')}
+        </h4>
+        <ul class="list-disc ml-4 text-gray-700 text-xs content-area">
+            ${tools ? renderListBullets(tools) : '<li class="text-gray-400 italic">N/A</li>'}
+        </ul>
       </div>
       <div>
         <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b">Working Conditions</h4>
-        <p class="text-gray-700">${data.WorkingConditions || 'N/A'}</p>
+        <p class="text-gray-700 text-xs">${conditions || 'N/A'}</p>
       </div>
     </div>
 
-    <div class="mb-6">
-      <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b">Key Qualifications</h4>
-      <div class="grid grid-cols-2 gap-4 text-xs">
-        <div><strong>Knowledge:</strong> ${(data.KeyQualifications?.Knowledge || []).join(', ')}</div>
-        <div><strong>Experience:</strong> ${(data.KeyQualifications?.Experience || []).join(', ')}</div>
-        <div><strong>Competencies:</strong> ${(data.KeyQualifications?.Competencies || []).join(', ')}</div>
-        <div><strong>Attributes:</strong> ${(data.KeyQualifications?.PersonalAttributes || []).join(', ')}</div>
+    <div class="mb-6" id="section-quals">
+      <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b flex items-center">
+        Key Qualifications ${regenBtn('Key Qualifications')}
+      </h4>
+      <div class="grid grid-cols-2 gap-4 text-xs content-area">
+        <div><strong class="block mb-1 text-gray-900">Knowledge:</strong> <ul class="list-disc ml-4 text-gray-600">${renderListBullets(getQualList(qualifications, getters.kn))}</ul></div>
+        <div><strong class="block mb-1 text-gray-900">Experience:</strong> <ul class="list-disc ml-4 text-gray-600">${renderListBullets(getQualList(qualifications, getters.ex))}</ul></div>
+        <div><strong class="block mb-1 text-gray-900">Competencies:</strong> <ul class="list-disc ml-4 text-gray-600">${renderListBullets(getQualList(qualifications, getters.co))}</ul></div>
+        <div><strong class="block mb-1 text-gray-900">Attributes:</strong> <ul class="list-disc ml-4 text-gray-600">${renderListBullets(getQualList(qualifications, getters.at))}</ul></div>
       </div>
     </div>
     
     <div class="bg-green-50 p-4 rounded border border-green-200 mt-4">
       <h4 class="font-bold text-green-800 mb-2 text-xs uppercase">Learning & Development Matrix</h4>
-      <ul class="list-disc ml-4 text-green-900">${(data.LDMatrix || []).map(l => `<li>${l}</li>`).join('')}</ul>
+      <ul class="list-disc ml-4 text-green-900 text-xs">
+        ${ldMatrix ? renderListBullets(ldMatrix) : '<li>N/A</li>'}
+      </ul>
     </div>
+
+    <details class="mt-8 border-t pt-4">
+        <summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-600">Troubleshoot: View Raw AI Data</summary>
+        <pre class="bg-gray-800 text-green-400 p-4 rounded mt-2 text-xs overflow-auto max-h-60">${JSON.stringify(data, null, 2)}</pre>
+    </details>
   `;
 
   document.getElementById('ai-preview-content').innerHTML = html;
@@ -7619,6 +7791,237 @@ function renderAIOutput(data) {
 function copyJDToClipboard() {
   const content = document.getElementById('ai-preview-content').innerText;
   navigator.clipboard.writeText(content).then(() => alert("Copied to clipboard!"));
+}
+
+function saveAIJD() {
+  const content = document.getElementById('ai-preview-content');
+  const jobTitle = document.getElementById('ai-job-title').value;
+  const posId = document.getElementById('ai-position-id').value;
+
+  if (!content.innerText.trim() || content.innerText.includes("Generated content will appear here")) {
+    alert("Please generate a Job Description first.");
+    return;
+  }
+  if (!posId) {
+    alert("Please enter a Position ID (e.g., 04-CSD-001) to save the file correctly.");
+    document.getElementById('ai-position-id').focus();
+    return;
+  }
+
+  const btn = event.target;
+  const originalText = btn.textContent;
+  btn.textContent = "Saving to Drive...";
+  btn.disabled = true;
+
+  const { jsPDF } = window.jspdf;
+
+  html2canvas(content, { scale: 2, useCORS: true, backgroundColor: '#ffffff' }).then(canvas => {
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const margin = 15; 
+    const contentWidth = pdfWidth - (margin * 2);
+    const contentHeight = (canvas.height * contentWidth) / canvas.width;
+    
+    let heightLeft = contentHeight;
+    let position = margin;
+
+    pdf.addImage(imgData, 'PNG', margin, position, contentWidth, contentHeight);
+    heightLeft -= (pdfHeight - (margin * 2));
+
+    while (heightLeft > 0) {
+      position = heightLeft - contentHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', margin, -pdfHeight + margin, contentWidth, contentHeight);
+      heightLeft -= pdfHeight;
+    }
+    
+    // --- NEW: SEND TO BACKEND INSTEAD OF DOWNLOADING ---
+    const pdfDataUri = pdf.output('datauristring'); // Get base64 string
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res.success) {
+          alert(`✅ Saved Successfully!\n\nFile: ${res.name}\nLocation: Job Description General Folder`);
+        } else {
+          alert("Error Saving: " + res.error);
+        }
+        btn.textContent = originalText;
+        btn.disabled = false;
+      })
+      .withFailureHandler(function(err) {
+        alert("Server Error: " + err.message);
+        btn.textContent = originalText;
+        btn.disabled = false;
+      })
+      .saveJDToDrive(pdfDataUri, posId, jobTitle);
+
+  }).catch(err => {
+    console.error(err);
+    alert("Error creating PDF: " + err.message);
+    btn.textContent = originalText;
+    btn.disabled = false;
+  });
+}
+
+function triggerRegenerate(section) {
+  // 1. Identify the container
+  let containerId = "";
+  if (section === 'KPIs') containerId = "section-kpis";
+  if (section === 'Core Responsibilities') containerId = "section-core";
+  if (section === 'Supporting Responsibilities') containerId = "section-support";
+  if (section === 'Productivity Tools') containerId = "section-tools";
+  if (section === 'Key Qualifications') containerId = "section-quals";
+
+  const container = document.querySelector(`#${containerId} .content-area`);
+  if (!container) return;
+
+  // 2. Show Loading State
+  const originalHTML = container.innerHTML;
+  container.innerHTML = `<div class="animate-pulse flex space-x-2 items-center text-purple-600"><div class="h-4 w-4 bg-purple-400 rounded-full"></div><span class="text-xs">Regenerating ${section}...</span></div>`;
+
+  // 3. Prepare Context
+  const payload = {
+    jobTitle: document.getElementById('ai-job-title').value,
+    level: document.getElementById('ai-level').value,
+    department: document.getElementById('ai-dept').value,
+    content: document.getElementById('ai-workload-text').value
+  };
+
+  // 4. Call Backend
+  google.script.run
+    .withSuccessHandler(newData => {
+      // Refresh just this section
+      // We essentially re-run the specific renderer for this section
+      // Note: This requires the renderers (renderPLOC, renderListSimple) to be accessible here. 
+      // Ideally, ensure those helper functions are defined in the global scope or copied here.
+      
+      // Quick Render Update logic:
+      if (section.includes('Responsibilities')) {
+         // Re-render PLOC
+         // Note: You need to ensure 'renderPLOC' is available. 
+         // For now, I will assume you move the helper functions outside renderAIOutput 
+         // OR simply re-call renderAIOutput with merged data (easier).
+         
+         // MERGE STRATEGY (Simplest way to update UI):
+         // We get the *full* current data object (if stored) or just update the DOM.
+         // Since we don't store the full data object globally, let's just update the DOM directly.
+         
+         let html = "";
+         if(newData.CoreResponsibilities) html = renderPLOC_Global(newData.CoreResponsibilities); // Rename renderPLOC to renderPLOC_Global and put in global scope
+         else if(newData.SupportingResponsibilities) html = renderPLOC_Global(newData.SupportingResponsibilities);
+         
+         container.innerHTML = html;
+      }
+      else if (section === 'KPIs') {
+         container.innerHTML = newData.KPIs.map(k => `<span class="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-xs font-semibold mb-1 mr-1 inline-block">${k}</span>`).join('');
+      }
+      // ... Add other handlers or simply alert "Done" and re-generate full JD for simplicity if this gets too complex.
+      // A full regenerate is safer if you don't want to extract all render functions.
+      
+      // Let's assume you extracted the renderers to global scope:
+      if (section === 'Productivity Tools') container.innerHTML = (newData.ProductivityTools || []).map(t => `<li>${t}</li>`).join('');
+      
+      // For Qualifications, it's an object, so we update the innerHTML
+      if (section === 'Key Qualifications') {
+         const q = newData.KeyQualifications;
+         // Re-build the grid HTML
+         container.innerHTML = `
+            <div><strong class="block mb-1 text-gray-900">Knowledge:</strong> ${q.Knowledge ? q.Knowledge.join(', ') : ''}</div>
+            <div><strong class="block mb-1 text-gray-900">Experience:</strong> ${q.Experience ? q.Experience.join(', ') : ''}</div>
+            <div><strong class="block mb-1 text-gray-900">Competencies:</strong> ${q.Competencies ? q.Competencies.join(', ') : ''}</div>
+            <div><strong class="block mb-1 text-gray-900">Attributes:</strong> ${q.PersonalAttributes ? q.PersonalAttributes.join(', ') : ''}</div>
+         `;
+      }
+
+    })
+    .withFailureHandler(err => {
+      alert("Error: " + err.message);
+      container.innerHTML = originalHTML; // Revert
+    })
+    .regenerateJDSection(section, payload);
+}
+
+// IMPORTANT: Move 'renderPLOC' and other helpers OUTSIDE 'renderAIOutput' 
+// so 'triggerRegenerate' can use them.
+function renderPLOC_Global(respObj) {
+    // ... (Paste your renderPLOC logic here) ...
+    // Copy the exact logic from your current renderPLOC function
+    if (!respObj) return '<p class="text-gray-400 italic text-xs">No data found.</p>';
+    if (Array.isArray(respObj)) return `<ul class="list-disc ml-4 text-gray-700 text-xs space-y-1">${respObj.map(i => `<li>${i}</li>`).join('')}</ul>`;
+    
+    const categories = ['Planning', 'Leading', 'Organizing', 'Controlling'];
+    const colors = {'Planning': 'blue', 'Leading': 'purple', 'Organizing': 'yellow', 'Controlling': 'green'};
+    let html = '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">';
+    categories.forEach(cat => {
+      const key = Object.keys(respObj).find(k => k.toLowerCase().includes(cat.toLowerCase()));
+      const items = key ? respObj[key] : [];
+      const listItems = Array.isArray(items) ? items : (items ? [items] : []);
+      const color = colors[cat];
+      html += `<div class="border rounded p-3 bg-${color}-50 border-${color}-200"><h5 class="font-bold text-${color}-800 mb-2 uppercase text-xs tracking-wider">${cat.charAt(0)} - ${cat}</h5><ul class="list-disc list-outside ml-4 text-gray-700 space-y-1 text-xs">${listItems.length > 0 ? listItems.map(i => `<li>${i}</li>`).join('') : '<li class="text-gray-400 italic">None</li>'}</ul></div>`;
+    });
+    html += '</div>';
+    return html;
+}
+
+/* --- AI JD BUILDER: ORG CHART CONNECTION --- */
+
+function initializeAIJobSelector() {
+  // Ensure we have data to search through
+  if (typeof fullEmployeeData === 'undefined' || fullEmployeeData.length === 0) return;
+
+  // 1. Filter only Active positions that have a Job Title
+  const activePositions = fullEmployeeData.filter(e => e.positionStatus !== 'Inactive' && e.jobTitle);
+
+  // 2. Format the list for the dropdown
+  // We display "Job Title (Department)" so you can distinguish duplicates
+  const dropdownItems = activePositions.map(e => ({
+    displayLabel: `${e.jobTitle} | ${e.department} (${e.positionId})`, 
+    positionId: e.positionId 
+  }));
+
+  // 3. Create the Searchable Dropdown
+  // uses your existing createSearchableDropdown helper
+  createSearchableDropdown('ai-job-title-dropdown-container', dropdownItems, 'displayLabel', 'positionId', function(selectedPosId) {
+    
+    // 4. ON SELECT: Find the full employee record
+    const empData = activePositions.find(e => e.positionId === selectedPosId);
+    
+    if (empData) {
+      // --- AUTO-POPULATE FIELDS ---
+      
+      // Position ID
+      const posIdField = document.getElementById('ai-position-id');
+      if (posIdField) posIdField.value = empData.positionId;
+
+      // Department
+      const deptField = document.getElementById('ai-dept');
+      if (deptField) deptField.value = empData.department;
+
+      // Level (Try to match the select option)
+      const levelField = document.getElementById('ai-level');
+      if (levelField) levelField.value = empData.level; // Assumes value matches (e.g. "Managerial")
+
+      // Job Title (Hidden field for AI)
+      document.getElementById('ai-job-title').value = empData.jobTitle;
+
+      // 5. UX CLEANUP
+      // The dropdown creates an input that now shows "HR Manager | Corporate (ID)".
+      // We overwrite it to just say "HR Manager" so it looks clean for the user.
+      const visibleInput = document.querySelector('#ai-job-title-dropdown-container .searchable-dropdown-input');
+      if (visibleInput) visibleInput.value = empData.jobTitle;
+    }
+  });
+
+  // 6. SYNC MANUAL TYPING
+  // If the user ignores the list and types a NEW job title manually, we must update the hidden field
+  const input = document.querySelector('#ai-job-title-dropdown-container .searchable-dropdown-input');
+  if (input) {
+    input.addEventListener('input', function(e) {
+      document.getElementById('ai-job-title').value = e.target.value;
+    });
+  }
 }
 
 </script>

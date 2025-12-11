@@ -835,6 +835,10 @@
             <input type="checkbox" id="show-inactive-checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
             <label for="show-inactive-checkbox" class="ml-2 block text-sm font-medium text-gray-700">Show Inactive Positions</label>
         </div>
+        <button onclick="openAIJDModal()" class="bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 flex items-center shadow-md">
+      <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+      AI JD Builder
+    </button>
         <button id="request-change-btn" onclick="openRequestModal()" class="hidden bg-yellow-500 text-white py-2 px-4 rounded-lg hover:bg-yellow-600">Request Change to Org Chart</button>
         <button id="add-employee-btn" onclick="openModal('add')" class="hidden bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700">Add New Position</button>
     </div>
@@ -1588,6 +1592,103 @@
         <button type="button" onclick="submitRequest()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Submit Request</button>
       </div>
     </form>
+  </div>
+</div>
+
+<div id="ai-jd-modal" class="modal-overlay" style="z-index: 100;">
+  <div class="modal-content" style="max-width: 1000px; width: 95%; height: 90vh; display: flex; flex-direction: column;">
+    
+    <div class="flex justify-between items-center mb-4 border-b pb-2">
+      <div class="flex items-center">
+        <div class="p-2 bg-purple-100 rounded-full mr-3">
+          <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+        </div>
+        <h2 class="text-2xl font-bold text-slate-800">AI Job Description Builder</h2>
+      </div>
+      <button onclick="closeAIJDModal()" class="text-gray-500 hover:text-gray-800 text-3xl font-bold">&times;</button>
+    </div>
+
+    <div class="flex flex-col md:flex-row gap-6 flex-grow overflow-hidden">
+      
+      <div class="w-full md:w-1/3 flex flex-col overflow-y-auto pr-2 border-r border-gray-200">
+        
+        <div class="flex space-x-1 bg-gray-100 p-1 rounded-lg mb-4">
+          <button id="tab-jd-workload" onclick="switchAIInputTab('workload')" class="flex-1 py-2 text-sm font-medium rounded-md bg-white shadow text-purple-700 transition-colors">From Workload</button>
+          <button id="tab-jd-upload" onclick="switchAIInputTab('upload')" class="flex-1 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-200 transition-colors">Upload JD</button>
+        </div>
+
+        <form id="ai-jd-form" class="space-y-4 flex-grow">
+          
+          <div>
+            <label class="block text-sm font-bold text-gray-700">Job Title</label>
+            <input type="text" id="ai-job-title" class="mt-1 w-full p-2 border rounded text-sm" placeholder="e.g. HR Manager">
+          </div>
+          
+          <div id="ai-workload-fields">
+            <div class="grid grid-cols-2 gap-2 mb-2">
+              <div>
+                <label class="block text-sm font-bold text-gray-700">Department</label>
+                <input type="text" id="ai-dept" class="mt-1 w-full p-2 border rounded text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-bold text-gray-700">Level</label>
+                <select id="ai-level" class="mt-1 w-full p-2 border rounded text-sm">
+                  <option>Managerial</option>
+                  <option>Supervisory</option>
+                  <option>Rank & File</option>
+                  <option>Executive</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Workload Assessment / Task List</label>
+              <p class="text-xs text-gray-500 mb-2">Paste the list of daily tasks, strategic goals, or raw workload data here.</p>
+              <textarea id="ai-workload-text" class="w-full p-3 border rounded text-sm h-64 focus:ring-2 focus:ring-purple-500" placeholder="- Coordinate daily standups (10%)&#10;- Manage budget (20%)&#10;- Strategy planning..."></textarea>
+            </div>
+          </div>
+
+          <div id="ai-upload-fields" style="display: none;">
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:bg-gray-50 transition-colors">
+              <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+              <p class="mt-1 text-sm text-gray-600">Click to upload JD file (PDF, Docx, Txt)</p>
+              <input type="file" id="ai-upload-file" class="mt-2 block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100">
+            </div>
+            <p class="text-xs text-gray-500 mt-2">The AI will analyze the file content and restructure it into the PLOC format.</p>
+          </div>
+
+        </form>
+
+        <div class="mt-4 pt-4 border-t">
+          <button onclick="generateJD()" id="btn-generate-jd" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-3 rounded-lg shadow-lg hover:opacity-90 flex justify-center items-center">
+            <span>✨ Generate Job Description</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="w-full md:w-2/3 flex flex-col bg-gray-50 rounded-lg border border-gray-200 overflow-hidden relative">
+        <div class="bg-gray-100 p-3 border-b flex justify-between items-center">
+          <h3 class="font-bold text-gray-700">Preview & Edit</h3>
+          <div class="flex space-x-2">
+            <button onclick="copyJDToClipboard()" class="text-xs bg-white border border-gray-300 px-3 py-1 rounded hover:bg-gray-100">Copy Text</button>
+            <button class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Save / Export</button>
+          </div>
+        </div>
+        
+        <div id="ai-loading-overlay" class="absolute inset-0 bg-white bg-opacity-90 z-50 hidden flex-col items-center justify-center">
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
+          <p class="text-purple-800 font-bold animate-pulse">AI is crafting the Job Description...</p>
+          <p class="text-xs text-gray-500 mt-2">Applying PLOC Structure</p>
+        </div>
+
+        <div id="ai-preview-content" class="p-6 overflow-y-auto h-full text-sm space-y-6">
+          <div class="text-center text-gray-400 mt-20">
+            <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            <p>Generated content will appear here.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
   </div>
 </div>
 
@@ -7349,6 +7450,175 @@ function viewCompetencyProfile(rawEmployeeId) {
   }
   
   document.getElementById('competency-view').scrollIntoView({ behavior: 'smooth' });
+}
+
+/* --- AI JD BUILDER LOGIC --- */
+
+function openAIJDModal() {
+  document.getElementById('ai-jd-modal').style.display = 'flex';
+}
+
+function closeAIJDModal() {
+  document.getElementById('ai-jd-modal').style.display = 'none';
+}
+
+function switchAIInputTab(mode) {
+  const workloadBtn = document.getElementById('tab-jd-workload');
+  const uploadBtn = document.getElementById('tab-jd-upload');
+  const workloadFields = document.getElementById('ai-workload-fields');
+  const uploadFields = document.getElementById('ai-upload-fields');
+
+  if (mode === 'workload') {
+    workloadBtn.className = "flex-1 py-2 text-sm font-medium rounded-md bg-white shadow text-purple-700 transition-colors";
+    uploadBtn.className = "flex-1 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-200 transition-colors";
+    workloadFields.style.display = 'block';
+    uploadFields.style.display = 'none';
+  } else {
+    uploadBtn.className = "flex-1 py-2 text-sm font-medium rounded-md bg-white shadow text-purple-700 transition-colors";
+    workloadBtn.className = "flex-1 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-200 transition-colors";
+    workloadFields.style.display = 'none';
+    uploadFields.style.display = 'block';
+  }
+}
+
+function generateJD() {
+  const jobTitle = document.getElementById('ai-job-title').value;
+  if (!jobTitle) { alert("Please enter a Job Title."); return; }
+
+  const isWorkload = document.getElementById('ai-workload-fields').style.display !== 'none';
+  const loader = document.getElementById('ai-loading-overlay');
+  
+  const payload = {
+    jobTitle: jobTitle,
+    type: isWorkload ? 'workload' : 'upload'
+  };
+
+  if (isWorkload) {
+    payload.level = document.getElementById('ai-level').value;
+    payload.department = document.getElementById('ai-dept').value;
+    payload.content = document.getElementById('ai-workload-text').value;
+    if (!payload.content) { alert("Please enter workload details."); return; }
+    submitAIRequest(payload, loader);
+  } else {
+    const fileInput = document.getElementById('ai-upload-file');
+    if (fileInput.files.length === 0) { alert("Please select a file."); return; }
+    
+    // File processing
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      payload.file = {
+        name: file.name,
+        mimeType: file.type,
+        content: e.target.result.split(',')[1] // base64
+      };
+      // For upload mode, we pass a dummy content string or handle it on backend
+      payload.content = "File Uploaded"; 
+      submitAIRequest(payload, loader);
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function submitAIRequest(payload, loader) {
+  loader.style.display = 'flex';
+  
+  google.script.run
+    .withSuccessHandler(renderAIOutput)
+    .withFailureHandler(err => {
+      loader.style.display = 'none';
+      alert("Error: " + err.message);
+    })
+    .generateJobDescriptionAI(payload);
+}
+
+function renderAIOutput(data) {
+  document.getElementById('ai-loading-overlay').style.display = 'none';
+  
+  if (data.error) {
+    document.getElementById('ai-preview-content').innerHTML = `<div class="text-red-500 font-bold p-4 border border-red-300 rounded bg-red-50">${data.error}</div>`;
+    return;
+  }
+
+  // Helper to generate PLOC Grid
+  const renderPLOC = (respObj) => {
+    if (!respObj) return '<p class="text-gray-400 italic">No data</p>';
+    const categories = ['Planning', 'Leading', 'Organizing', 'Controlling'];
+    const colors = {'Planning': 'blue', 'Leading': 'purple', 'Organizing': 'yellow', 'Controlling': 'green'};
+    
+    let html = '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">';
+    categories.forEach(cat => {
+      const items = respObj[cat] || [];
+      const color = colors[cat];
+      html += `
+        <div class="border rounded p-3 bg-${color}-50 border-${color}-200">
+          <h5 class="font-bold text-${color}-800 mb-2 uppercase text-xs tracking-wider">${cat.charAt(0)} - ${cat}</h5>
+          <ul class="list-disc list-outside ml-4 text-gray-700 space-y-1">
+            ${items.length > 0 ? items.map(i => `<li>${i}</li>`).join('') : '<li class="text-gray-400 italic text-xs">None</li>'}
+          </ul>
+        </div>
+      `;
+    });
+    html += '</div>';
+    return html;
+  };
+
+  const html = `
+    <div class="border-b pb-4 mb-4">
+      <h1 class="text-2xl font-bold text-gray-900">${document.getElementById('ai-job-title').value}</h1>
+      <p class="text-gray-600 mt-2 italic">${data.OrganizationalRole || 'N/A'}</p>
+    </div>
+
+    <div class="mb-6">
+      <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b">Recommended KPIs</h4>
+      <div class="flex flex-wrap gap-2">
+        ${(data.KPIs || []).map(k => `<span class="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-xs font-semibold">${k}</span>`).join('')}
+      </div>
+    </div>
+
+    <div class="mb-8">
+      <h4 class="font-bold text-gray-800 mb-3 uppercase text-sm border-b pb-1 bg-gray-100 p-1">Core Responsibilities (PLOC)</h4>
+      ${renderPLOC(data.CoreResponsibilities)}
+    </div>
+
+    <div class="mb-8">
+      <h4 class="font-bold text-gray-800 mb-3 uppercase text-sm border-b pb-1 bg-gray-100 p-1">Supporting Responsibilities (PLOC)</h4>
+      ${renderPLOC(data.SupportingResponsibilities)}
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <div>
+        <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b">Productivity Tools</h4>
+        <ul class="list-disc ml-4 text-gray-700">${(data.ProductivityTools || []).map(t => `<li>${t}</li>`).join('')}</ul>
+      </div>
+      <div>
+        <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b">Working Conditions</h4>
+        <p class="text-gray-700">${data.WorkingConditions || 'N/A'}</p>
+      </div>
+    </div>
+
+    <div class="mb-6">
+      <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b">Key Qualifications</h4>
+      <div class="grid grid-cols-2 gap-4 text-xs">
+        <div><strong>Knowledge:</strong> ${(data.KeyQualifications?.Knowledge || []).join(', ')}</div>
+        <div><strong>Experience:</strong> ${(data.KeyQualifications?.Experience || []).join(', ')}</div>
+        <div><strong>Competencies:</strong> ${(data.KeyQualifications?.Competencies || []).join(', ')}</div>
+        <div><strong>Attributes:</strong> ${(data.KeyQualifications?.PersonalAttributes || []).join(', ')}</div>
+      </div>
+    </div>
+    
+    <div class="bg-green-50 p-4 rounded border border-green-200 mt-4">
+      <h4 class="font-bold text-green-800 mb-2 text-xs uppercase">Learning & Development Matrix</h4>
+      <ul class="list-disc ml-4 text-green-900">${(data.LDMatrix || []).map(l => `<li>${l}</li>`).join('')}</ul>
+    </div>
+  `;
+
+  document.getElementById('ai-preview-content').innerHTML = html;
+}
+
+function copyJDToClipboard() {
+  const content = document.getElementById('ai-preview-content').innerText;
+  navigator.clipboard.writeText(content).then(() => alert("Copied to clipboard!"));
 }
 
 </script>

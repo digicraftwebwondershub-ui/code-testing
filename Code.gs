@@ -7,7 +7,10 @@
  * Scans the 'Competency Matrix' Row 1 headers.
  * Automatically categorizes skills based on prefixes: 'CORE -', 'LEAD -', 'TECH -'.
  */
+
+
 // --- DYNAMIC CONFIGURATION (HEADER BASED) ---
+
 function getCompetencyConfig() {
   // FIX: Open the specific Competency Spreadsheet ID, not the Active one
   const ss = SpreadsheetApp.openById(COMPETENCY_SPREADSHEET_ID); 
@@ -4715,42 +4718,48 @@ function extractTextFromUploadedFile(fileObj) {
  * Returns dummy data so the UI works immediately without an API key.
  */
 function getMockJDData(userPrompt) {
-  // Try to extract the Job Title from the input string to prove data flow works
-  let detectedTitle = "Generic Role";
-  if (userPrompt) {
-    const match = userPrompt.match(/Job Title:?\s*["']?(.*?)["']?(\n|$|\.)/i);
-    if (match && match[1]) detectedTitle = match[1].trim();
+  // Robust extraction: Look for the job title in the prompt string
+  // The prompt format from generateJobDescriptionAI is: "Create a JD for:\n Job Title: X..."
+  let detectedTitle = "Generic Position";
+  
+  // Regex to find "Job Title: [Something]"
+  const match = userPrompt && userPrompt.match(/Job Title:\s*(.+?)(\n|$)/i);
+  if (match && match[1]) {
+    detectedTitle = match[1].trim();
+  } else if (userPrompt && userPrompt.includes("Context: Job Title is")) {
+     // Handle the Upload prompt format
+     const match2 = userPrompt.match(/Context: Job Title is "(.+?)"/i);
+     if (match2 && match2[1]) detectedTitle = match2[1].trim();
   }
 
+  // Return structure matching exactly what the Flattening Strategy expects
   return {
-    "OrganizationalRole": `[MOCK GENERATED] This is a generated description for the ${detectedTitle} position. (Connect API Key for real content).`,
-    "KPIs": [`${detectedTitle} Efficiency Score`, "Zero Compliance Issues", "Team Engagement > 80%"],
+    "OrganizationalRole": `[MOCK MODE] This is a generated description for the ${detectedTitle} position. Connect a valid API Key to generate real content based on your specific inputs.`,
+    "KPIs": [`${detectedTitle} Efficiency Index`, "Operational Compliance Score", "Stakeholder Satisfaction > 90%"],
     "CoreResponsibilities": {
-      "Planning": [`Develop annual strategic plans for ${detectedTitle}.`, "Forecast departmental resource needs."],
-      "Leading": [`Mentor junior ${detectedTitle} staff.`, "Facilitate weekly team syncs."],
-      "Organizing": ["Maintain updated process documentation.", "Allocate resources to priority projects."],
-      "Controlling": ["Conduct quarterly performance audits.", "Monitor budget variance."]
+      "Planning": [`Develop strategic plans for ${detectedTitle} functions.`, "Forecast resource requirements."],
+      "Leading": [`Supervise and mentor the ${detectedTitle} team.`, "Conduct performance reviews."],
+      "Organizing": ["Coordinate departmental workflows.", "Manage documentation and SOPs."],
+      "Controlling": ["Monitor compliance with company policies.", "Audit process efficiency."]
     },
     "SupportingResponsibilities": {
-      "Planning": ["Assist in company-wide event planning."],
-      "Leading": ["Facilitate cross-department workshops."],
-      "Organizing": ["Organize digital file archives."],
-      "Controlling": ["Review safety logs."]
+      "Planning": ["Assist in annual budgeting."],
+      "Leading": ["Facilitate cross-functional training."],
+      "Organizing": ["Maintain digital archives."],
+      "Controlling": ["Review safety incident logs."]
     },
-    "ProductivityTools": ["Jira", "Slack", "Google Workspace", "SAP"],
-    "OrganizationalRelationship": `Reports to Division Head; Supervises ${detectedTitle} Associates.`,
-    "WorkingConditions": "Hybrid Work Setup (3 days office, 2 days remote).",
+    "ProductivityTools": ["Google Workspace", "SAP", "Jira", "Slack"],
+    "WorkingConditions": "Standard office environment with occasional travel.",
     "KeyQualifications": {
-      "Knowledge": [`Principles of ${detectedTitle}`, "Agile Methodologies"],
-      "Experience": [`5+ Years in ${detectedTitle} roles`],
-      "Competencies": ["Strategic Thinking", "Communication"],
-      "PersonalAttributes": ["Integrity", "Adaptability"]
+      "Knowledge": [`Principles of ${detectedTitle}`, "Corporate Standards"],
+      "Experience": [`3-5 Years in ${detectedTitle} or similar role`],
+      "Competencies": ["Strategic Thinking", "Communication", "Problem Solving"],
+      "PersonalAttributes": ["Integrity", "Adaptability", "Leadership"]
     },
-    "PreferredInternal": "Senior Analyst ready for promotion.",
-    "PreferredExternal": "Manager from relevant industry.",
-    "LDMatrix": ["Advanced Leadership Course", "Six Sigma Green Belt"]
+    "LDMatrix": ["Advanced Management Course", "Technical Certification Level 2"]
   };
 }
+
 function debugModelList() {
   const scriptProperties = PropertiesService.getScriptProperties();
   const apiKey = scriptProperties.getProperty('AI_API_KEY');
@@ -4831,21 +4840,28 @@ function regenerateJDSection(sectionName, jobContext) {
 
     RULES:
     1. Output ONLY the JSON content for this specific section. Do not output the whole JD.
-    2. If the section is "CoreResponsibilities" or "SupportingResponsibilities", you MUST return it categorized by PLOC (Planning, Leading, Organizing, Controlling).
+    2. If the section is "CoreResponsibilities" or "SupportingResponsibilities", you MUST return it categorized by PLOC.
     3. Return valid JSON only. No markdown.
   `;
 
   // Map the section name to the expected JSON key
-  let targetKey = sectionName; // default
+  let targetKey = sectionName;
+  
   if (sectionName === "KPIs") targetKey = "KPIs";
   if (sectionName === "Core Responsibilities") targetKey = "CoreResponsibilities";
   if (sectionName === "Supporting Responsibilities") targetKey = "SupportingResponsibilities";
   if (sectionName === "Productivity Tools") targetKey = "ProductivityTools";
   if (sectionName === "Key Qualifications") targetKey = "KeyQualifications";
+  
+  // --- NEW SECTIONS ---
+  if (sectionName === "Working Conditions") targetKey = "WorkingConditions";
+  if (sectionName === "Organizational Role") targetKey = "OrganizationalRole";
+  if (sectionName === "Organizational Relationship") targetKey = "OrganizationalRelationship";
+  if (sectionName === "Preferred Internal") targetKey = "PreferredInternal";
+  if (sectionName === "Preferred External") targetKey = "PreferredExternal";
 
   const userPrompt = `Regenerate the "${sectionName}" section based on the context provided. Provide diverse and professional outputs.`;
 
-  // Reuse your existing robust AI caller
   try {
     const result = callGenerativeAIService(systemPrompt, userPrompt);
     // Return with a standard key so frontend knows where to look

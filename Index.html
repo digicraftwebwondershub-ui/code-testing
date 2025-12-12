@@ -560,6 +560,25 @@
   display: block;
 }
 
+/* --- EDITABLE CONTENT STYLES --- */
+.editable-content {
+  cursor: text;
+  transition: all 0.2s;
+  min-height: 24px; /* Ensure empty areas are still clickable */
+}
+.editable-content:hover {
+  background-color: #fcfcfc;
+  outline: 1px dashed #cbd5e1; /* Subtle dashed border on hover */
+  border-radius: 4px;
+}
+.editable-content:focus {
+  background-color: #ffffff;
+  outline: 2px solid #a855f7; /* Purple outline when typing */
+  border-radius: 4px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  position: relative;
+}
 
   </style>
 </head>
@@ -7458,12 +7477,43 @@ function viewCompetencyProfile(rawEmployeeId) {
   document.getElementById('competency-view').scrollIntoView({ behavior: 'smooth' });
 }
 
-/* --- AI JD BUILDER LOGIC --- */
+/* =========================================================================
+   AI JD BUILDER: LEVEL & POSITION AUTOMATION
+   ========================================================================= */
+
+// 1. GLOBAL MAPPING (String keys to handle both "1" and 1)
+const LEVEL_MAPPING = {
+  '1': 'Executive',
+  '2': 'Director',
+  '3': 'Managerial',
+  '4': 'Supervisory',
+  '5': 'Rank & File',
+  '6': 'Jobcon'
+};
+
+// 2. POPULATE DROPDOWN (Called when Modal Opens)
+function populateAILevelDropdown() {
+  const levelSelect = document.getElementById('ai-level');
+  if (!levelSelect) return;
+
+  levelSelect.innerHTML = '<option value="">-- Select Level --</option>';
+
+  // Create options from our mapping
+  for (const [key, label] of Object.entries(LEVEL_MAPPING)) {
+    const option = document.createElement('option');
+    option.value = label; // The value we want to select (e.g. "Managerial")
+    option.textContent = label; // The text user sees
+    levelSelect.appendChild(option);
+  }
+}
 
 function openAIJDModal() {
   document.getElementById('ai-jd-modal').style.display = 'flex';
   
-  // Initialize the Org Chart Search Logic
+  // 1. Populate the dropdown options FIRST
+  populateAILevelDropdown();
+
+  // 2. Then Initialize the selector (so it has options to select from)
   initializeAIJobSelector();
 }
 
@@ -7509,14 +7559,27 @@ function switchAIInputTab(mode) {
 }
 
 function generateJD() {
+  // 1. Get values from the correct IDs (Handling the new Dropdown structure)
+  // The 'ai-job-title' is now a hidden input populated by the dropdown logic
   const jobTitle = document.getElementById('ai-job-title').value;
-  if (!jobTitle) { alert("Please enter a Job Title."); return; }
+  
+  // 2. Validation
+  if (!jobTitle) { 
+    alert("Please select or enter a Job Title."); 
+    // Focus the visible input inside the dropdown container for better UX
+    const visibleInput = document.querySelector('#ai-job-title-dropdown-container .searchable-dropdown-input');
+    if(visibleInput) visibleInput.focus();
+    return; 
+  }
 
   const isWorkload = document.getElementById('ai-workload-fields').style.display !== 'none';
   const loader = document.getElementById('ai-loading-overlay');
   
+  // 3. Prepare Payload
   const payload = {
     jobTitle: jobTitle,
+    // Add Position ID to payload so backend context is complete
+    positionId: document.getElementById('ai-position-id').value,
     type: isWorkload ? 'workload' : 'upload'
   };
 
@@ -7524,13 +7587,23 @@ function generateJD() {
     payload.level = document.getElementById('ai-level').value;
     payload.department = document.getElementById('ai-dept').value;
     payload.content = document.getElementById('ai-workload-text').value;
-    if (!payload.content) { alert("Please enter workload details."); return; }
-    submitAIRequest(payload, loader);
-  } else {
-    const fileInput = document.getElementById('ai-upload-file');
-    if (fileInput.files.length === 0) { alert("Please select a file."); return; }
     
-    // File processing
+    if (!payload.content.trim()) { 
+        alert("Please paste the Workload Assessment or Task List."); 
+        return; 
+    }
+    
+    // Show loader and send
+    submitAIRequest(payload, loader);
+    
+  } else {
+    // Upload Mode Logic
+    const fileInput = document.getElementById('ai-upload-file');
+    if (fileInput.files.length === 0) { 
+        alert("Please select a file to upload."); 
+        return; 
+    }
+    
     const file = fileInput.files[0];
     const reader = new FileReader();
     reader.onload = function(e) {
@@ -7539,8 +7612,10 @@ function generateJD() {
         mimeType: file.type,
         content: e.target.result.split(',')[1] // base64
       };
-      // For upload mode, we pass a dummy content string or handle it on backend
-      payload.content = "File Uploaded"; 
+      // Dummy content string to satisfy backend checks
+      payload.content = "File Uploaded: " + file.name; 
+      
+      // Show loader and send
       submitAIRequest(payload, loader);
     };
     reader.readAsDataURL(file);
@@ -7548,49 +7623,74 @@ function generateJD() {
 }
 
 function submitAIRequest(payload, loader) {
-  loader.style.display = 'flex';
+  // Reveal the loading overlay
+  if(loader) loader.style.display = 'flex';
+  
+  // Clear previous content to avoid confusion
+  const contentDiv = document.getElementById('ai-preview-content');
+  // Don't fully clear it, just let the overlay cover it. 
+  // If we clear it, we lose the 'Generated content will appear here' placeholder if it fails.
   
   google.script.run
-    .withSuccessHandler(renderAIOutput)
-    .withFailureHandler(err => {
-      loader.style.display = 'none';
-      alert("Error: " + err.message);
+    .withSuccessHandler(function(data) {
+       console.log("AI Response Received:", data); // Debugging line
+       renderAIOutput(data);
+    })
+    .withFailureHandler(function(err) {
+      if(loader) loader.style.display = 'none';
+      console.error("Backend Error:", err); // Debugging line
+      alert("Error generating JD: " + err.message);
     })
     .generateJobDescriptionAI(payload);
 }
 
 /* =========================================================================
-   GLOBAL HELPER FUNCTIONS
-   (Keep these OUTSIDE of renderAIOutput so "Regenerate" buttons can use them)
+   COMPLETE AI RENDERER & LOGIC (Paste this into Index.html script)
    ========================================================================= */
 
-// 1. Helper to generate the "Regenerate" button icon
+// --- 1. HELPER FUNCTIONS (Must be defined first) ---
+
+// Helper: Generate Regenerate Button
 const regenBtn = (section) => `
   <button onclick="triggerRegenerate('${section}')" class="ml-2 text-gray-400 hover:text-purple-600 transition-colors" title="Regenerate this section">
     <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
   </button>
 `;
 
-// 2. Data Unwrapper: Fixes [object Object] by grabbing the first text value inside
-function unwrap(val) {
-  if (!val) return null;
-  if (typeof val === 'string') return val;
-  if (Array.isArray(val)) return val;
-  // If it's an object, grab the first value
-  const keys = Object.keys(val);
-  if (keys.length > 0) return unwrap(val[keys[0]]);
-  return JSON.stringify(val);
+// Helper: Flatten Nested JSON (Fixes "hidden data" issues)
+function flattenObject(obj, prefix = '') {
+  let result = {};
+  for (const key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      const newKey = prefix ? `${prefix}.${key}` : key;
+      if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
+        Object.assign(result, flattenObject(obj[key], newKey));
+      } else {
+        result[newKey] = obj[key];
+      }
+    }
+  }
+  return result;
 }
 
-// 3. Robust Recursive Search: Finds keys anywhere in the JSON
+// Helper: Fuzzy Search (Finds keys ignoring case/spaces)
+function fuzzyFind(flattenedData, synonyms) {
+  const allKeys = Object.keys(flattenedData);
+  for (const key of allKeys) {
+    const keyParts = key.toLowerCase().split('.');
+    const lastPart = keyParts[keyParts.length - 1].replace(/_/g, '').replace(/\s/g, '');
+    if (synonyms.includes(lastPart)) {
+      return flattenedData[key];
+    }
+  }
+  return null;
+}
+
+// Helper: Robust Deep Search (Recursive)
 function deepSearch(obj, targetKeys) {
   if (!obj || typeof obj !== 'object') return null;
-  
-  // Check current level
   const foundKey = Object.keys(obj).find(k => targetKeys.includes(k.toLowerCase().replace(/_/g, '').replace(/\s/g, '')));
   if (foundKey) return obj[foundKey];
-
-  // Dig deeper
   for (const key in obj) {
     if (typeof obj[key] === 'object' && obj[key] !== null) {
       const result = deepSearch(obj[key], targetKeys);
@@ -7600,81 +7700,77 @@ function deepSearch(obj, targetKeys) {
   return null;
 }
 
-// 4. Render Simple List (Tags style for KPIs)
+// Helper: Unwrap Data (Fixes [object Object])
+function unwrap(val) {
+  if (!val) return null;
+  if (typeof val === 'string') return val;
+  if (typeof val === 'number') return String(val);
+  if (Array.isArray(val)) {
+    if (val.length === 0) return null;
+    return typeof val[0] === 'string' ? val.join(' ') : unwrap(val[0]);
+  }
+  const keys = Object.keys(val);
+  if (keys.length > 0) {
+      const preferred = keys.find(k => ['text', 'value', 'content', 'description', 'summary'].includes(k.toLowerCase()));
+      return unwrap(val[preferred || keys[0]]);
+  }
+  return JSON.stringify(val);
+}
+
+// Helper: Render Simple List (Tags)
 function renderListSimple(items, emptyMsg) {
   if (!items) return `<span class="text-gray-400 italic text-xs">${emptyMsg}</span>`;
   if (typeof items === 'string') items = items.split(',').map(s => s.trim());
-  if (!Array.isArray(items)) items = [unwrap(items)];
-  return items.map(k => `<span class="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-xs font-semibold mb-1 mr-1 inline-block">${k}</span>`).join('');
+  if (!Array.isArray(items)) items = [items];
+  
+  return items.map(k => {
+      const text = (typeof k === 'object') ? unwrap(k) : k;
+      return `<span class="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-xs font-semibold mb-1 mr-1 inline-block">${text}</span>`;
+  }).join('');
 }
 
-// 5. Render Bullet List (Standard UL/LI)
+// Helper: Render Bullet List
 function renderListBullets(items) {
   if (!items) return '';
   if (typeof items === 'string') return `<li>${items}</li>`;
-  if (!Array.isArray(items)) items = [unwrap(items)];
-  return items.map(i => `<li>${i}</li>`).join('');
+  if (!Array.isArray(items)) items = [items];
+  return items.map(i => {
+      const text = (typeof i === 'object') ? unwrap(i) : i;
+      return `<li>${text}</li>`;
+  }).join('');
 }
 
-// 6. Render PLOC (Handles both Structured Objects AND Flat Lists)
+// Helper: Render PLOC
 function renderPLOC(respObj) {
   if (!respObj) return '<p class="text-gray-400 italic text-xs">No data found.</p>';
-
-  // Scenario A: AI returned a simple flat list (didn't categorize)
   if (Array.isArray(respObj)) {
-      return `<ul class="list-disc ml-4 text-gray-700 text-xs space-y-1">${renderListBullets(respObj)}</ul>`;
+      return `<ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-700 text-xs space-y-1 p-2">${renderListBullets(respObj)}</ul>`;
   }
-
-  // Scenario B: AI returned structured categories (Planning, Leading, etc.)
   const categories = ['Planning', 'Leading', 'Organizing', 'Controlling'];
   const colors = {'Planning': 'blue', 'Leading': 'purple', 'Organizing': 'yellow', 'Controlling': 'green'};
-  
   let html = '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">';
   let foundAny = false;
-
   categories.forEach(cat => {
-    // Find key matching "Planning", "P", "Plan", etc.
     const key = Object.keys(respObj).find(k => k.toLowerCase().includes(cat.toLowerCase()));
     const items = key ? respObj[key] : [];
-    
-    // Ensure it's an array
-    const listItems = typeof items === 'string' ? [items] : (Array.isArray(items) ? items : []);
-
+    const listItems = Array.isArray(items) ? items : (items ? [items] : []);
     if (listItems.length > 0) foundAny = true;
-
     const color = colors[cat];
-    html += `
-      <div class="border rounded p-3 bg-${color}-50 border-${color}-200">
-        <h5 class="font-bold text-${color}-800 mb-2 uppercase text-xs tracking-wider">${cat.charAt(0)} - ${cat}</h5>
-        <ul class="list-disc list-outside ml-4 text-gray-700 space-y-1 text-xs">
-          ${listItems.length > 0 ? renderListBullets(listItems) : '<li class="text-gray-400 italic">None</li>'}
-        </ul>
-      </div>
-    `;
+    html += `<div class="border rounded p-3 bg-${color}-50 border-${color}-200">
+        <h5 class="font-bold text-${color}-800 mb-2 uppercase text-xs tracking-wider select-none">${cat.charAt(0)} - ${cat}</h5>
+        <ul contenteditable="true" class="editable-content list-disc list-outside ml-4 text-gray-700 space-y-1 text-xs outline-none p-1 rounded">
+          ${listItems.length > 0 ? renderListBullets(listItems) : '<li class="text-gray-400 italic">Click to add...</li>'}
+        </ul></div>`;
   });
   html += '</div>';
-
-  // Fallback: If respObj was an object but had no PLOC keys (e.g. { "Duties": [...] })
   if (!foundAny) {
       const values = Object.values(respObj).flat();
-      return `<ul class="list-disc ml-4 text-gray-700 text-xs space-y-1">${renderListBullets(values)}</ul>`;
+      return `<ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-700 text-xs space-y-1 p-2">${renderListBullets(values)}</ul>`;
   }
-
   return html;
 }
 
-// 7. Extract Qualification List
-function getQualList(obj, keys) {
-  const found = deepSearch(obj, keys);
-  if (!found) return [];
-  if (typeof found === 'string') return [found];
-  return Array.isArray(found) ? found : [JSON.stringify(found)];
-}
-
-
-/* =========================================================================
-   MAIN RENDER FUNCTION
-   ========================================================================= */
+// --- 2. MAIN RENDER FUNCTION ---
 
 function renderAIOutput(data) {
   document.getElementById('ai-loading-overlay').style.display = 'none';
@@ -7684,104 +7780,153 @@ function renderAIOutput(data) {
     return;
   }
 
-  // --- KEY MAPPINGS (Synonyms) ---
+  // --- KEY MAPPINGS ---
   const getters = {
-    role: ['organizationalrole', 'role', 'jobsummary', 'rolesummary', 'summary', 'description', 'jobdescription', 'position_summary'],
-    kpis: ['kpis', 'keyperformanceindicators', 'metrics', 'measures', 'indicators'],
-    core: ['coreresponsibilities', 'coreduties', 'responsibilities', 'duties', 'primaryresponsibilities', 'core'],
-    support: ['supportingresponsibilities', 'secondaryduties', 'supportingduties', 'additionalresponsibilities', 'supporting', 'otherduties'],
-    tools: ['productivitytools', 'tools', 'software', 'technology', 'technologies', 'equipment', 'systemsandtools'],
+    role: ['organizationalrole', 'role', 'jobsummary', 'rolesummary', 'summary', 'description', 'position_summary'],
+    kpis: ['kpis', 'keyperformanceindicators', 'metrics', 'measures'],
+    core: ['coreresponsibilities', 'coreduties', 'responsibilities', 'duties', 'core'],
+    support: ['supportingresponsibilities', 'secondaryduties', 'supporting', 'otherduties'],
+    tools: ['productivitytools', 'tools', 'software', 'technology', 'systemsandtools'],
     conditions: ['workingconditions', 'workenvironment', 'conditions', 'environment'],
-    ld: ['ldmatrix', 'learninganddevelopment', 'training', 'development', 'trainingmatrix', 'courses'],
-    
-    // Qualification Sub-keys
-    kn: ['knowledge', 'technicalknowledge', 'education', 'educationalrequirements'],
-    ex: ['experience', 'workexperience', 'jobexperience'],
-    co: ['competencies', 'skills', 'keyskills', 'corecompetencies'],
-    at: ['personalattributes', 'attributes', 'softskills', 'personality', 'traits']
+    ld: ['ldmatrix', 'learninganddevelopment', 'training', 'development'],
+    kn: ['knowledge', 'technicalknowledge', 'education'],
+    ex: ['experience', 'workexperience'],
+    co: ['competencies', 'skills', 'corecompetencies'],
+    at: ['personalattributes', 'attributes', 'softskills'],
+    rel: ['organizationalrelationship', 'relationships', 'reporting', 'structure', 'reportingto'],
+    int: ['preferredinternal', 'internalcandidate', 'internal'],
+    ext: ['preferredexternal', 'externalcandidate', 'external']
   };
 
-  // --- EXTRACT DATA (Using Global Search) ---
+  // --- EXTRACT ---
+  const flatData = flattenObject(data);
+  const rootKeys = Object.keys(data);
+
   let orgRole = unwrap(deepSearch(data, getters.role));
   let kpis = deepSearch(data, getters.kpis);
   let tools = deepSearch(data, getters.tools);
   let conditions = unwrap(deepSearch(data, getters.conditions));
-  let qualifications = deepSearch(data, getters.quals); // Search for parent first
+  let orgRel = unwrap(deepSearch(data, getters.rel));
   
-  // If parent "Key Qualifications" not found, search globally for children
-  if (!qualifications) qualifications = data; 
-
+  let qualifications = deepSearch(data, getters.quals) || data; 
+  let know = fuzzyFind(flatData, getters.kn);
+  let exp = fuzzyFind(flatData, getters.ex);
+  let comp = fuzzyFind(flatData, getters.co);
+  let attr = fuzzyFind(flatData, getters.at);
+  let prefInt = unwrap(deepSearch(data, getters.int));
+  let prefExt = unwrap(deepSearch(data, getters.ext));
   let ldMatrix = deepSearch(data, getters.ld);
-  let coreResp = deepSearch(data, getters.core);
-  let suppResp = deepSearch(data, getters.support);
 
-  // --- BUILD HTML TEMPLATE ---
+  // Responsibilities
+  let coreResp = null;
+  let suppResp = null;
+  const coreKey = rootKeys.find(k => getters.core.includes(k.toLowerCase().replace(/_/g, '')));
+  if (coreKey) coreResp = data[coreKey];
+  else coreResp = fuzzyFind(flatData, getters.core);
+
+  const suppKey = rootKeys.find(k => getters.support.includes(k.toLowerCase().replace(/_/g, '')));
+  if (suppKey) suppResp = data[suppKey];
+  else suppResp = fuzzyFind(flatData, getters.support);
+
+
+  // --- BUILD HTML ---
   const html = `
     <div class="border-b pb-4 mb-4">
-      <h1 class="text-2xl font-bold text-gray-900">${document.getElementById('ai-job-title').value}</h1>
-      <p class="text-gray-600 mt-2 italic text-sm">${orgRole || 'Role summary not generated.'}</p>
+      <h1 class="text-2xl font-bold text-gray-900 select-none">${document.getElementById('ai-job-title').value || 'Job Description'}</h1>
     </div>
 
-    <div class="mb-6" id="section-kpis">
-      <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b flex items-center">
-        Recommended KPIs ${regenBtn('KPIs')}
-      </h4>
-      <div class="flex flex-wrap content-area">
-        ${renderListSimple(kpis, "No KPIs generated")}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <div id="section-role">
+        <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b flex items-center select-none">
+          Organizational Role ${regenBtn('Organizational Role')}
+        </h4>
+        <p contenteditable="true" class="editable-content text-gray-600 italic text-sm p-2 rounded outline-none content-area">
+          ${orgRole || 'Role summary not generated. Click to draft...'}
+        </p>
+      </div>
+      <div id="section-kpis">
+        <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b flex items-center select-none">
+          Recommended KPIs ${regenBtn('KPIs')}
+        </h4>
+        <div contenteditable="true" class="editable-content flex flex-wrap content-area p-2 rounded outline-none gap-2">
+          ${renderListSimple(kpis, "No KPIs generated. Click to add...")}
+        </div>
       </div>
     </div>
 
     <div class="mb-8" id="section-core">
-      <h4 class="font-bold text-gray-800 mb-3 uppercase text-sm border-b pb-1 bg-gray-100 p-1 flex items-center justify-between">
+      <h4 class="font-bold text-gray-800 mb-3 uppercase text-sm border-b pb-1 bg-gray-100 p-1 flex items-center justify-between select-none">
         Core Responsibilities (PLOC) ${regenBtn('Core Responsibilities')}
       </h4>
       <div class="content-area">${renderPLOC(coreResp)}</div>
     </div>
-
     <div class="mb-8" id="section-support">
-      <h4 class="font-bold text-gray-800 mb-3 uppercase text-sm border-b pb-1 bg-gray-100 p-1 flex items-center justify-between">
+      <h4 class="font-bold text-gray-800 mb-3 uppercase text-sm border-b pb-1 bg-gray-100 p-1 flex items-center justify-between select-none">
         Supporting Responsibilities (PLOC) ${regenBtn('Supporting Responsibilities')}
       </h4>
       <div class="content-area">${renderPLOC(suppResp)}</div>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <div id="section-rel">
+        <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b flex items-center select-none">
+          Organizational Relationship ${regenBtn('Organizational Relationship')}
+        </h4>
+        <p contenteditable="true" class="editable-content text-gray-700 text-xs p-2 rounded outline-none content-area">
+            ${orgRel || 'Reports to: [Manager Title]\nSupervises: [Subordinates]'}
+        </p>
+      </div>
       <div id="section-tools">
-        <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b flex items-center">
+        <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b flex items-center select-none">
           Productivity Tools ${regenBtn('Productivity Tools')}
         </h4>
-        <ul class="list-disc ml-4 text-gray-700 text-xs content-area">
-            ${tools ? renderListBullets(tools) : '<li class="text-gray-400 italic">N/A</li>'}
+        <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-700 text-xs content-area p-2 rounded outline-none">
+            ${tools ? renderListBullets(tools) : '<li>Click to add tool...</li>'}
         </ul>
-      </div>
-      <div>
-        <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b">Working Conditions</h4>
-        <p class="text-gray-700 text-xs">${conditions || 'N/A'}</p>
       </div>
     </div>
 
+    <div class="mb-6" id="section-cond">
+      <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b flex items-center select-none">
+        Working Conditions ${regenBtn('Working Conditions')}
+      </h4>
+      <p contenteditable="true" class="editable-content text-gray-700 text-xs p-2 rounded outline-none content-area">
+          ${conditions || 'Click to describe working conditions...'}
+      </p>
+    </div>
+
     <div class="mb-6" id="section-quals">
-      <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b flex items-center">
+      <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b flex items-center select-none">
         Key Qualifications ${regenBtn('Key Qualifications')}
       </h4>
       <div class="grid grid-cols-2 gap-4 text-xs content-area">
-        <div><strong class="block mb-1 text-gray-900">Knowledge:</strong> <ul class="list-disc ml-4 text-gray-600">${renderListBullets(getQualList(qualifications, getters.kn))}</ul></div>
-        <div><strong class="block mb-1 text-gray-900">Experience:</strong> <ul class="list-disc ml-4 text-gray-600">${renderListBullets(getQualList(qualifications, getters.ex))}</ul></div>
-        <div><strong class="block mb-1 text-gray-900">Competencies:</strong> <ul class="list-disc ml-4 text-gray-600">${renderListBullets(getQualList(qualifications, getters.co))}</ul></div>
-        <div><strong class="block mb-1 text-gray-900">Attributes:</strong> <ul class="list-disc ml-4 text-gray-600">${renderListBullets(getQualList(qualifications, getters.at))}</ul></div>
+        <div><strong class="block mb-1 text-gray-900 select-none">Knowledge:</strong> <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-600 p-1 rounded">${know ? renderListBullets(know) : '<li>Click to add...</li>'}</ul></div>
+        <div><strong class="block mb-1 text-gray-900 select-none">Experience:</strong> <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-600 p-1 rounded">${exp ? renderListBullets(exp) : '<li>Click to add...</li>'}</ul></div>
+        <div>
+           <strong class="block mb-1 text-gray-900 select-none">Competencies:</strong> 
+           <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-600 p-1 rounded mb-3">${comp ? renderListBullets(comp) : '<li>Click to add...</li>'}</ul>
+           <strong class="block mb-1 text-indigo-700 select-none border-t pt-2">Preferred from Internal:</strong>
+           <p contenteditable="true" class="editable-content text-gray-600 p-1 rounded">${prefInt || 'N/A'}</p>
+        </div>
+        <div>
+           <strong class="block mb-1 text-gray-900 select-none">Attributes:</strong> 
+           <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-600 p-1 rounded mb-3">${attr ? renderListBullets(attr) : '<li>Click to add...</li>'}</ul>
+           <strong class="block mb-1 text-indigo-700 select-none border-t pt-2">Preferred from External:</strong>
+           <p contenteditable="true" class="editable-content text-gray-600 p-1 rounded">${prefExt || 'N/A'}</p>
+        </div>
       </div>
     </div>
     
     <div class="bg-green-50 p-4 rounded border border-green-200 mt-4">
-      <h4 class="font-bold text-green-800 mb-2 text-xs uppercase">Learning & Development Matrix</h4>
-      <ul class="list-disc ml-4 text-green-900 text-xs">
-        ${ldMatrix ? renderListBullets(ldMatrix) : '<li>N/A</li>'}
+      <h4 class="font-bold text-green-800 mb-2 text-xs uppercase select-none">Learning & Development Matrix</h4>
+      <ul contenteditable="true" class="editable-content list-disc ml-4 text-green-900 text-xs p-2 rounded outline-none">
+        ${ldMatrix ? renderListBullets(ldMatrix) : '<li>Click to add training...</li>'}
       </ul>
     </div>
 
     <details class="mt-8 border-t pt-4">
-        <summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-600">Troubleshoot: View Raw AI Data</summary>
-        <pre class="bg-gray-800 text-green-400 p-4 rounded mt-2 text-xs overflow-auto max-h-60">${JSON.stringify(data, null, 2)}</pre>
+        <summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-600 select-none">Troubleshoot: View Raw AI Data</summary>
+        <pre class="bg-gray-800 text-green-400 p-4 rounded mt-2 text-xs overflow-auto max-h-60 select-all">${JSON.stringify(data, null, 2)}</pre>
     </details>
   `;
 
@@ -7865,23 +8010,28 @@ function saveAIJD() {
   });
 }
 
+/* =========================================================================
+   UPDATED REGENERATE FUNCTION (Handles New Sections)
+   ========================================================================= */
+// --- 3. REGENERATE TRIGGER FUNCTION ---
+
 function triggerRegenerate(section) {
-  // 1. Identify the container
   let containerId = "";
+  if (section === 'Organizational Role') containerId = "section-role";
   if (section === 'KPIs') containerId = "section-kpis";
   if (section === 'Core Responsibilities') containerId = "section-core";
   if (section === 'Supporting Responsibilities') containerId = "section-support";
+  if (section === 'Organizational Relationship') containerId = "section-rel";
   if (section === 'Productivity Tools') containerId = "section-tools";
+  if (section === 'Working Conditions') containerId = "section-cond";
   if (section === 'Key Qualifications') containerId = "section-quals";
 
   const container = document.querySelector(`#${containerId} .content-area`);
   if (!container) return;
 
-  // 2. Show Loading State
   const originalHTML = container.innerHTML;
-  container.innerHTML = `<div class="animate-pulse flex space-x-2 items-center text-purple-600"><div class="h-4 w-4 bg-purple-400 rounded-full"></div><span class="text-xs">Regenerating ${section}...</span></div>`;
+  container.innerHTML = `<div class="animate-pulse flex space-x-2 items-center text-purple-600 p-2"><div class="h-4 w-4 bg-purple-400 rounded-full"></div><span class="text-xs">Regenerating ${section}...</span></div>`;
 
-  // 3. Prepare Context
   const payload = {
     jobTitle: document.getElementById('ai-job-title').value,
     level: document.getElementById('ai-level').value,
@@ -7889,56 +8039,52 @@ function triggerRegenerate(section) {
     content: document.getElementById('ai-workload-text').value
   };
 
-  // 4. Call Backend
   google.script.run
     .withSuccessHandler(newData => {
-      // Refresh just this section
-      // We essentially re-run the specific renderer for this section
-      // Note: This requires the renderers (renderPLOC, renderListSimple) to be accessible here. 
-      // Ideally, ensure those helper functions are defined in the global scope or copied here.
-      
-      // Quick Render Update logic:
+      // Re-render Section Logic
       if (section.includes('Responsibilities')) {
-         // Re-render PLOC
-         // Note: You need to ensure 'renderPLOC' is available. 
-         // For now, I will assume you move the helper functions outside renderAIOutput 
-         // OR simply re-call renderAIOutput with merged data (easier).
-         
-         // MERGE STRATEGY (Simplest way to update UI):
-         // We get the *full* current data object (if stored) or just update the DOM.
-         // Since we don't store the full data object globally, let's just update the DOM directly.
-         
          let html = "";
-         if(newData.CoreResponsibilities) html = renderPLOC_Global(newData.CoreResponsibilities); // Rename renderPLOC to renderPLOC_Global and put in global scope
-         else if(newData.SupportingResponsibilities) html = renderPLOC_Global(newData.SupportingResponsibilities);
-         
+         if(newData.CoreResponsibilities) html = renderPLOC(newData.CoreResponsibilities); 
+         else if(newData.SupportingResponsibilities) html = renderPLOC(newData.SupportingResponsibilities);
          container.innerHTML = html;
       }
       else if (section === 'KPIs') {
-         container.innerHTML = newData.KPIs.map(k => `<span class="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-xs font-semibold mb-1 mr-1 inline-block">${k}</span>`).join('');
+         container.innerHTML = renderListSimple(newData.KPIs, "No KPIs generated.");
       }
-      // ... Add other handlers or simply alert "Done" and re-generate full JD for simplicity if this gets too complex.
-      // A full regenerate is safer if you don't want to extract all render functions.
-      
-      // Let's assume you extracted the renderers to global scope:
-      if (section === 'Productivity Tools') container.innerHTML = (newData.ProductivityTools || []).map(t => `<li>${t}</li>`).join('');
-      
-      // For Qualifications, it's an object, so we update the innerHTML
-      if (section === 'Key Qualifications') {
-         const q = newData.KeyQualifications;
-         // Re-build the grid HTML
+      else if (['Organizational Role', 'Organizational Relationship', 'Working Conditions'].includes(section)) {
+         // Handle simple text keys
+         let key = section.replace(/ /g, ''); // "OrganizationalRole"
+         // Map "Working Conditions" to "WorkingConditions" etc.
+         container.innerHTML = unwrap(newData[key]) || unwrap(newData) || "N/A";
+      }
+      else if (section === 'Productivity Tools') {
+         container.innerHTML = renderListBullets(newData.ProductivityTools || []);
+      }
+      else if (section === 'Key Qualifications') {
+         const q = newData.KeyQualifications || newData; 
+         const findQ = (keyPart) => {
+             const foundKey = Object.keys(q).find(k => k.toLowerCase().includes(keyPart.toLowerCase()));
+             return foundKey ? q[foundKey] : [];
+         };
+         
+         const know = findQ('knowledge');
+         const exp = findQ('experience');
+         const comp = findQ('competencies');
+         const attr = findQ('attributes');
+         const pint = findQ('internal');
+         const pext = findQ('external');
+
          container.innerHTML = `
-            <div><strong class="block mb-1 text-gray-900">Knowledge:</strong> ${q.Knowledge ? q.Knowledge.join(', ') : ''}</div>
-            <div><strong class="block mb-1 text-gray-900">Experience:</strong> ${q.Experience ? q.Experience.join(', ') : ''}</div>
-            <div><strong class="block mb-1 text-gray-900">Competencies:</strong> ${q.Competencies ? q.Competencies.join(', ') : ''}</div>
-            <div><strong class="block mb-1 text-gray-900">Attributes:</strong> ${q.PersonalAttributes ? q.PersonalAttributes.join(', ') : ''}</div>
+            <div><strong class="block mb-1 text-gray-900 select-none">Knowledge:</strong> <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-600 p-1 rounded">${renderListBullets(know)}</ul></div>
+            <div><strong class="block mb-1 text-gray-900 select-none">Experience:</strong> <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-600 p-1 rounded">${renderListBullets(exp)}</ul></div>
+            <div><strong class="block mb-1 text-gray-900 select-none">Competencies:</strong> <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-600 p-1 rounded mb-3">${renderListBullets(comp)}</ul><strong class="block mb-1 text-indigo-700 select-none border-t pt-2">Preferred from Internal:</strong><p contenteditable="true" class="editable-content text-gray-600 p-1 rounded">${unwrap(pint) || 'N/A'}</p></div>
+            <div><strong class="block mb-1 text-gray-900 select-none">Attributes:</strong> <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-600 p-1 rounded mb-3">${renderListBullets(attr)}</ul><strong class="block mb-1 text-indigo-700 select-none border-t pt-2">Preferred from External:</strong><p contenteditable="true" class="editable-content text-gray-600 p-1 rounded">${unwrap(pext) || 'N/A'}</p></div>
          `;
       }
-
     })
     .withFailureHandler(err => {
-      alert("Error: " + err.message);
-      container.innerHTML = originalHTML; // Revert
+      alert("Error regenerating section: " + err.message);
+      container.innerHTML = originalHTML; 
     })
     .regenerateJDSection(section, payload);
 }
@@ -7965,27 +8111,24 @@ function renderPLOC_Global(respObj) {
     return html;
 }
 
-/* --- AI JD BUILDER: ORG CHART CONNECTION --- */
+/* --- AI JD BUILDER: ORG CHART CONNECTION (UPDATED) --- */
 
 function initializeAIJobSelector() {
-  // Ensure we have data to search through
   if (typeof fullEmployeeData === 'undefined' || fullEmployeeData.length === 0) return;
 
-  // 1. Filter only Active positions that have a Job Title
+  // Filter Active Positions
   const activePositions = fullEmployeeData.filter(e => e.positionStatus !== 'Inactive' && e.jobTitle);
 
-  // 2. Format the list for the dropdown
-  // We display "Job Title (Department)" so you can distinguish duplicates
+  // Map for Dropdown
   const dropdownItems = activePositions.map(e => ({
-    displayLabel: `${e.jobTitle} | ${e.department} (${e.positionId})`, 
+    displayLabel: e.jobTitle, 
     positionId: e.positionId 
   }));
 
-  // 3. Create the Searchable Dropdown
-  // uses your existing createSearchableDropdown helper
+  // Initialize Dropdown
   createSearchableDropdown('ai-job-title-dropdown-container', dropdownItems, 'displayLabel', 'positionId', function(selectedPosId) {
     
-    // 4. ON SELECT: Find the full employee record
+    // Find Employee Record
     const empData = activePositions.find(e => e.positionId === selectedPosId);
     
     if (empData) {
@@ -7999,23 +8142,43 @@ function initializeAIJobSelector() {
       const deptField = document.getElementById('ai-dept');
       if (deptField) deptField.value = empData.department;
 
-      // Level (Try to match the select option)
-      const levelField = document.getElementById('ai-level');
-      if (levelField) levelField.value = empData.level; // Assumes value matches (e.g. "Managerial")
-
       // Job Title (Hidden field for AI)
       document.getElementById('ai-job-title').value = empData.jobTitle;
 
-      // 5. UX CLEANUP
-      // The dropdown creates an input that now shows "HR Manager | Corporate (ID)".
-      // We overwrite it to just say "HR Manager" so it looks clean for the user.
+      // --- ROBUST LEVEL AUTO-POPULATION ---
+      const levelField = document.getElementById('ai-level');
+      if (levelField && empData.level) {
+          // 1. Clean the data (convert to string and trim)
+          const rawLevel = String(empData.level).trim();
+          
+          // 2. Try Direct Mapping (e.g. "3" -> "Managerial")
+          if (LEVEL_MAPPING[rawLevel]) {
+              levelField.value = LEVEL_MAPPING[rawLevel];
+          } 
+          // 3. Try Name Match (e.g. Data is already "Managerial")
+          else if (Object.values(LEVEL_MAPPING).includes(rawLevel)) {
+              levelField.value = rawLevel;
+          }
+          // 4. Try Regex Extract (e.g. "Level 3" -> "3" -> "Managerial")
+          else {
+              const match = rawLevel.match(/\d+/); // Find first number
+              if (match && LEVEL_MAPPING[match[0]]) {
+                  levelField.value = LEVEL_MAPPING[match[0]];
+              } else {
+                  // Fallback: Just try to set it as-is
+                  levelField.value = rawLevel; 
+              }
+          }
+          console.log(`Auto-Populate Level: Raw="${rawLevel}" -> Set="${levelField.value}"`);
+      }
+
+      // UX Cleanup: Show clean title in visible input
       const visibleInput = document.querySelector('#ai-job-title-dropdown-container .searchable-dropdown-input');
       if (visibleInput) visibleInput.value = empData.jobTitle;
     }
   });
 
-  // 6. SYNC MANUAL TYPING
-  // If the user ignores the list and types a NEW job title manually, we must update the hidden field
+  // Sync Manual Typing
   const input = document.querySelector('#ai-job-title-dropdown-container .searchable-dropdown-input');
   if (input) {
     input.addEventListener('input', function(e) {

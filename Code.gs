@@ -4563,41 +4563,82 @@ function getPreviewOrgChartData(requestId) {
 
 /**
  * Main entry point for generating a JD via AI.
- * @param {Object} inputData - Contains type ('workload' or 'upload'), job details, and content.
+ * @param {Object} inputData - Contains type ('workload' or 'upload'), job details, content, and competencies.
  * @returns {Object} Structured JSON following the organization's JD format.
  */
 function generateJobDescriptionAI(inputData) {
+  // 1. Prepare Content (Text or File)
   let contentToProcess = inputData.content;
-
   if (inputData.type === 'upload' && inputData.file) {
     contentToProcess = extractTextFromUploadedFile(inputData.file);
   }
 
-  const systemPrompt = `... (Keep your existing system prompt here) ...`;
+  // 2. Define the System Prompt (The Rules)
+  const systemPrompt = `
+    You are an expert HR Specialist. Your task is to write a professional Job Description based on the input provided.
+    
+    OUTPUT FORMAT:
+    You must return a valid JSON object with the following structure. Do not use Markdown formatting (no \`\`\`json).
+    {
+      "OrganizationalRole": "A summary paragraph of the role.",
+      "KPIs": ["List of 3-5 key performance indicators"],
+      "CoreResponsibilities": { 
+          "Planning": ["List of tasks..."], 
+          "Leading": ["List of tasks..."], 
+          "Organizing": ["List of tasks..."], 
+          "Controlling": ["List of tasks..."] 
+      },
+      "SupportingResponsibilities": { 
+          "Planning": ["..."], "Leading": ["..."], "Organizing": ["..."], "Controlling": ["..."] 
+      },
+      "OrganizationalRelationship": "Description of reporting lines and subordinates.",
+      "ProductivityTools": ["List of software/tools"],
+      "WorkingConditions": "Description of environment, travel, etc.",
+      "KeyQualifications": { 
+          "Knowledge": ["List..."], 
+          "Experience": ["List..."], 
+          "Competencies": ["List..."], 
+          "PersonalAttributes": ["List..."] 
+      },
+      "PreferredInternal": "Description of preferred internal candidates (optional)",
+      "PreferredExternal": "Description of preferred external candidates (optional)",
+      "LDMatrix": ["List of recommended trainings"]
+    }
+  `;
 
+  // 3. Build Competency Context (If user selected any)
+  let competencyContext = "";
+  if (inputData.competencies) {
+      competencyContext = `\nCRITICAL REQUIREMENT: The user has explicitly selected these specific competencies. You MUST include them in the 'Key Qualifications' -> 'Competencies' section: ${inputData.competencies}`;
+  }
+
+  // 4. Construct User Prompt
   let userPrompt = "";
   
-  // --- UPDATED LOGIC HERE ---
   if (inputData.type === 'workload') {
     userPrompt = `
-      Create a JD for:
+      Create a Job Description for:
       Job Title: ${inputData.jobTitle}
       Level: ${inputData.level}
       Department: ${inputData.department}
       
-      Based on this Workload Assessment:
+      ${competencyContext}
+      
+      Based on this Workload Assessment / Task List:
       "${contentToProcess}"
     `;
   } else {
-    // Now creates a prompt that includes the Job Title even for uploads
-    userPrompt = `
+     // Upload Mode
+     userPrompt = `
       Context: Job Title is "${inputData.jobTitle}".
-      Restructure the following uploaded JD content into the official PLOC format:
+      ${competencyContext}
+      
+      Restructure the following raw text from an uploaded document into the official JSON structure defined above:
       "${contentToProcess}"
-    `;
+     `;
   }
-  // --------------------------
 
+  // 5. Call AI
   try {
     return callGenerativeAIService(systemPrompt, userPrompt);
   } catch (e) {
@@ -4852,8 +4893,7 @@ function regenerateJDSection(sectionName, jobContext) {
   if (sectionName === "Supporting Responsibilities") targetKey = "SupportingResponsibilities";
   if (sectionName === "Productivity Tools") targetKey = "ProductivityTools";
   if (sectionName === "Key Qualifications") targetKey = "KeyQualifications";
-  
-  // --- NEW SECTIONS ---
+generateJobDescriptionAI
   if (sectionName === "Working Conditions") targetKey = "WorkingConditions";
   if (sectionName === "Organizational Role") targetKey = "OrganizationalRole";
   if (sectionName === "Organizational Relationship") targetKey = "OrganizationalRelationship";
@@ -4868,5 +4908,27 @@ function regenerateJDSection(sectionName, jobContext) {
     return { [targetKey]: result[targetKey] || result }; 
   } catch (e) {
     return { error: e.message };
+  }
+}
+
+/**
+ * Fetches a clean list of competency names from the Matrix for the picker.
+ */
+function getCompetencyNames() {
+  try {
+    // Reuse your existing config logic to get the raw headers
+    const config = getCompetencyConfig(); 
+    const allHeaders = [...config.CORE, ...config.LEADERSHIP, ...config.TECHNICAL];
+    
+    // Clean up the names (Remove "CORE - ", "LEAD - ", "TECH - ")
+    const cleanNames = allHeaders.map(h => {
+      return h.replace(/^(CORE|LEAD|TECH)\s?-\s?/i, '').trim();
+    }).filter(n => n); // Remove empty strings
+    
+    // Return unique, sorted list
+    return [...new Set(cleanNames)].sort();
+  } catch (e) {
+    Logger.log("Error fetching competencies: " + e.message);
+    return []; // Return empty list on error to prevent crash
   }
 }

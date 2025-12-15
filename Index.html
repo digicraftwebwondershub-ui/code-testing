@@ -7660,7 +7660,7 @@ function generateJD() {
     jobTitle: jobTitle,
     // Add Position ID to payload so backend context is complete
     positionId: document.getElementById('ai-position-id').value,
-    type: isWorkload ? 'workload' : 'upload'
+    type: isWorkload ? 'workload' : 'upload',
 
     // --- NEW: Add Competencies to Payload ---
     competencies: document.getElementById('ai-selected-competencies').value

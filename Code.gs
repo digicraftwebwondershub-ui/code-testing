@@ -70,7 +70,9 @@ const TALENT_DATA_SPREADSHEET_ID = '1sBy8d-uuenTRu_jeT7paTtDmnxcHFOjGgn-eEG91knY
 const COMPETENCY_SPREADSHEET_ID = '1cj_RuroWG5Tl1OqzalyK7t4dLDck-7Ytj5O1eb-Ks5c'; // <-- ADD THIS LINE
 // --- END CONFIGURATION ---
 
-
+function doGet(e) {
+  return HtmlService.createTemplateFromFile('Index').evaluate().setTitle('Interactive Organizational Chart').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
 
 function onOpen() {
   SpreadsheetApp.getUi()
@@ -1228,12 +1230,6 @@ function sendApprovalNotificationEmail(department, snapshotTimestamp, allApprove
     }
   }
 }
-
-
-function doGet(e) {
-  return HtmlService.createTemplateFromFile('Index').evaluate().setTitle('Interactive Organizational Chart').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-}
-
 
 function getIncumbencyHistory() {
   const scriptProperties = PropertiesService.getScriptProperties();

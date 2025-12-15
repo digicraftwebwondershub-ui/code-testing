@@ -4893,7 +4893,6 @@ function regenerateJDSection(sectionName, jobContext) {
   if (sectionName === "Supporting Responsibilities") targetKey = "SupportingResponsibilities";
   if (sectionName === "Productivity Tools") targetKey = "ProductivityTools";
   if (sectionName === "Key Qualifications") targetKey = "KeyQualifications";
-generateJobDescriptionAI
   if (sectionName === "Working Conditions") targetKey = "WorkingConditions";
   if (sectionName === "Organizational Role") targetKey = "OrganizationalRole";
   if (sectionName === "Organizational Relationship") targetKey = "OrganizationalRelationship";

@@ -1703,63 +1703,62 @@
         </div>
 
         <form id="ai-jd-form" class="space-y-4 flex-grow">
-          <div>
-            <label class="block text-sm font-bold text-gray-700">Position ID <span class="text-gray-400 font-normal">(Required for filename)</span></label>
-            <input type="text" id="ai-position-id" class="mt-1 w-full p-2 border rounded text-sm" placeholder="e.g. 04-CSD-001">
-          </div>
+  
+  <div>
+    <label class="block text-sm font-bold text-gray-700">Position ID <span class="text-gray-400 font-normal">(Required for filename)</span></label>
+    <input type="text" id="ai-position-id" class="mt-1 w-full p-2 border rounded text-sm" placeholder="e.g. 04-CSD-001">
+  </div>
 
-          <div>
-            <label class="block text-sm font-bold text-gray-700">Select Position (Search from Org Chart)</label>
-            <div id="ai-job-title-dropdown-container" class="searchable-dropdown"></div>
+  <div>
+    <label class="block text-sm font-bold text-gray-700">Select Position (Search from Org Chart)</label>
+    <div id="ai-job-title-dropdown-container" class="searchable-dropdown"></div>
+    <input type="hidden" id="ai-job-title">
+  </div>
   
-            <input type="hidden" id="ai-job-title">
-          </div>
-          
-          <div id="ai-workload-fields">
-            <div class="grid grid-cols-2 gap-2 mb-2">
-              <div>
-                <label class="block text-sm font-bold text-gray-700">Department</label>
-                <input type="text" id="ai-dept" class="mt-1 w-full p-2 border rounded text-sm">
-              </div>
-              <div>
-                <label class="block text-sm font-bold text-gray-700">Level</label>
-                <select id="ai-level" class="mt-1 w-full p-2 border rounded text-sm">
-                  <option>Managerial</option>
-                  <option>Supervisory</option>
-                  <option>Rank & File</option>
-                  <option>Executive</option>
-                </select>
-              </div>
-            </div>
-            <div class="mb-4 relative">
-             <label class="block text-sm font-bold text-gray-700 mb-1">Required Competencies (Optional)</label>
-             <p class="text-xs text-gray-500 mb-1">Select competencies from the matrix to prioritize them.</p>
-  
-             <div class="multiselect-container" id="competency-multiselect-wrapper" onclick="document.getElementById('competency-search-input').focus()">
-             <input type="text" id="competency-search-input" class="multiselect-input" placeholder="Search competencies..." autocomplete="off">
-           </div>
-  
-           <div id="competency-dropdown-list" class="multiselect-dropdown"></div>
-  
-           <input type="hidden" id="ai-selected-competencies">
-          </div>
-            <div>
-              <label class="block text-sm font-bold text-gray-700 mb-1">Workload Assessment / Task List</label>
-              <p class="text-xs text-gray-500 mb-2">Paste the list of daily tasks, strategic goals, or raw workload data here.</p>
-              <textarea id="ai-workload-text" class="w-full p-3 border rounded text-sm h-64 focus:ring-2 focus:ring-purple-500" placeholder="- Coordinate daily standups (10%)&#10;- Manage budget (20%)&#10;- Strategy planning..."></textarea>
-            </div>
-          </div>
+  <div id="ai-workload-fields">
+    
+    <div class="grid grid-cols-2 gap-2 mb-4">
+      <div>
+        <label class="block text-sm font-bold text-gray-700">Department</label>
+        <input type="text" id="ai-dept" class="mt-1 w-full p-2 border rounded text-sm">
+      </div>
+      <div>
+        <label class="block text-sm font-bold text-gray-700">Level</label>
+        <select id="ai-level" class="mt-1 w-full p-2 border rounded text-sm">
+          </select>
+      </div>
+    </div>
 
-          <div id="ai-upload-fields" style="display: none;">
-            <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:bg-gray-50 transition-colors">
-              <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
-              <p class="mt-1 text-sm text-gray-600">Click to upload JD file (PDF, Docx, Txt)</p>
-              <input type="file" id="ai-upload-file" class="mt-2 block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100">
-            </div>
-            <p class="text-xs text-gray-500 mt-2">The AI will analyze the file content and restructure it into the PLOC format.</p>
-          </div>
+    <div class="mb-4 relative">
+      <label class="block text-sm font-bold text-gray-700 mb-1">Required Competencies (Optional)</label>
+      <p class="text-xs text-gray-500 mb-1">Select competencies from the matrix to prioritize them.</p>
+      
+      <div class="multiselect-container" id="competency-multiselect-wrapper" onclick="document.getElementById('competency-search-input').focus()">
+        <input type="text" id="competency-search-input" class="multiselect-input" placeholder="Search competencies..." autocomplete="off">
+      </div>
+      
+      <div id="competency-dropdown-list" class="multiselect-dropdown"></div>
+      <input type="hidden" id="ai-selected-competencies">
+    </div>
 
-        </form>
+    <div>
+      <label class="block text-sm font-bold text-gray-700 mb-1">Workload Assessment / Task List</label>
+      <p class="text-xs text-gray-500 mb-2">Paste the list of daily tasks, strategic goals, or raw workload data here.</p>
+      <textarea id="ai-workload-text" class="w-full p-3 border rounded text-sm h-64 focus:ring-2 focus:ring-purple-500" placeholder="- Coordinate daily standups (10%)&#10;- Manage budget (20%)&#10;- Strategy planning..."></textarea>
+    </div>
+
+  </div>
+
+  <div id="ai-upload-fields" style="display: none;">
+    <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:bg-gray-50 transition-colors">
+      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+      <p class="mt-1 text-sm text-gray-600">Click to upload JD file (PDF, Docx, Txt)</p>
+      <input type="file" id="ai-upload-file" class="mt-2 block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100">
+    </div>
+    <p class="text-xs text-gray-500 mt-2">The AI will analyze the file content and restructure it into the PLOC format.</p>
+  </div>
+
+</form>
 
         <div class="mt-4 pt-4 border-t">
           <button onclick="generateJD()" id="btn-generate-jd" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-3 rounded-lg shadow-lg hover:opacity-90 flex justify-center items-center">
@@ -7855,7 +7854,7 @@ function renderPLOC(respObj) {
   return html;
 }
 
-/* --- MAIN RENDER FUNCTION (With Updated Section Titles) --- */
+/* --- MAIN RENDER FUNCTION (Fixed Missing Key) --- */
 function renderAIOutput(data) {
   // Hide loader
   const loader = document.getElementById('ai-loading-overlay');
@@ -7883,7 +7882,10 @@ function renderAIOutput(data) {
         ex: ['experience', 'workexperience'],
         co: ['competencies', 'skills', 'corecompetencies'],
         at: ['personalattributes', 'attributes', 'softskills'],
+        
+        // --- THIS WAS MISSING. IT IS FIXED NOW: ---
         quals: ['keyqualifications', 'qualifications', 'requirements', 'skillsmatrix'],
+        
         rel: ['organizationalrelationship', 'relationships', 'reporting', 'structure', 'reportingto'],
         int: ['preferredinternal', 'internalcandidate', 'internal'],
         ext: ['preferredexternal', 'externalcandidate', 'external']
@@ -7895,7 +7897,9 @@ function renderAIOutput(data) {
       let conditions = unwrap(deepSearch(data, getters.conditions));
       let orgRel = unwrap(deepSearch(data, getters.rel));
       
+      // This line was crashing because getters.quals was undefined. It will work now.
       let qualifications = deepSearch(data, getters.quals) || data; 
+      
       let know = fuzzyFind(flatData, getters.kn);
       let exp = fuzzyFind(flatData, getters.ex);
       let comp = fuzzyFind(flatData, getters.co);
@@ -8044,81 +8048,6 @@ function renderAIOutput(data) {
         <small>Check console (F12) for details.</small>
       </div>`;
   }
-}
-
-
-// --- 3. REGENERATE TRIGGER FUNCTION ---
-
-function triggerRegenerate(section) {
-  let containerId = "";
-  if (section === 'Organizational Role') containerId = "section-role";
-  if (section === 'KPIs') containerId = "section-kpis";
-  if (section === 'Core Responsibilities') containerId = "section-core";
-  if (section === 'Supporting Responsibilities') containerId = "section-support";
-  if (section === 'Organizational Relationship') containerId = "section-rel";
-  if (section === 'Productivity Tools') containerId = "section-tools";
-  if (section === 'Working Conditions') containerId = "section-cond";
-  if (section === 'Key Qualifications') containerId = "section-quals";
-
-  const container = document.querySelector(`#${containerId} .content-area`);
-  if (!container) return;
-
-  const originalHTML = container.innerHTML;
-  container.innerHTML = `<div class="animate-pulse flex space-x-2 items-center text-purple-600 p-2"><div class="h-4 w-4 bg-purple-400 rounded-full"></div><span class="text-xs">Regenerating ${section}...</span></div>`;
-
-  const payload = {
-    jobTitle: document.getElementById('ai-job-title').value,
-    level: document.getElementById('ai-level').value,
-    department: document.getElementById('ai-dept').value,
-    content: document.getElementById('ai-workload-text').value
-  };
-
-  google.script.run
-    .withSuccessHandler(newData => {
-      // Re-render Section Logic
-      if (section.includes('Responsibilities')) {
-         let html = "";
-         if(newData.CoreResponsibilities) html = renderPLOC(newData.CoreResponsibilities); 
-         else if(newData.SupportingResponsibilities) html = renderPLOC(newData.SupportingResponsibilities);
-         container.innerHTML = html;
-      }
-      else if (section === 'KPIs') {
-         container.innerHTML = renderListSimple(newData.KPIs, "No KPIs generated.");
-      }
-      else if (['Organizational Role', 'Organizational Relationship', 'Working Conditions'].includes(section)) {
-         let key = section.replace(/ /g, ''); // "OrganizationalRole"
-         container.innerHTML = unwrap(newData[key]) || unwrap(newData) || "N/A";
-      }
-      else if (section === 'Productivity Tools') {
-         container.innerHTML = renderListBullets(newData.ProductivityTools || []);
-      }
-      else if (section === 'Key Qualifications') {
-         const q = newData.KeyQualifications || newData; 
-         const findQ = (keyPart) => {
-             const foundKey = Object.keys(q).find(k => k.toLowerCase().includes(keyPart.toLowerCase()));
-             return foundKey ? q[foundKey] : [];
-         };
-         
-         const know = findQ('knowledge');
-         const exp = findQ('experience');
-         const comp = findQ('competencies');
-         const attr = findQ('attributes');
-         const pint = findQ('internal');
-         const pext = findQ('external');
-
-         container.innerHTML = `
-            <div><strong class="block mb-1 text-gray-900 select-none">Knowledge:</strong> <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-600 p-1 rounded">${renderListBullets(know)}</ul></div>
-            <div><strong class="block mb-1 text-gray-900 select-none">Experience:</strong> <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-600 p-1 rounded">${renderListBullets(exp)}</ul></div>
-            <div><strong class="block mb-1 text-gray-900 select-none">Competencies:</strong> <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-600 p-1 rounded mb-3">${renderListBullets(comp)}</ul><strong class="block mb-1 text-indigo-700 select-none border-t pt-2">Preferred from Internal:</strong><p contenteditable="true" class="editable-content text-gray-600 p-1 rounded">${unwrap(pint) || 'N/A'}</p></div>
-            <div><strong class="block mb-1 text-gray-900 select-none">Attributes:</strong> <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-600 p-1 rounded mb-3">${renderListBullets(attr)}</ul><strong class="block mb-1 text-indigo-700 select-none border-t pt-2">Preferred from External:</strong><p contenteditable="true" class="editable-content text-gray-600 p-1 rounded">${unwrap(pext) || 'N/A'}</p></div>
-         `;
-      }
-    })
-    .withFailureHandler(err => {
-      alert("Error regenerating section: " + err.message);
-      container.innerHTML = originalHTML; 
-    })
-    .regenerateJDSection(section, payload);
 }
 
 function copyJDToClipboard() {

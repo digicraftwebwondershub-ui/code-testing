@@ -580,6 +580,72 @@
   position: relative;
 }
 
+/* --- MULTI-SELECT STYLES --- */
+.multiselect-container {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 4px;
+  background: white;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 42px;
+}
+.multiselect-container:focus-within {
+  border-color: #a855f7;
+  ring: 2px solid #a855f7;
+}
+.multiselect-tag {
+  background-color: #f3e8ff;
+  color: #6b21a8;
+  border: 1px solid #d8b4fe;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.multiselect-tag button {
+  font-size: 1rem;
+  line-height: 0.5;
+  color: #9333ea;
+  cursor: pointer;
+}
+.multiselect-tag button:hover {
+  color: #581c87;
+}
+.multiselect-input {
+  border: none;
+  outline: none;
+  flex-grow: 1;
+  padding: 4px;
+  font-size: 0.875rem;
+  min-width: 120px;
+}
+.multiselect-dropdown {
+  position: absolute;
+  z-index: 50;
+  width: 100%;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+  display: none;
+}
+.multiselect-option {
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  color: #374151;
+}
+.multiselect-option:hover {
+  background-color: #f3f4f6;
+}
+
   </style>
 </head>
 <body>
@@ -1665,6 +1731,18 @@
                 </select>
               </div>
             </div>
+            <div class="mb-4 relative">
+             <label class="block text-sm font-bold text-gray-700 mb-1">Required Competencies (Optional)</label>
+             <p class="text-xs text-gray-500 mb-1">Select competencies from the matrix to prioritize them.</p>
+  
+             <div class="multiselect-container" id="competency-multiselect-wrapper" onclick="document.getElementById('competency-search-input').focus()">
+             <input type="text" id="competency-search-input" class="multiselect-input" placeholder="Search competencies..." autocomplete="off">
+           </div>
+  
+           <div id="competency-dropdown-list" class="multiselect-dropdown"></div>
+  
+           <input type="hidden" id="ai-selected-competencies">
+          </div>
             <div>
               <label class="block text-sm font-bold text-gray-700 mb-1">Workload Assessment / Task List</label>
               <p class="text-xs text-gray-500 mb-2">Paste the list of daily tasks, strategic goals, or raw workload data here.</p>
@@ -7510,11 +7588,14 @@ function populateAILevelDropdown() {
 function openAIJDModal() {
   document.getElementById('ai-jd-modal').style.display = 'flex';
   
-  // 1. Populate the dropdown options FIRST
   populateAILevelDropdown();
-
-  // 2. Then Initialize the selector (so it has options to select from)
   initializeAIJobSelector();
+  
+  // --- NEW: Initialize Picker ---
+  initializeCompetencyPicker();
+  // Clear previous selections
+  selectedCompetencies.clear();
+  updateCompetencyUI();
 }
 
 function closeAIJDModal() {
@@ -7581,8 +7662,11 @@ function generateJD() {
     // Add Position ID to payload so backend context is complete
     positionId: document.getElementById('ai-position-id').value,
     type: isWorkload ? 'workload' : 'upload'
-  };
 
+    // --- NEW: Add Competencies to Payload ---
+    competencies: document.getElementById('ai-selected-competencies').value
+  };
+  
   if (isWorkload) {
     payload.level = document.getElementById('ai-level').value;
     payload.department = document.getElementById('ai-dept').value;
@@ -7650,14 +7734,14 @@ function submitAIRequest(payload, loader) {
 
 // --- 1. HELPER FUNCTIONS (Must be defined first) ---
 
-// Helper: Generate Regenerate Button
+// Helper: Regenerate Button
 const regenBtn = (section) => `
   <button onclick="triggerRegenerate('${section}')" class="ml-2 text-gray-400 hover:text-purple-600 transition-colors" title="Regenerate this section">
     <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
   </button>
 `;
 
-// Helper: Flatten Nested JSON (Fixes "hidden data" issues)
+// Helper: Flatten Nested JSON (Fixes "hidden data" issues) - THIS WAS MISSING
 function flattenObject(obj, prefix = '') {
   let result = {};
   for (const key in obj) {
@@ -7675,6 +7759,7 @@ function flattenObject(obj, prefix = '') {
 
 // Helper: Fuzzy Search (Finds keys ignoring case/spaces)
 function fuzzyFind(flattenedData, synonyms) {
+  if (!flattenedData) return null;
   const allKeys = Object.keys(flattenedData);
   for (const key of allKeys) {
     const keyParts = key.toLowerCase().split('.');
@@ -7686,7 +7771,7 @@ function fuzzyFind(flattenedData, synonyms) {
   return null;
 }
 
-// Helper: Robust Deep Search (Recursive)
+// Helper: Robust Deep Search (Recursive backup)
 function deepSearch(obj, targetKeys) {
   if (!obj || typeof obj !== 'object') return null;
   const foundKey = Object.keys(obj).find(k => targetKeys.includes(k.toLowerCase().replace(/_/g, '').replace(/\s/g, '')));
@@ -7700,7 +7785,7 @@ function deepSearch(obj, targetKeys) {
   return null;
 }
 
-// Helper: Unwrap Data (Fixes [object Object])
+// Helper: Unwrap Data (Fixes [object Object] errors)
 function unwrap(val) {
   if (!val) return null;
   if (typeof val === 'string') return val;
@@ -7770,167 +7855,270 @@ function renderPLOC(respObj) {
   return html;
 }
 
-// --- 2. MAIN RENDER FUNCTION ---
-
+/* --- MAIN RENDER FUNCTION (With Updated Section Titles) --- */
 function renderAIOutput(data) {
-  document.getElementById('ai-loading-overlay').style.display = 'none';
+  // Hide loader
+  const loader = document.getElementById('ai-loading-overlay');
+  if(loader) loader.style.display = 'none';
   
-  if (data.error) {
-    document.getElementById('ai-preview-content').innerHTML = `<div class="text-red-500 font-bold p-4 border border-red-300 rounded bg-red-50">${data.error}</div>`;
-    return;
-  }
+  try {
+      if (data.error) {
+        document.getElementById('ai-preview-content').innerHTML = `<div class="text-red-500 font-bold p-4 border border-red-300 rounded bg-red-50">${data.error}</div>`;
+        return;
+      }
 
-  // --- KEY MAPPINGS ---
-  const getters = {
-    role: ['organizationalrole', 'role', 'jobsummary', 'rolesummary', 'summary', 'description', 'position_summary'],
-    kpis: ['kpis', 'keyperformanceindicators', 'metrics', 'measures'],
-    core: ['coreresponsibilities', 'coreduties', 'responsibilities', 'duties', 'core'],
-    support: ['supportingresponsibilities', 'secondaryduties', 'supporting', 'otherduties'],
-    tools: ['productivitytools', 'tools', 'software', 'technology', 'systemsandtools'],
-    conditions: ['workingconditions', 'workenvironment', 'conditions', 'environment'],
-    ld: ['ldmatrix', 'learninganddevelopment', 'training', 'development'],
-    kn: ['knowledge', 'technicalknowledge', 'education'],
-    ex: ['experience', 'workexperience'],
-    co: ['competencies', 'skills', 'corecompetencies'],
-    at: ['personalattributes', 'attributes', 'softskills'],
-    rel: ['organizationalrelationship', 'relationships', 'reporting', 'structure', 'reportingto'],
-    int: ['preferredinternal', 'internalcandidate', 'internal'],
-    ext: ['preferredexternal', 'externalcandidate', 'external']
+      // --- EXTRACT ---
+      const flatData = flattenObject(data); 
+      const rootKeys = Object.keys(data);
+      
+      const getters = {
+        role: ['organizationalrole', 'role', 'jobsummary', 'rolesummary', 'summary', 'description', 'position_summary'],
+        kpis: ['kpis', 'keyperformanceindicators', 'metrics', 'measures'],
+        core: ['coreresponsibilities', 'coreduties', 'responsibilities', 'duties', 'core'],
+        support: ['supportingresponsibilities', 'secondaryduties', 'supporting', 'otherduties'],
+        tools: ['productivitytools', 'tools', 'software', 'technology', 'systemsandtools'],
+        conditions: ['workingconditions', 'workenvironment', 'conditions', 'environment'],
+        ld: ['ldmatrix', 'learninganddevelopment', 'training', 'development'],
+        kn: ['knowledge', 'technicalknowledge', 'education'],
+        ex: ['experience', 'workexperience'],
+        co: ['competencies', 'skills', 'corecompetencies'],
+        at: ['personalattributes', 'attributes', 'softskills'],
+        quals: ['keyqualifications', 'qualifications', 'requirements', 'skillsmatrix'],
+        rel: ['organizationalrelationship', 'relationships', 'reporting', 'structure', 'reportingto'],
+        int: ['preferredinternal', 'internalcandidate', 'internal'],
+        ext: ['preferredexternal', 'externalcandidate', 'external']
+      };
+
+      let orgRole = unwrap(deepSearch(data, getters.role));
+      let kpis = deepSearch(data, getters.kpis);
+      let tools = deepSearch(data, getters.tools);
+      let conditions = unwrap(deepSearch(data, getters.conditions));
+      let orgRel = unwrap(deepSearch(data, getters.rel));
+      
+      let qualifications = deepSearch(data, getters.quals) || data; 
+      let know = fuzzyFind(flatData, getters.kn);
+      let exp = fuzzyFind(flatData, getters.ex);
+      let comp = fuzzyFind(flatData, getters.co);
+      let attr = fuzzyFind(flatData, getters.at);
+      let prefInt = unwrap(deepSearch(data, getters.int));
+      let prefExt = unwrap(deepSearch(data, getters.ext));
+      let ldMatrix = deepSearch(data, getters.ld);
+
+      // Responsibilities (Prefer Object Structure)
+      let coreResp = null;
+      let suppResp = null;
+      
+      const coreKey = rootKeys.find(k => getters.core.includes(k.toLowerCase().replace(/_/g, '')));
+      if (coreKey) coreResp = data[coreKey];
+      else coreResp = fuzzyFind(flatData, getters.core);
+
+      const suppKey = rootKeys.find(k => getters.support.includes(k.toLowerCase().replace(/_/g, '')));
+      if (suppKey) suppResp = data[suppKey];
+      else suppResp = fuzzyFind(flatData, getters.support);
+
+
+      // --- BUILD HTML ---
+      const html = `
+        <div class="border-b pb-4 mb-6">
+          <h1 class="text-2xl font-bold text-gray-900 select-none">${document.getElementById('ai-job-title').value || 'Job Description'}</h1>
+        </div>
+
+        <div class="bg-gray-100 p-2 rounded mb-4 border-l-4 border-blue-600">
+          <h3 class="font-bold text-slate-800 uppercase text-sm tracking-wide">Job Overview & Accountabilities</h3>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div id="section-role">
+            <h4 class="font-bold text-gray-700 mb-2 uppercase text-xs border-b flex items-center select-none">
+              Organizational Role ${regenBtn('Organizational Role')}
+            </h4>
+            <p contenteditable="true" class="editable-content text-gray-600 italic text-sm p-2 rounded outline-none content-area">
+              ${unwrap(orgRole) || 'Role summary not generated. Click to draft...'}
+            </p>
+          </div>
+
+          <div id="section-kpis">
+            <h4 class="font-bold text-gray-700 mb-2 uppercase text-xs border-b flex items-center select-none">
+              Recommended KPIs ${regenBtn('KPIs')}
+            </h4>
+            <div contenteditable="true" class="editable-content flex flex-wrap content-area p-2 rounded outline-none gap-2">
+              ${renderListSimple(kpis, "No KPIs generated. Click to add...")}
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-gray-100 p-2 rounded mb-4 border-l-4 border-blue-600">
+          <h3 class="font-bold text-slate-800 uppercase text-sm tracking-wide">Areas of Accountabilities</h3>
+        </div>
+
+        <div class="mb-8" id="section-core">
+          <h4 class="font-bold text-gray-700 mb-3 uppercase text-sm border-b pb-1 bg-gray-50 p-1 flex items-center justify-between select-none">
+            Core Responsibilities (PLOC) ${regenBtn('Core Responsibilities')}
+          </h4>
+          <div class="content-area">${renderPLOC(coreResp)}</div>
+        </div>
+        <div class="mb-8" id="section-support">
+          <h4 class="font-bold text-gray-700 mb-3 uppercase text-sm border-b pb-1 bg-gray-50 p-1 flex items-center justify-between select-none">
+            Supporting Responsibilities (PLOC) ${regenBtn('Supporting Responsibilities')}
+          </h4>
+          <div class="content-area">${renderPLOC(suppResp)}</div>
+        </div>
+
+        <div class="bg-gray-100 p-2 rounded mb-4 border-l-4 border-blue-600">
+          <h3 class="font-bold text-slate-800 uppercase text-sm tracking-wide">Specification & Work Conditions</h3>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div id="section-rel">
+            <h4 class="font-bold text-gray-700 mb-2 uppercase text-xs border-b flex items-center select-none">
+              Organizational Relationship ${regenBtn('Organizational Relationship')}
+            </h4>
+            <p contenteditable="true" class="editable-content text-gray-700 text-xs p-2 rounded outline-none content-area">
+                ${orgRel || 'Reports to: [Manager Title]\nSupervises: [Subordinates]'}
+            </p>
+          </div>
+          <div id="section-tools">
+            <h4 class="font-bold text-gray-700 mb-2 uppercase text-xs border-b flex items-center select-none">
+              Productivity Tools ${regenBtn('Productivity Tools')}
+            </h4>
+            <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-700 text-xs content-area p-2 rounded outline-none">
+                ${tools ? renderListBullets(tools) : '<li>Click to add tool...</li>'}
+            </ul>
+          </div>
+        </div>
+
+        <div class="mb-8" id="section-cond">
+          <h4 class="font-bold text-gray-700 mb-2 uppercase text-xs border-b flex items-center select-none">
+            Working Conditions ${regenBtn('Working Conditions')}
+          </h4>
+          <p contenteditable="true" class="editable-content text-gray-700 text-xs p-2 rounded outline-none content-area">
+              ${conditions || 'Click to describe working conditions...'}
+          </p>
+        </div>
+
+        <div class="bg-gray-100 p-2 rounded mb-4 border-l-4 border-blue-600">
+          <h3 class="font-bold text-slate-800 uppercase text-sm tracking-wide">Key Qualification Matrix</h3>
+        </div>
+
+        <div class="mb-6" id="section-quals">
+          <h4 class="font-bold text-gray-700 mb-2 uppercase text-xs border-b flex items-center select-none">
+            Key Qualifications ${regenBtn('Key Qualifications')}
+          </h4>
+          <div class="grid grid-cols-2 gap-6 text-xs content-area">
+            <div><strong class="block mb-1 text-gray-900 select-none">Knowledge:</strong> <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-600 p-1 rounded">${know ? renderListBullets(know) : '<li>Click to add...</li>'}</ul></div>
+            <div><strong class="block mb-1 text-gray-900 select-none">Experience:</strong> <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-600 p-1 rounded">${exp ? renderListBullets(exp) : '<li>Click to add...</li>'}</ul></div>
+            <div>
+               <strong class="block mb-1 text-gray-900 select-none">Competencies:</strong> 
+               <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-600 p-1 rounded mb-3">${comp ? renderListBullets(comp) : '<li>Click to add...</li>'}</ul>
+               <strong class="block mb-1 text-indigo-700 select-none border-t pt-2">Preferred from Internal:</strong>
+               <p contenteditable="true" class="editable-content text-gray-600 p-1 rounded">${prefInt || 'N/A'}</p>
+            </div>
+            <div>
+               <strong class="block mb-1 text-gray-900 select-none">Attributes:</strong> 
+               <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-600 p-1 rounded mb-3">${attr ? renderListBullets(attr) : '<li>Click to add...</li>'}</ul>
+               <strong class="block mb-1 text-indigo-700 select-none border-t pt-2">Preferred from External:</strong>
+               <p contenteditable="true" class="editable-content text-gray-600 p-1 rounded">${prefExt || 'N/A'}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="bg-green-50 p-4 rounded border border-green-200 mt-4">
+          <h4 class="font-bold text-green-800 mb-2 text-xs uppercase select-none">Learning & Development Matrix</h4>
+          <ul contenteditable="true" class="editable-content list-disc ml-4 text-green-900 text-xs p-2 rounded outline-none">
+            ${ldMatrix ? renderListBullets(ldMatrix) : '<li>Click to add training...</li>'}
+          </ul>
+        </div>
+
+        <details class="mt-8 border-t pt-4">
+            <summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-600 select-none">Troubleshoot: View Raw AI Data</summary>
+            <pre class="bg-gray-800 text-green-400 p-4 rounded mt-2 text-xs overflow-auto max-h-60 select-all">${JSON.stringify(data, null, 2)}</pre>
+        </details>
+      `;
+
+      document.getElementById('ai-preview-content').innerHTML = html;
+      
+  } catch (err) {
+      console.error("Rendering Error:", err);
+      document.getElementById('ai-preview-content').innerHTML = `<div class="text-red-600 bg-red-100 p-4 rounded border border-red-400">
+        <strong>Rendering Error:</strong><br> ${err.message}<br><br>
+        <small>Check console (F12) for details.</small>
+      </div>`;
+  }
+}
+
+
+// --- 3. REGENERATE TRIGGER FUNCTION ---
+
+function triggerRegenerate(section) {
+  let containerId = "";
+  if (section === 'Organizational Role') containerId = "section-role";
+  if (section === 'KPIs') containerId = "section-kpis";
+  if (section === 'Core Responsibilities') containerId = "section-core";
+  if (section === 'Supporting Responsibilities') containerId = "section-support";
+  if (section === 'Organizational Relationship') containerId = "section-rel";
+  if (section === 'Productivity Tools') containerId = "section-tools";
+  if (section === 'Working Conditions') containerId = "section-cond";
+  if (section === 'Key Qualifications') containerId = "section-quals";
+
+  const container = document.querySelector(`#${containerId} .content-area`);
+  if (!container) return;
+
+  const originalHTML = container.innerHTML;
+  container.innerHTML = `<div class="animate-pulse flex space-x-2 items-center text-purple-600 p-2"><div class="h-4 w-4 bg-purple-400 rounded-full"></div><span class="text-xs">Regenerating ${section}...</span></div>`;
+
+  const payload = {
+    jobTitle: document.getElementById('ai-job-title').value,
+    level: document.getElementById('ai-level').value,
+    department: document.getElementById('ai-dept').value,
+    content: document.getElementById('ai-workload-text').value
   };
 
-  // --- EXTRACT ---
-  const flatData = flattenObject(data);
-  const rootKeys = Object.keys(data);
+  google.script.run
+    .withSuccessHandler(newData => {
+      // Re-render Section Logic
+      if (section.includes('Responsibilities')) {
+         let html = "";
+         if(newData.CoreResponsibilities) html = renderPLOC(newData.CoreResponsibilities); 
+         else if(newData.SupportingResponsibilities) html = renderPLOC(newData.SupportingResponsibilities);
+         container.innerHTML = html;
+      }
+      else if (section === 'KPIs') {
+         container.innerHTML = renderListSimple(newData.KPIs, "No KPIs generated.");
+      }
+      else if (['Organizational Role', 'Organizational Relationship', 'Working Conditions'].includes(section)) {
+         let key = section.replace(/ /g, ''); // "OrganizationalRole"
+         container.innerHTML = unwrap(newData[key]) || unwrap(newData) || "N/A";
+      }
+      else if (section === 'Productivity Tools') {
+         container.innerHTML = renderListBullets(newData.ProductivityTools || []);
+      }
+      else if (section === 'Key Qualifications') {
+         const q = newData.KeyQualifications || newData; 
+         const findQ = (keyPart) => {
+             const foundKey = Object.keys(q).find(k => k.toLowerCase().includes(keyPart.toLowerCase()));
+             return foundKey ? q[foundKey] : [];
+         };
+         
+         const know = findQ('knowledge');
+         const exp = findQ('experience');
+         const comp = findQ('competencies');
+         const attr = findQ('attributes');
+         const pint = findQ('internal');
+         const pext = findQ('external');
 
-  let orgRole = unwrap(deepSearch(data, getters.role));
-  let kpis = deepSearch(data, getters.kpis);
-  let tools = deepSearch(data, getters.tools);
-  let conditions = unwrap(deepSearch(data, getters.conditions));
-  let orgRel = unwrap(deepSearch(data, getters.rel));
-  
-  let qualifications = deepSearch(data, getters.quals) || data; 
-  let know = fuzzyFind(flatData, getters.kn);
-  let exp = fuzzyFind(flatData, getters.ex);
-  let comp = fuzzyFind(flatData, getters.co);
-  let attr = fuzzyFind(flatData, getters.at);
-  let prefInt = unwrap(deepSearch(data, getters.int));
-  let prefExt = unwrap(deepSearch(data, getters.ext));
-  let ldMatrix = deepSearch(data, getters.ld);
-
-  // Responsibilities
-  let coreResp = null;
-  let suppResp = null;
-  const coreKey = rootKeys.find(k => getters.core.includes(k.toLowerCase().replace(/_/g, '')));
-  if (coreKey) coreResp = data[coreKey];
-  else coreResp = fuzzyFind(flatData, getters.core);
-
-  const suppKey = rootKeys.find(k => getters.support.includes(k.toLowerCase().replace(/_/g, '')));
-  if (suppKey) suppResp = data[suppKey];
-  else suppResp = fuzzyFind(flatData, getters.support);
-
-
-  // --- BUILD HTML ---
-  const html = `
-    <div class="border-b pb-4 mb-4">
-      <h1 class="text-2xl font-bold text-gray-900 select-none">${document.getElementById('ai-job-title').value || 'Job Description'}</h1>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-      <div id="section-role">
-        <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b flex items-center select-none">
-          Organizational Role ${regenBtn('Organizational Role')}
-        </h4>
-        <p contenteditable="true" class="editable-content text-gray-600 italic text-sm p-2 rounded outline-none content-area">
-          ${orgRole || 'Role summary not generated. Click to draft...'}
-        </p>
-      </div>
-      <div id="section-kpis">
-        <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b flex items-center select-none">
-          Recommended KPIs ${regenBtn('KPIs')}
-        </h4>
-        <div contenteditable="true" class="editable-content flex flex-wrap content-area p-2 rounded outline-none gap-2">
-          ${renderListSimple(kpis, "No KPIs generated. Click to add...")}
-        </div>
-      </div>
-    </div>
-
-    <div class="mb-8" id="section-core">
-      <h4 class="font-bold text-gray-800 mb-3 uppercase text-sm border-b pb-1 bg-gray-100 p-1 flex items-center justify-between select-none">
-        Core Responsibilities (PLOC) ${regenBtn('Core Responsibilities')}
-      </h4>
-      <div class="content-area">${renderPLOC(coreResp)}</div>
-    </div>
-    <div class="mb-8" id="section-support">
-      <h4 class="font-bold text-gray-800 mb-3 uppercase text-sm border-b pb-1 bg-gray-100 p-1 flex items-center justify-between select-none">
-        Supporting Responsibilities (PLOC) ${regenBtn('Supporting Responsibilities')}
-      </h4>
-      <div class="content-area">${renderPLOC(suppResp)}</div>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-      <div id="section-rel">
-        <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b flex items-center select-none">
-          Organizational Relationship ${regenBtn('Organizational Relationship')}
-        </h4>
-        <p contenteditable="true" class="editable-content text-gray-700 text-xs p-2 rounded outline-none content-area">
-            ${orgRel || 'Reports to: [Manager Title]\nSupervises: [Subordinates]'}
-        </p>
-      </div>
-      <div id="section-tools">
-        <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b flex items-center select-none">
-          Productivity Tools ${regenBtn('Productivity Tools')}
-        </h4>
-        <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-700 text-xs content-area p-2 rounded outline-none">
-            ${tools ? renderListBullets(tools) : '<li>Click to add tool...</li>'}
-        </ul>
-      </div>
-    </div>
-
-    <div class="mb-6" id="section-cond">
-      <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b flex items-center select-none">
-        Working Conditions ${regenBtn('Working Conditions')}
-      </h4>
-      <p contenteditable="true" class="editable-content text-gray-700 text-xs p-2 rounded outline-none content-area">
-          ${conditions || 'Click to describe working conditions...'}
-      </p>
-    </div>
-
-    <div class="mb-6" id="section-quals">
-      <h4 class="font-bold text-gray-800 mb-2 uppercase text-xs border-b flex items-center select-none">
-        Key Qualifications ${regenBtn('Key Qualifications')}
-      </h4>
-      <div class="grid grid-cols-2 gap-4 text-xs content-area">
-        <div><strong class="block mb-1 text-gray-900 select-none">Knowledge:</strong> <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-600 p-1 rounded">${know ? renderListBullets(know) : '<li>Click to add...</li>'}</ul></div>
-        <div><strong class="block mb-1 text-gray-900 select-none">Experience:</strong> <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-600 p-1 rounded">${exp ? renderListBullets(exp) : '<li>Click to add...</li>'}</ul></div>
-        <div>
-           <strong class="block mb-1 text-gray-900 select-none">Competencies:</strong> 
-           <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-600 p-1 rounded mb-3">${comp ? renderListBullets(comp) : '<li>Click to add...</li>'}</ul>
-           <strong class="block mb-1 text-indigo-700 select-none border-t pt-2">Preferred from Internal:</strong>
-           <p contenteditable="true" class="editable-content text-gray-600 p-1 rounded">${prefInt || 'N/A'}</p>
-        </div>
-        <div>
-           <strong class="block mb-1 text-gray-900 select-none">Attributes:</strong> 
-           <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-600 p-1 rounded mb-3">${attr ? renderListBullets(attr) : '<li>Click to add...</li>'}</ul>
-           <strong class="block mb-1 text-indigo-700 select-none border-t pt-2">Preferred from External:</strong>
-           <p contenteditable="true" class="editable-content text-gray-600 p-1 rounded">${prefExt || 'N/A'}</p>
-        </div>
-      </div>
-    </div>
-    
-    <div class="bg-green-50 p-4 rounded border border-green-200 mt-4">
-      <h4 class="font-bold text-green-800 mb-2 text-xs uppercase select-none">Learning & Development Matrix</h4>
-      <ul contenteditable="true" class="editable-content list-disc ml-4 text-green-900 text-xs p-2 rounded outline-none">
-        ${ldMatrix ? renderListBullets(ldMatrix) : '<li>Click to add training...</li>'}
-      </ul>
-    </div>
-
-    <details class="mt-8 border-t pt-4">
-        <summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-600 select-none">Troubleshoot: View Raw AI Data</summary>
-        <pre class="bg-gray-800 text-green-400 p-4 rounded mt-2 text-xs overflow-auto max-h-60 select-all">${JSON.stringify(data, null, 2)}</pre>
-    </details>
-  `;
-
-  document.getElementById('ai-preview-content').innerHTML = html;
+         container.innerHTML = `
+            <div><strong class="block mb-1 text-gray-900 select-none">Knowledge:</strong> <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-600 p-1 rounded">${renderListBullets(know)}</ul></div>
+            <div><strong class="block mb-1 text-gray-900 select-none">Experience:</strong> <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-600 p-1 rounded">${renderListBullets(exp)}</ul></div>
+            <div><strong class="block mb-1 text-gray-900 select-none">Competencies:</strong> <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-600 p-1 rounded mb-3">${renderListBullets(comp)}</ul><strong class="block mb-1 text-indigo-700 select-none border-t pt-2">Preferred from Internal:</strong><p contenteditable="true" class="editable-content text-gray-600 p-1 rounded">${unwrap(pint) || 'N/A'}</p></div>
+            <div><strong class="block mb-1 text-gray-900 select-none">Attributes:</strong> <ul contenteditable="true" class="editable-content list-disc ml-4 text-gray-600 p-1 rounded mb-3">${renderListBullets(attr)}</ul><strong class="block mb-1 text-indigo-700 select-none border-t pt-2">Preferred from External:</strong><p contenteditable="true" class="editable-content text-gray-600 p-1 rounded">${unwrap(pext) || 'N/A'}</p></div>
+         `;
+      }
+    })
+    .withFailureHandler(err => {
+      alert("Error regenerating section: " + err.message);
+      container.innerHTML = originalHTML; 
+    })
+    .regenerateJDSection(section, payload);
 }
 
 function copyJDToClipboard() {
@@ -8185,6 +8373,110 @@ function initializeAIJobSelector() {
       document.getElementById('ai-job-title').value = e.target.value;
     });
   }
+}
+
+/* =========================================================================
+   COMPETENCY PICKER LOGIC
+   ========================================================================= */
+
+let allCompetencies = [];
+let selectedCompetencies = new Set();
+
+function initializeCompetencyPicker() {
+  const input = document.getElementById('competency-search-input');
+  const list = document.getElementById('competency-dropdown-list');
+  
+  // 1. Fetch data from backend
+  google.script.run
+    .withSuccessHandler(data => {
+      allCompetencies = data || [];
+      renderCompetencyDropdown(''); // Initial render
+    })
+    .getCompetencyNames();
+
+  // 2. Setup Input Event Listeners
+  input.addEventListener('input', (e) => {
+    renderCompetencyDropdown(e.target.value);
+    list.style.display = 'block';
+  });
+
+  input.addEventListener('focus', () => {
+    renderCompetencyDropdown(input.value);
+    list.style.display = 'block';
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!document.getElementById('competency-multiselect-wrapper').contains(e.target) && 
+        !list.contains(e.target)) {
+      list.style.display = 'none';
+    }
+  });
+}
+
+function renderCompetencyDropdown(query) {
+  const list = document.getElementById('competency-dropdown-list');
+  list.innerHTML = '';
+  
+  const filtered = allCompetencies.filter(c => 
+    c.toLowerCase().includes(query.toLowerCase()) && 
+    !selectedCompetencies.has(c) // Don't show if already selected
+  );
+
+  if (filtered.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'multiselect-option text-gray-400 italic';
+    empty.textContent = 'No matches found';
+    list.appendChild(empty);
+    return;
+  }
+
+  filtered.forEach(comp => {
+    const div = document.createElement('div');
+    div.className = 'multiselect-option';
+    div.textContent = comp;
+    div.onclick = () => addCompetencyTag(comp);
+    list.appendChild(div);
+  });
+}
+
+function addCompetencyTag(comp) {
+  selectedCompetencies.add(comp);
+  updateCompetencyUI();
+  
+  // Clear input and refocus
+  const input = document.getElementById('competency-search-input');
+  input.value = '';
+  input.focus();
+  document.getElementById('competency-dropdown-list').style.display = 'none';
+}
+
+function removeCompetencyTag(comp) {
+  selectedCompetencies.delete(comp);
+  updateCompetencyUI();
+}
+
+function updateCompetencyUI() {
+  const wrapper = document.getElementById('competency-multiselect-wrapper');
+  const input = document.getElementById('competency-search-input');
+  
+  // Remove existing tags (but keep the input)
+  const existingTags = wrapper.querySelectorAll('.multiselect-tag');
+  existingTags.forEach(t => t.remove());
+
+  // Add tags back
+  selectedCompetencies.forEach(comp => {
+    const tag = document.createElement('div');
+    tag.className = 'multiselect-tag';
+    tag.innerHTML = `
+      ${comp}
+      <button type="button" onclick="removeCompetencyTag('${comp}')">&times;</button>
+    `;
+    wrapper.insertBefore(tag, input);
+  });
+
+  // Update hidden input for form submission
+  document.getElementById('ai-selected-competencies').value = Array.from(selectedCompetencies).join(', ');
 }
 
 </script>

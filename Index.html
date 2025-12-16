@@ -895,7 +895,7 @@
         </div>
 
         <!-- Employee Competency Card -->
-        <div id="card-competency" onclick="navigateToView('competency', 'competency')" class="dashboard-card bg-white rounded-lg shadow p-6 flex flex-col items-center text-center w-80 cursor-pointer hover:shadow-xl transition-shadow">
+        <div id="card-competency" onclick="navigateToView('competency', 'competency')" class="dashboard-card bg-white rounded-lg shadow p-6 flex flex-col items-center text-center w-80 cursor-pointer hover:shadow-xl transition-shadow disabled-access">
           <svg class="h-24 w-24 mb-4 text-amber-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
           </svg>
@@ -2044,6 +2044,53 @@
   var previewHighlightIds = [];
   var previewChangeDescription = '';
   var userCanViewCompetency = null; // Default to NULL (Unknown/Loading)
+   // --- Initialization & Data Fetching ---
+  function fetchData() {
+    google.script.run.withSuccessHandler(function(data) {
+      if (!data) {
+        console.error("Failed to load employee data. The returned data object is null or undefined.");
+        // You might want to show an error message to the user here
+        return;
+      }
+
+      // --- PERMISSION-BASED UI ---
+      // This is the earliest point where we know the user's permissions.
+      userCanViewCompetency = data.canViewCompetency;
+      userCanEdit = data.canEdit;
+      userCanApprove = data.canApprove;
+
+      // --- END PERMISSION-BASED UI ---
+
+      fullEmployeeData = data.current;
+      dropdownListData = data.dropdownListData;
+      previousHeadcountData = data.previous;
+      snapshotTimestamp = data.snapshotTimestamp;
+      totalApprovedPlantilla = data.totalApprovedPlantilla;
+      previousDateString = data.previousDateString;
+
+      employeeMap = new Map(fullEmployeeData.map(emp => [emp.nodeId, emp]));
+      drawOrgChart(null, true);
+      populateFilterDropdowns(fullEmployeeData, dropdownListData);
+      updateHeadcountCards(fullEmployeeData, null);
+      updateOverallSummary(fullEmployeeData, previousHeadcountData);
+
+      if(userCanEdit) {
+        document.getElementById('add-employee-btn').style.display = 'block';
+        document.getElementById('request-change-btn').style.display = 'block';
+      }
+
+      // Call the function to set access states now that permissions are loaded
+      setElementAccess('card-competency', userCanViewCompetency);
+      setElementAccess('tab-competency', userCanViewCompetency);
+
+    }).withFailureHandler(function(error) {
+        console.error("Error fetching employee data: " + error.message);
+        // It might be helpful to show a user-facing error message here
+    }).getEmployeeData();
+
+    google.script.run.withSuccessHandler(updateNotificationBadges).getRequestCounts();
+    google.script.run.withSuccessHandler(displayUpcomingDues).getUpcomingDues();
+  }
 
   // --- NEW: ATTACHMENT CONFIGURATION & LOGIC ---
 
@@ -2488,7 +2535,7 @@ function navigateToView(viewType, defaultTabId) {
 
   } else {
     if (mainTitle) mainTitle.style.display = 'none';
-    if (tabNav) tabNav.style.display = (viewType === 'predictive') ? 'none' : 'flex';
+    if (tabNav) tabNav.style.display = (viewType === 'predictive' || viewType === 'competency') ? 'none' : 'flex';
     
     const viewClassMap = {
       'analytics': 'analytics-view-tab',
@@ -2501,13 +2548,6 @@ function navigateToView(viewType, defaultTabId) {
         document.querySelectorAll('#tab-navigation .tab').forEach(tab => {
             tab.style.display = tab.classList.contains(targetClass) ? 'flex' : 'none';
         });
-    }
-     // --- FIX: Explicitly show the competency tab if it's the target ---
-    if (viewType === 'competency') {
-      const competencyTab = document.getElementById('tab-competency');
-      if (competencyTab) {
-          competencyTab.style.display = 'flex';
-      }
     }
   }
 

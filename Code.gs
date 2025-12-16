@@ -1017,176 +1017,168 @@ function takeHeadcountSnapshotWithAlert() {
 
 
 function takeHeadcountSnapshot() {
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  const mainSheet = spreadsheet.getSheets()[0];
-  let targetSheet = spreadsheet.getSheetByName('Previous Headcount');
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const mainSheet = spreadsheet.getSheets()[0];
+  let targetSheet = spreadsheet.getSheetByName('Previous Headcount');
 
-  if (!targetSheet) {
-    targetSheet = spreadsheet.insertSheet('Previous Headcount');
-    targetSheet.appendRow(['Division', 'Group', 'Department', 'Section', 'Approved Plantilla']);
-    targetSheet.setFrozenRows(1);
-  }
+  if (!targetSheet) {
+    targetSheet = spreadsheet.insertSheet('Previous Headcount');
+    targetSheet.appendRow(['Division', 'Group', 'Department', 'Section', 'Approved Plantilla']);
+    targetSheet.setFrozenRows(1);
+  }
 
-  if (mainSheet.getLastRow() < 2) {
-    return;
-  }
+  if (mainSheet.getLastRow() < 2) return;
 
-  const scriptProperties = PropertiesService.getScriptProperties();
-  const currentSnapshot = scriptProperties.getProperty('snapshotTimestamp');
-  if (currentSnapshot) {
-    scriptProperties.setProperty('previousHeadcountTimestamp', currentSnapshot);
-  }
+  const scriptProperties = PropertiesService.getScriptProperties();
+  const currentSnapshot = scriptProperties.getProperty('snapshotTimestamp');
+  if (currentSnapshot) {
+    scriptProperties.setProperty('previousHeadcountTimestamp', currentSnapshot);
+  }
 
-  const timestamp = new Date();
-  scriptProperties.setProperty('snapshotTimestamp', timestamp.toISOString());
+  const timestamp = new Date();
+  scriptProperties.setProperty('snapshotTimestamp', timestamp.toISOString());
 
-  const data = mainSheet.getRange(2, 1, mainSheet.getLastRow() - 1, 18).getValues();
-  const approvalsSheet = spreadsheet.getSheetByName('Approvals');
-  if (!approvalsSheet) {
-    throw new Error('Sheet "Approvals" not found.');
-  }
+  // --- DYNAMIC HEADER MAPPING ---
+  const lastCol = mainSheet.getLastColumn();
+  const allRows = mainSheet.getRange(1, 1, mainSheet.getLastRow(), lastCol).getValues();
+  const headers = allRows.shift().map(h => String(h).trim().toLowerCase().replace(/\s+/g, ''));
+  const data = allRows;
 
-  const approversData = getApproversData();
-  const uniqueDepartments = [...new Set(data.map(row => row[8]).filter(String))];
-  const existingApprovalRecords = approvalsSheet.getDataRange().getValues();
-  const headers = existingApprovalRecords.length > 0 ? existingApprovalRecords[0] : [];
-  const snapshotColIndex = headers.indexOf('Snapshot Date');
-  const deptColIndex = headers.indexOf('Department');
-  const newlyCreatedRecords = [];
+  // Helper to find column index
+  const idx = (name) => headers.indexOf(name.toLowerCase().replace(/\s+/g, ''));
+  
+  const colDiv = idx('division');
+  const colGrp = idx('group');
+  const colDept = idx('department');
+  const colSect = idx('section');
+  const colStatus = idx('positionstatus');
+  const colEmpId = idx('employeeid');
 
-  uniqueDepartments.forEach(dept => {
-    const recordExists = existingApprovalRecords.some((row, index) =>
-      index > 0 && row[snapshotColIndex] === timestamp.toISOString() && row[deptColIndex] === dept
-    );
-    if (!recordExists) {
-      approvalsSheet.appendRow([timestamp.toISOString(), dept, '', '', '', '', '', '', '', '']);
-      newlyCreatedRecords.push(dept);
-    }
-  });
+  if (colDiv === -1) throw new Error("Could not find 'Division' column in main sheet.");
 
-  newlyCreatedRecords.forEach(dept => {
-    sendApprovalNotificationEmail(dept, timestamp.toISOString(), approversData, 'Prepared By');
-  });
+  const approvalsSheet = spreadsheet.getSheetByName('Approvals');
+  if (!approvalsSheet) throw new Error('Sheet "Approvals" not found.');
 
-  const summary = {};
-  data.forEach(function (row) {
-    if ((row[17] || '').toString().trim().toLowerCase() === 'inactive') return;
-    const isFilled = !!row[1];
-    const division = row[6],
-      group = row[7] || '', // Ensure blank values are treated as empty strings
-      department = row[8] || '',
-      section = row[9] || '';
+  const approversData = getApproversData();
+  const uniqueDepartments = [...new Set(data.map(row => row[colDept]).filter(String))];
+  
+  const existingApprovalRecords = approvalsSheet.getDataRange().getValues();
+  const appHeaders = existingApprovalRecords.length > 0 ? existingApprovalRecords[0] : [];
+  const snapshotColIndex = appHeaders.indexOf('Snapshot Date');
+  const deptColIndex = appHeaders.indexOf('Department');
+  const newlyCreatedRecords = [];
 
-    if (!division) return;
-    if (!summary[division]) summary[division] = {
-      filled: 0,
-      vacant: 0,
-      groups: {}
-    };
-    if (!summary[division].groups[group]) summary[division].groups[group] = {
-      filled: 0,
-      vacant: 0,
-      departments: {}
-    };
-    if (!summary[division].groups[group].departments[department]) summary[division].groups[group].departments[department] = {
-      filled: 0,
-      vacant: 0,
-      sections: {}
-    };
-    if (!summary[division].groups[group].departments[department].sections[section]) summary[division].groups[group].departments[department].sections[section] = {
-      filled: 0,
-      vacant: 0
-    };
+  uniqueDepartments.forEach(dept => {
+    const recordExists = existingApprovalRecords.some((row, index) =>
+      index > 0 && row[snapshotColIndex] === timestamp.toISOString() && row[deptColIndex] === dept
+    );
+    if (!recordExists) {
+      approvalsSheet.appendRow([timestamp.toISOString(), dept, '', '', '', '', '', '', '', '']);
+      newlyCreatedRecords.push(dept);
+    }
+  });
 
-    isFilled ? summary[division].filled++ : summary[division].vacant++;
-    isFilled ? summary[division].groups[group].filled++ : summary[division].groups[group].vacant++;
-    isFilled ? summary[division].groups[group].departments[department].filled++ : summary[division].groups[group].departments[department].vacant++;
-    isFilled ? summary[division].groups[group].departments[department].sections[section].filled++ : summary[division].groups[group].departments[department].sections[section].vacant++;
-  });
+  newlyCreatedRecords.forEach(dept => {
+    sendApprovalNotificationEmail(dept, timestamp.toISOString(), approversData, 'Prepared By');
+  });
 
+  const summary = {};
 
-  const monthHeader = Utilities.formatDate(timestamp, Session.getScriptTimeZone(), "MMM yyyy");
-  const filledHeader = `${monthHeader} Filled`;
-  const vacantHeader = `${monthHeader} Vacant`;
+  data.forEach(function (row) {
+    const pStatus = (colStatus > -1) ? (row[colStatus] || '') : '';
+    if (pStatus.toString().trim().toLowerCase() === 'inactive') return;
 
-  const targetHeaders = targetSheet.getRange(1, 1, 1, targetSheet.getLastColumn()).getValues()[0];
-  let filledColIdx = targetHeaders.indexOf(filledHeader);
-  let vacantColIdx = targetHeaders.indexOf(vacantHeader);
-  let plantillaColIdx = targetHeaders.indexOf('Approved Plantilla');
+    const isFilled = (colEmpId > -1 && row[colEmpId]);
+    const division = row[colDiv];
+    const group = (colGrp > -1) ? (row[colGrp] || '') : '';
+    const department = (colDept > -1) ? (row[colDept] || '') : '';
+    const section = (colSect > -1) ? (row[colSect] || '') : '';
 
-  if (plantillaColIdx === -1) {
-    targetSheet.getRange(1, 5).setValue('Approved Plantilla');
-    plantillaColIdx = 4;
-  }
+    if (!division) return;
 
-  if (filledColIdx === -1) {
-    const lastCol = targetSheet.getLastColumn();
-    targetSheet.getRange(1, lastCol + 1, 1, 2).setValues([
-      [filledHeader, vacantHeader]
-    ]);
-    filledColIdx = lastCol;
-    vacantColIdx = lastCol + 1;
-  }
+    if (!summary[division]) summary[division] = { filled: 0, vacant: 0, groups: {} };
+    if (!summary[division].groups[group]) summary[division].groups[group] = { filled: 0, vacant: 0, departments: {} };
+    if (!summary[division].groups[group].departments[department]) summary[division].groups[group].departments[department] = { filled: 0, vacant: 0, sections: {} };
+    if (!summary[division].groups[group].departments[department].sections[section]) summary[division].groups[group].departments[department].sections[section] = { filled: 0, vacant: 0 };
 
-  const existingData = targetSheet.getLastRow() > 1 ? targetSheet.getRange(2, 1, targetSheet.getLastRow() - 1, targetSheet.getLastColumn()).getValues() : [];
-  const dataMap = new Map();
-  existingData.forEach((row, index) => {
-    const key = [row[0], row[1], row[2], row[3]].join('|');
-    dataMap.set(key, {
-      rowIndex: index + 2,
-      data: row
-    });
-  });
+    if (isFilled) {
+      summary[division].filled++;
+      summary[division].groups[group].filled++;
+      summary[division].groups[group].departments[department].filled++;
+      summary[division].groups[group].departments[department].sections[section].filled++;
+    } else {
+      summary[division].vacant++;
+      summary[division].groups[group].vacant++;
+      summary[division].groups[group].departments[department].vacant++;
+      summary[division].groups[group].departments[department].sections[section].vacant++;
+    }
+  });
 
-  const updatedData = [];
+  const monthHeader = Utilities.formatDate(timestamp, Session.getScriptTimeZone(), "MMM yyyy");
+  const filledHeader = `${monthHeader} Filled`;
+  const vacantHeader = `${monthHeader} Vacant`;
 
-  const processLevel = (div, group, dept, sec, counts) => {
-    const key = [div, group, dept, sec].join('|');
-    if (dataMap.has(key)) {
-      const existingRow = dataMap.get(key);
-      existingRow.data[filledColIdx] = counts.filled;
-      existingRow.data[vacantColIdx] = counts.vacant;
-      updatedData.push({
-        range: `A${existingRow.rowIndex}`,
-        values: [existingRow.data]
-      });
-      dataMap.delete(key);
-    } else {
-      const newRow = Array(targetSheet.getLastColumn()).fill('');
-      newRow[0] = div;
-      newRow[1] = group;
-      newRow[2] = dept;
-      newRow[3] = sec;
-      newRow[filledColIdx] = counts.filled;
-      newRow[vacantColIdx] = counts.vacant;
-      targetSheet.appendRow(newRow);
-    }
-  };
+  const targetHeaders = targetSheet.getRange(1, 1, 1, targetSheet.getLastColumn()).getValues()[0];
+  let filledColIdx = targetHeaders.indexOf(filledHeader);
+  let vacantColIdx = targetHeaders.indexOf(vacantHeader);
+  let plantillaColIdx = targetHeaders.indexOf('Approved Plantilla');
+  if (plantillaColIdx === -1) plantillaColIdx = 4; 
 
-  // --- REVISED SECTION ---
-  // This revised logic filters out empty keys ('') before processing,
-  // preventing the creation of blank or incomplete rows in the "Previous Headcount" sheet.
-  Object.keys(summary).sort().forEach(divName => {
-    processLevel(divName, '', '', '', summary[divName]); // Process Division total
-    Object.keys(summary[divName].groups).sort().filter(g => g).forEach(groupName => { // Filter out empty group names
-      processLevel(divName, groupName, '', '', summary[divName].groups[groupName]); // Process Group total
-      Object.keys(summary[divName].groups[groupName].departments).sort().filter(d => d).forEach(deptName => { // Filter out empty dept names
-        processLevel(divName, groupName, deptName, '', summary[divName].groups[groupName].departments[deptName]); // Process Dept total
-        Object.keys(summary[divName].groups[groupName].departments[deptName].sections).sort().filter(s => s).forEach(secName => { // Filter out empty section names
-          processLevel(divName, groupName, deptName, secName, summary[divName].groups[groupName].departments[deptName].sections[secName]); // Process Section total
-        });
-      });
-    });
-  });
-  // --- END REVISED SECTION ---
+  if (filledColIdx === -1) {
+    const lastCol = targetSheet.getLastColumn();
+    targetSheet.getRange(1, lastCol + 1, 1, 2).setValues([[filledHeader, vacantHeader]]);
+    filledColIdx = lastCol;
+    vacantColIdx = lastCol + 1;
+  }
 
-  updatedData.forEach(update => {
-    const range = targetSheet.getRange(update.range).offset(0, 0, 1, update.values[0].length);
-    range.setValues(update.values);
-  });
+  const existingData = targetSheet.getLastRow() > 1 ? targetSheet.getRange(2, 1, targetSheet.getLastRow() - 1, targetSheet.getLastColumn()).getValues() : [];
+  const dataMap = new Map();
+  
+  existingData.forEach((row, index) => {
+    const key = [row[0], row[1], row[2], row[3]].join('|');
+    dataMap.set(key, { rowIndex: index + 2, data: row });
+  });
+
+  const updatedData = [];
+
+  const processLevel = (div, group, dept, sec, counts) => {
+    const key = [div, group, dept, sec].join('|');
+    if (dataMap.has(key)) {
+      const existingRow = dataMap.get(key);
+      existingRow.data[filledColIdx] = counts.filled;
+      existingRow.data[vacantColIdx] = counts.vacant;
+      updatedData.push({ range: `A${existingRow.rowIndex}`, values: [existingRow.data] });
+      dataMap.delete(key);
+    } else {
+      const newRow = Array(targetSheet.getLastColumn()).fill('');
+      newRow[0] = div;
+      newRow[1] = group;
+      newRow[2] = dept;
+      newRow[3] = sec;
+      newRow[filledColIdx] = counts.filled;
+      newRow[vacantColIdx] = counts.vacant;
+      targetSheet.appendRow(newRow);
+    }
+  };
+
+  Object.keys(summary).sort().forEach(divName => {
+    processLevel(divName, '', '', '', summary[divName]);
+    Object.keys(summary[divName].groups).sort().filter(g => g).forEach(groupName => {
+      processLevel(divName, groupName, '', '', summary[divName].groups[groupName]);
+      Object.keys(summary[divName].groups[groupName].departments).sort().filter(d => d).forEach(deptName => {
+        processLevel(divName, groupName, deptName, '', summary[divName].groups[groupName].departments[deptName]);
+        Object.keys(summary[divName].groups[groupName].departments[deptName].sections).sort().filter(s => s).forEach(secName => {
+          processLevel(divName, groupName, deptName, secName, summary[divName].groups[groupName].departments[deptName].sections[secName]);
+        });
+      });
+    });
+  });
+
+  updatedData.forEach(update => {
+    const range = targetSheet.getRange(update.range).offset(0, 0, 1, update.values[0].length);
+    range.setValues(update.values);
+  });
 }
-
-
 function getApproversData() {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   const approversSheet = spreadsheet.getSheetByName('Approvers');
@@ -1242,29 +1234,31 @@ function getEmployeeData() {
   try {
     const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
     const userEmail = Session.getActiveUser().getEmail().toLowerCase();
-    const mainSheet = spreadsheet.getSheets()[0];
+    const mainSheet = spreadsheet.getSheets()[0]; 
 
+    // 1. Fetch Permissions
+    const permissions = getSessionPermissions();
 
+    // 2. Fetch Resignation Data
     const logSheet = spreadsheet.getSheetByName('change_log_sheet');
     const resignationDates = new Map();
     if (logSheet && logSheet.getLastRow() > 1) {
-      const logData = logSheet.getRange(2, 1, logSheet.getLastRow() - 1, logSheet.getLastColumn()).getValues();
-      const headers = logSheet.getRange(1, 1, 1, logSheet.getLastColumn()).getValues()[0];
-      const posIdIndex = headers.indexOf('Position ID');
-      const statusIndex = headers.indexOf('Status');
-      const effectiveDateIndex = headers.indexOf('Effective Date');
+      const logData = logSheet.getDataRange().getValues();
+      const logHeaders = logData.shift().map(h => String(h).trim().toLowerCase());
+      const posIdIdx = logHeaders.indexOf('position id');
+      const statusIdx = logHeaders.indexOf('status');
+      const dateIdx = logHeaders.indexOf('effective date');
 
-
-      if (posIdIndex > -1 && statusIndex > -1 && effectiveDateIndex > -1) {
+      if (posIdIdx > -1 && statusIdx > -1 && dateIdx > -1) {
         logData.forEach(row => {
-          if (row[posIdIndex] && String(row[statusIndex]).toUpperCase() === 'RESIGNED' && row[effectiveDateIndex] instanceof Date) {
-            resignationDates.set(row[posIdIndex], row[effectiveDateIndex]);
+          if (row[posIdIdx] && String(row[statusIdx]).toUpperCase() === 'RESIGNED' && row[dateIdx] instanceof Date) {
+            resignationDates.set(row[posIdIdx], row[dateIdx]);
           }
         });
       }
     }
 
-
+    // 3. Fetch User Field Permissions
     const userPermissions = {};
     const permissionsSheet = spreadsheet.getSheetByName('Permissions');
     if (permissionsSheet) {
@@ -1276,39 +1270,43 @@ function getEmployeeData() {
           const userRow = permData.find(row => row[emailColIndex] && row[emailColIndex].toString().trim().toLowerCase() === userEmail);
           if (userRow) {
             permissionHeaders.forEach((header, index) => {
-              if (header) {
-                userPermissions[header.trim()] = userRow[index] ? userRow[index].toString().trim().toLowerCase() : '';
-              }
+              if (header) userPermissions[header.trim()] = userRow[index] ? userRow[index].toString().trim().toLowerCase() : '';
             });
           }
         }
       }
     }
+
+    // Authorization Helpers
     const isFieldAuthorized = (fieldName) => (userPermissions[fieldName] === 'x' || userPermissions[fieldName] === 'all' || userPermissions[fieldName] === 'anyone');
     const isDepartmentViewable = (employeeDivision, employeeDepartment) => {
       const viewableDeptEntry = userPermissions['Viewable Department'] || '';
       if (viewableDeptEntry === 'all' || viewableDeptEntry === 'anyone') return true;
       const allowedDeptDivs = viewableDeptEntry.split(',').map(item => item.trim().toLowerCase()).filter(item => item);
-      return allowedDeptDivs.includes(employeeDepartment.toLowerCase()) || allowedDeptDivs.includes(employeeDivision.toLowerCase());
+      return allowedDeptDivs.includes((employeeDepartment || '').toLowerCase()) || allowedDeptDivs.includes((employeeDivision || '').toLowerCase());
     };
     const canEdit = userPermissions['Can Edit'] === 'x' || userPermissions['Can Edit'] === 'all' || userPermissions['Can Edit'] === 'anyone';
     const canApprove = userPermissions['Is Approver'] === 'x' || userPermissions['Is Approver'] === 'all' || userPermissions['Is Approver'] === 'anyone';
 
-
+    // 4. Fetch Main Data
     if (mainSheet.getLastRow() < 2) {
-      return {
-        current: [], previous: {}, snapshotTimestamp: null, currentUserEmail: userEmail,
-        userCanSeeAnyDepartment: false, totalApprovedPlantilla: 0, previousDateString: null, canEdit: canEdit, canApprove: canApprove
-      };
+      return { current: [], previous: {}, snapshotTimestamp: null, currentUserEmail: userEmail, canEdit: canEdit, canApprove: canApprove, canViewCompetency: false, totalApprovedPlantilla: 0 };
     }
 
+    const lastCol = Math.max(25, mainSheet.getLastColumn()); 
+    const allRows = mainSheet.getRange(1, 1, mainSheet.getLastRow(), lastCol).getValues();
+    const headers = allRows.shift(); 
+    const mainData = allRows;
 
-    const lastCol = Math.max(21, mainSheet.getLastColumn());
-    const mainData = mainSheet.getRange(2, 1, mainSheet.getLastRow() - 1, lastCol).getValues();
+    const h = new Map(headers.map((name, i) => [String(name).trim().toLowerCase().replace(/\s+/g, ''), i]));
+    
+    const val = (row, headerName) => {
+        const idx = h.get(headerName.toLowerCase().replace(/\s+/g, ''));
+        return (idx !== undefined) ? row[idx] : null;
+    };
+
+    // 5. Build Employee List
     const employeeIdToPositionIdMap = new Map();
-
-    // --- START OPTIMIZATION ---
-    // In-line the logic from getListsForDropdowns to avoid a second sheet read and multiple loops.
     const activeEmployees = [];
     const divisions = new Set();
     const groups = new Set();
@@ -1316,27 +1314,27 @@ function getEmployeeData() {
     const sections = new Set();
 
     mainData.forEach(row => {
-      const employeeId = row[1] ? row[1].toString().trim() : null;
-      const positionId = row[0] ? row[0].toString().trim() : null;
-      if (employeeId && positionId) {
-        employeeIdToPositionIdMap.set(employeeId, positionId);
+      const empId = val(row, 'Employee ID') ? String(val(row, 'Employee ID')).trim() : null;
+      const posId = val(row, 'Position ID') ? String(val(row, 'Position ID')).trim() : null;
+      
+      if (empId && posId) employeeIdToPositionIdMap.set(empId, posId);
+      
+      if (empId && (val(row, 'Position Status') || '').toLowerCase() !== 'inactive') {
+          activeEmployees.push({ id: empId, name: val(row, 'Employee Name') });
       }
-      // Populate dropdown list data in the same loop
-      if (employeeId && (row[17] || '').toLowerCase() !== 'inactive') {
-          activeEmployees.push({ id: employeeId, name: row[2] });
-      }
-      if(row[6]) divisions.add(row[6]);
-      if(row[7]) groups.add(row[7]);
-      if(row[8]) departments.add(row[8]);
-      if(row[9]) sections.add(row[9]);
+      
+      const div = val(row, 'Division'); if(div) divisions.add(div);
+      const grp = val(row, 'Group'); if(grp) groups.add(grp);
+      const dept = val(row, 'Department'); if(dept) departments.add(dept);
+      const sect = val(row, 'Section'); if(sect) sections.add(sect);
     });
 
     const refSheet = spreadsheet.getSheetByName("Reference Data");
     let staticLists = {};
     if (refSheet) {
         const refData = refSheet.getDataRange().getValues();
-        const headers = refData.shift();
-        headers.forEach((header, colIndex) => {
+        const refHeaders = refData.shift();
+        refHeaders.forEach((header, colIndex) => {
             if (header) {
                 const key = header.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/gi, '');
                 const values = refData.map(row => row[colIndex]).filter(String).sort();
@@ -1353,22 +1351,23 @@ function getEmployeeData() {
         sections: [...sections].sort(),
         ...staticLists
     };
-    // --- END OPTIMIZATION ---
 
     const historicalNotes = getHistoricalNotes();
     const incumbencyHistory = getIncumbencyHistory();
     const employeesToShow = [];
     let hasReturnedAnyEmployee = false;
+
     mainData.forEach(function (row) {
-      const employeeDivision = row[6] ? row[6].toString().trim() : '';
-      const employeeDepartment = row[8] ? row[8].toString().trim() : '';
-      if (!isDepartmentViewable(employeeDivision, employeeDepartment)) return;
-      hasReturnedAnyEmployee = true;
-      const posId = row[0] ? row[0].toString().trim() : null;
+      const posId = val(row, 'Position ID');
       if (!posId) return;
 
+      const employeeDivision = val(row, 'Division') ? String(val(row, 'Division')).trim() : '';
+      const employeeDepartment = val(row, 'Department') ? String(val(row, 'Department')).trim() : '';
+      
+      if (!isDepartmentViewable(employeeDivision, employeeDepartment)) return;
+      hasReturnedAnyEmployee = true;
 
-      const managerEmployeeId = row[3] ? row[3].toString().trim() : null;
+      const managerEmployeeId = val(row, 'Reporting to ID') ? String(val(row, 'Reporting to ID')).trim() : null;
       let managerPositionId = ''; 
       if (managerEmployeeId) {
         if (managerEmployeeId.includes('-')) {
@@ -1376,19 +1375,20 @@ function getEmployeeData() {
         } else {
           managerPositionId = employeeIdToPositionIdMap.get(managerEmployeeId) || '';
         }
-        if (!managerPositionId) {
-            Logger.log(`Could not find manager position for employee ${row[2]} (Emp ID: ${row[1]}) who has manager ID: ${managerEmployeeId}`);
-        }
       }
 
       const history = historicalNotes[posId] || {};
       history.lastIncumbents = incumbencyHistory[posId] || [];
 
-      let dateHired = row[18] && row[18] instanceof Date ? Utilities.formatDate(row[18], Session.getScriptTimeZone(), 'yyyy-MM-dd') : null;
-      let dateOfBirth = row[19] && row[19] instanceof Date ? Utilities.formatDate(row[19], Session.getScriptTimeZone(), 'yyyy-MM-dd') : null;
-      let contractEndDate = row[20] && row[20] instanceof Date ? Utilities.formatDate(row[20], Session.getScriptTimeZone(), 'yyyy-MM-dd') : null;
+      const dHired = val(row, 'Date Hired');
+      const dBirth = val(row, 'Date of Birth');
+      const dEnd = val(row, 'Contract End Date');
+      
+      let dateHired = dHired instanceof Date ? Utilities.formatDate(dHired, Session.getScriptTimeZone(), 'yyyy-MM-dd') : null;
+      let dateOfBirth = dBirth instanceof Date ? Utilities.formatDate(dBirth, Session.getScriptTimeZone(), 'yyyy-MM-dd') : null;
+      let contractEndDate = dEnd instanceof Date ? Utilities.formatDate(dEnd, Session.getScriptTimeZone(), 'yyyy-MM-dd') : null;
 
-      const employeeStatus = row[16] ? row[16].toString().trim() : '';
+      const employeeStatus = val(row, 'Status') ? String(val(row, 'Status')).trim() : '';
       let resignationDate = null;
       if (employeeStatus.toUpperCase() === 'RESIGNED' && resignationDates.has(posId)) {
         resignationDate = Utilities.formatDate(resignationDates.get(posId), Session.getScriptTimeZone(), 'yyyy-MM-dd');
@@ -1396,26 +1396,26 @@ function getEmployeeData() {
 
       employeesToShow.push({
         positionId: posId,
-        employeeId: row[1] ? row[1].toString().trim() : null,
+        employeeId: val(row, 'Employee ID'),
         nodeId: posId,
-        employeeName: row[2],
+        employeeName: val(row, 'Employee Name'),
         managerId: managerPositionId || '',
         managerEmployeeId: managerEmployeeId || '',
-        managerName: row[4],
-        jobTitle: row[5],
+        managerName: val(row, 'Reporting to'),
+        jobTitle: val(row, 'Job Title'),
         division: employeeDivision,
-        group: row[7],
+        group: val(row, 'Group'),
         department: employeeDepartment,
-        section: row[9],
-        gender: row[10] ? row[10].toString().trim() : '',
-        level: row[11],
-        payrollType: isFieldAuthorized('Payroll Type') ? row[12] : null,
-        jobLevel: isFieldAuthorized('Job Level') ? row[13] : null,
-        contractType: isFieldAuthorized('Contract Type') ? (row[14] ? row[14].toString().trim() : null) : null,
-        stylingContractType: row[14] ? row[14].toString().trim() : null,
-        competency: isFieldAuthorized('Competency') ? row[15] : null,
+        section: val(row, 'Section'),
+        gender: val(row, 'Gender'),
+        level: val(row, 'Level'),
+        payrollType: isFieldAuthorized('Payroll Type') ? val(row, 'Payroll Type') : null,
+        jobLevel: isFieldAuthorized('Job Level') ? val(row, 'Job Level') : null,
+        contractType: isFieldAuthorized('Contract Type') ? val(row, 'Contract Type') : null,
+        stylingContractType: val(row, 'Contract Type'),
+        competency: isFieldAuthorized('Competency') ? val(row, 'Competency') : null,
         status: employeeStatus,
-        positionStatus: row[17] ? row[17].toString().trim() : 'Active',
+        positionStatus: val(row, 'Position Status') || 'Active',
         dateHired: dateHired,
         dateOfBirth: dateOfBirth,
         contractEndDate: contractEndDate,
@@ -1424,11 +1424,10 @@ function getEmployeeData() {
       });
     });
 
-
+    // --- RESTORED PLANTILLA LOGIC ---
     let previousHeadcount = {};
     let totalApprovedPlantilla = 0;
     let previousDateString = null;
-
 
     try {
       const previousSheet = spreadsheet.getSheetByName('Previous Headcount');
@@ -1436,113 +1435,79 @@ function getEmployeeData() {
         const prevDataRange = previousSheet.getDataRange();
         const prevData = prevDataRange.getValues();
         if (prevData.length > 0) {
-          const prevHeaders = prevData.shift();
+          const prevHeaders = prevData.shift(); // Remove headers
           const plantillaIndex = prevHeaders.indexOf('Approved Plantilla');
+          
+          // Find the last "Filled" column dynamically
           let lastFilledIndex = -1;
           for (let i = prevHeaders.length - 1; i >= 0; i--) {
-            if (String(prevHeaders[i]).includes('Filled')) {
+            // Case-insensitive check
+            if (String(prevHeaders[i]).toLowerCase().includes(' filled')) {
               lastFilledIndex = i;
-              break;
+              // Extract the date string (e.g., "Jan 2024")
+              const headerText = String(prevHeaders[i]);
+              previousDateString = headerText.substring(0, headerText.toLowerCase().indexOf(' filled')).trim();
+              break; 
             }
           }
+
           if (lastFilledIndex !== -1) {
             const lastVacantIndex = lastFilledIndex + 1;
-            const dateHeader = String(prevHeaders[lastFilledIndex] || '');
-            if (dateHeader) {
-              previousDateString = dateHeader.replace(/ filled/i, '').trim();
-            }
+            
             prevData.forEach(function (row) {
-              const division = row[0],
-                group = row[1] || '',
-                department = row[2] || '',
-                section = row[3] || '';
+              const division = row[0], group = row[1] || '', department = row[2] || '', section = row[3] || '';
               const rawPlantilla = row[plantillaIndex];
               const plantillaValue = (plantillaIndex !== -1 && rawPlantilla !== '' && !isNaN(rawPlantilla)) ? parseInt(rawPlantilla) : null;
               const filled = row[lastFilledIndex] || 0;
               const vacant = (row.length > lastVacantIndex) ? (row[lastVacantIndex] || 0) : 0;
+              
               if (division) {
-                if (!previousHeadcount[division]) {
-                  previousHeadcount[division] = {
-                    filled: 0,
-                    vacant: 0,
-                    plantilla: null,
-                    groups: {}
-                  };
-                }
-                if (!previousHeadcount[division].groups[group]) {
-                  previousHeadcount[division].groups[group] = {
-                    filled: 0,
-                    vacant: 0,
-                    plantilla: null,
-                    departments: {}
-                  };
-                }
-                if (!previousHeadcount[division].groups[group].departments[department]) {
-                  previousHeadcount[division].groups[group].departments[department] = {
-                    filled: 0,
-                    vacant: 0,
-                    plantilla: null,
-                    sections: {}
-                  };
-                }
-                if (!previousHeadcount[division].groups[group].departments[department].sections[section]) {
-                  previousHeadcount[division].groups[group].departments[department].sections[section] = {
-                    filled: 0,
-                    vacant: 0,
-                    plantilla: null
-                  };
-                }
-                if (group === '' && department === '' && section === '') {
-                  previousHeadcount[division].filled = filled;
-                  previousHeadcount[division].vacant = vacant;
-                  previousHeadcount[division].plantilla = plantillaValue;
-                } else if (group && department === '' && section === '') {
-                  previousHeadcount[division].groups[group].filled = filled;
-                  previousHeadcount[division].groups[group].vacant = vacant;
-                  previousHeadcount[division].groups[group].plantilla = plantillaValue;
-                } else if (department && section === '') {
-                  previousHeadcount[division].groups[group].departments[department].filled = filled;
-                  previousHeadcount[division].groups[group].departments[department].vacant = vacant;
-                  previousHeadcount[division].groups[group].departments[department].plantilla = plantillaValue;
-                } else if (section) {
-                  previousHeadcount[division].groups[group].departments[department].sections[section].filled = filled;
-                  previousHeadcount[division].groups[group].departments[department].sections[section].vacant = vacant;
-                  previousHeadcount[division].groups[group].departments[department].sections[section].plantilla = plantillaValue;
-                }
-                if (group === '' && department === '' && section === '' && plantillaValue !== null) {
-                  totalApprovedPlantilla += plantillaValue;
-                }
+                 if (!previousHeadcount[division]) previousHeadcount[division] = { filled: 0, vacant: 0, plantilla: null, groups: {} };
+                 if (!previousHeadcount[division].groups[group]) previousHeadcount[division].groups[group] = { filled: 0, vacant: 0, plantilla: null, departments: {} };
+                 if (!previousHeadcount[division].groups[group].departments[department]) previousHeadcount[division].groups[group].departments[department] = { filled: 0, vacant: 0, plantilla: null, sections: {} };
+                 if (!previousHeadcount[division].groups[group].departments[department].sections[section]) previousHeadcount[division].groups[group].departments[department].sections[section] = { filled: 0, vacant: 0, plantilla: null };
+
+                 const target = (section) ? previousHeadcount[division].groups[group].departments[department].sections[section] :
+                                (department) ? previousHeadcount[division].groups[group].departments[department] :
+                                (group) ? previousHeadcount[division].groups[group] : previousHeadcount[division];
+                 
+                 target.filled = filled;
+                 target.vacant = vacant;
+                 target.plantilla = plantillaValue;
+
+                 if (!group && !department && !section && plantillaValue !== null) {
+                    totalApprovedPlantilla += plantillaValue;
+                 }
               }
             });
           }
         }
       }
     } catch (e) {
-      Logger.log('WARNING: Could not parse "Previous Headcount" sheet. Summary data will be unavailable. Error: ' + e.message);
+      Logger.log('Warning: Previous Headcount logic failed: ' + e.message);
     }
 
-
+    // Return object (Updated to include previousDateString)
     const snapshotTimestamp = PropertiesService.getScriptProperties().getProperty('snapshotTimestamp');
 
     return {
       current: employeesToShow.filter(emp => emp.positionId),
       previous: previousHeadcount,
       snapshotTimestamp: snapshotTimestamp,
-      previousDateString: previousDateString,
+      previousDateString: previousDateString, // <--- Ensure this is passed!
       currentUserEmail: userEmail,
       userCanSeeAnyDepartment: hasReturnedAnyEmployee,
       totalApprovedPlantilla: totalApprovedPlantilla,
       canEdit: canEdit,
       canApprove: canApprove,
-      dropdownListData: dropdownListData
+      dropdownListData: dropdownListData,
+      canViewCompetency: permissions.hasModuleAccess
     };
   } catch (e) {
     Logger.log('ERROR in getEmployeeData: ' + e.toString() + ' Stack: ' + e.stack);
     return null;
   }
 }
-
-
 
 function getHistoricalNotes() {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
@@ -3382,7 +3347,12 @@ function getAttritionRiskData() {
  * @returns {Object} Heatmap data.
  */
 function getTeamCompetencyHeatmap(filters) {
-  // Handle legacy calls (just in case) where only a string was passed
+  // 1. Security Check
+  const permissions = getSessionPermissions();
+  if (!permissions.hasModuleAccess) {
+    return { error: "Access Denied: You do not have permission to view Competency data." };
+  }
+
   let activeFilters = {};
   if (typeof filters === 'string') {
       activeFilters = { department: filters };
@@ -3390,9 +3360,8 @@ function getTeamCompetencyHeatmap(filters) {
       activeFilters = filters || {};
   }
 
-  // Basic validation: Ensure at least one filter is active to prevent loading the whole company
   const hasFilter = activeFilters.division || activeFilters.group || activeFilters.department || activeFilters.section;
-  if (!hasFilter) return { error: 'Please select at least one filter (Division, Group, Department, or Section).' };
+  if (!hasFilter) return { error: 'Please select at least one filter.' };
 
   try {
     const hubSs = SpreadsheetApp.getActiveSpreadsheet();
@@ -3402,7 +3371,6 @@ function getTeamCompetencyHeatmap(filters) {
 
     if (!mainSheet || !compSheet) return { error: 'Required sheets not found.' };
 
-    // 1. Get Main Employee Data (to map IDs to Div/Group/Dept/Sect)
     const mainData = mainSheet.getDataRange().getValues();
     const mainHeaders = mainData.shift();
     
@@ -3414,9 +3382,7 @@ function getTeamCompetencyHeatmap(filters) {
         sect: mainHeaders.indexOf('Section')
     };
 
-    // Map Employee ID -> { division, group, department, section }
     const employeeLocationMap = new Map();
-    
     if (idx.empId !== -1) {
         mainData.forEach(row => {
           const empId = String(row[idx.empId]).trim();
@@ -3431,25 +3397,33 @@ function getTeamCompetencyHeatmap(filters) {
         });
     }
 
-    // 2. Get Competency Data
     const compData = compSheet.getDataRange().getValues();
     const rawCompHeaders = compData.shift();
     const compHeaders = rawCompHeaders.map(h => h.toString().replace(/\s+/g, ' ').trim().toUpperCase());
     
     const compEmpIdIndex = compHeaders.indexOf('EMPLOYEE ID');
     const compNameIndex = compHeaders.indexOf('EMPLOYEE NAME');
-    
     if (compEmpIdIndex === -1) return { error: "Header 'EMPLOYEE ID' not found." };
 
-    // 3. Filter Employees based on Active Filters
     const filteredEmployees = compData.filter(row => {
       const empId = String(row[compEmpIdIndex]).trim();
       const loc = employeeLocationMap.get(empId);
       
-      // If employee doesn't exist in main sheet, exclude them
       if (!loc) return false; 
 
-      // Check filters (Case insensitive comparison)
+      // --- SCOPE ENFORCEMENT ---
+      if (!permissions.allowedScopes.includes('ALL')) {
+         const empDept = (loc.department || '').toLowerCase();
+         const empDiv = (loc.division || '').toLowerCase();
+         
+         // If neither Dept nor Div is in allowed scopes, skip this row
+         if (!isScopeAllowed(loc.department, permissions.allowedScopes) && 
+             !isScopeAllowed(loc.division, permissions.allowedScopes)) {
+             return false; 
+         }
+      }
+      // -------------------------
+
       if (activeFilters.division && activeFilters.division !== 'all' && loc.division !== activeFilters.division) return false;
       if (activeFilters.group && activeFilters.group !== 'all' && loc.group !== activeFilters.group) return false;
       if (activeFilters.department && activeFilters.department !== 'all' && loc.department !== activeFilters.department) return false;
@@ -3460,21 +3434,17 @@ function getTeamCompetencyHeatmap(filters) {
 
     if (filteredEmployees.length === 0) return { headers: [], employeeScores: [] };
 
-    // 4. Build Columns (Competencies)
     const competencyColumns = [];
     const competencyHeaders = [];
-    const allDefinedCompetencies = getAllCompetencies(); // Uses your existing config helper
+    const allDefinedCompetencies = getAllCompetencies();
 
     allDefinedCompetencies.forEach(competencyName => {
         const indices = compHeaders.map((h, i) => (h === competencyName ? i : -1)).filter(i => i !== -1);
-        
-        // Logic: 1st is Required, 2nd is Actual.
         let actualIndex = -1;
         if (indices.length >= 2) actualIndex = indices[1]; 
         
         if (actualIndex !== -1) {
             const cleanName = competencyName.replace(/^(CORE|LEAD|TECH)\s?-\s?/i, '');
-            
             let category = "OTHER";
             if (competencyName.startsWith("CORE")) category = "CORE";
             else if (competencyName.startsWith("LEAD")) category = "LEADERSHIP";
@@ -3485,7 +3455,6 @@ function getTeamCompetencyHeatmap(filters) {
         }
     });
 
-    // 5. Extract Scores
     const employeeScores = filteredEmployees.map(row => {
       const scores = competencyColumns.map(col => {
         const val = parseFloat(row[col.index]);
@@ -3494,11 +3463,7 @@ function getTeamCompetencyHeatmap(filters) {
       return { name: row[compNameIndex] || 'Unknown', scores: scores };
     });
 
-    return {
-      headers: competencyHeaders,
-      employeeScores: employeeScores
-    };
-
+    return { headers: competencyHeaders, employeeScores: employeeScores };
   } catch (e) {
     Logger.log('Error in getTeamCompetencyHeatmap: ' + e.message);
     return { error: e.message };
@@ -4130,6 +4095,12 @@ function getEmployeeCompetencyProfile(employeeId) {
  * @returns {Object} An object containing all competency analytics.
  */
 function getCompetencyAnalytics(employeeId) {
+  // 1. Security Check
+  const permissions = getSessionPermissions();
+  if (!permissions.hasModuleAccess) {
+    return { error: "Access Denied: You do not have permission to view Competency data." };
+  }
+
   if (!employeeId) return { error: 'No employee ID provided.' };
 
   try {
@@ -4143,31 +4114,51 @@ function getCompetencyAnalytics(employeeId) {
     
     const compData = compSheet.getDataRange().getValues();
     const rawHeaders = compData.shift();
-    // Normalize headers
     const headers = rawHeaders.map(h => h.toString().replace(/\s+/g, ' ').trim().toUpperCase());
-    
     const compEmpIdIndex = headers.indexOf('EMPLOYEE ID');
     if (compEmpIdIndex === -1) return { error: "Header 'EMPLOYEE ID' not found." };
     
     const employeeRow = compData.find(row => String(row[compEmpIdIndex]).trim() === String(employeeId).trim());
     if (!employeeRow) return { error: 'Employee not found in Competency Matrix.' };
 
-    // Get Employee Department
+    // Get Employee Department and Validate Scope
     const employeeDepartmentMap = new Map();
     let selectedEmployeeDept = null;
+    let selectedEmployeeDiv = null;
+
     if (mainSheet) {
       const mainData = mainSheet.getDataRange().getValues();
       const mainHeaders = mainData.shift();
       const mainEmpIdIndex = mainHeaders.indexOf('Employee ID');
       const mainDeptIndex = mainHeaders.indexOf('Department');
+      const mainDivIndex = mainHeaders.indexOf('Division'); // Added Division
+
       if (mainEmpIdIndex !== -1 && mainDeptIndex !== -1) {
+        // Find target employee row specifically for scope check
+        const targetMainRow = mainData.find(row => String(row[mainEmpIdIndex]).trim() === String(employeeId).trim());
+        
+        if (targetMainRow) {
+            selectedEmployeeDept = targetMainRow[mainDeptIndex];
+            selectedEmployeeDiv = (mainDivIndex !== -1) ? targetMainRow[mainDivIndex] : null;
+
+            // --- SCOPE VALIDATION ---
+            if (!permissions.allowedScopes.includes('ALL')) {
+                const deptAllowed = isScopeAllowed(selectedEmployeeDept, permissions.allowedScopes);
+                const divAllowed = isScopeAllowed(selectedEmployeeDiv, permissions.allowedScopes);
+                
+                if (!deptAllowed && !divAllowed) {
+                    return { error: "Access Denied: This employee is outside your viewable scope." };
+                }
+            }
+            // ------------------------
+        }
+
         mainData.forEach(row => {
           const empId = String(row[mainEmpIdIndex]).trim();
           const dept = row[mainDeptIndex];
           if (empId && dept) employeeDepartmentMap.set(empId, dept);
         });
       }
-      selectedEmployeeDept = employeeDepartmentMap.get(String(employeeId).trim());
     }
 
     const profile = {
@@ -4926,4 +4917,57 @@ function getCompetencyNames() {
     Logger.log("Error fetching competencies: " + e.message);
     return []; // Return empty list on error to prevent crash
   }
+}
+
+/**
+ * Centralized Permission Helper
+ * Reads existing 'Viewable Department' for scope and new 'Access Competency' for module access.
+ */
+function getSessionPermissions() {
+  const userEmail = Session.getActiveUser().getEmail().toLowerCase();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const permSheet = ss.getSheetByName('Permissions');
+  
+  // Default deny
+  if (!permSheet) return { hasModuleAccess: false, allowedScopes: [] };
+
+  const data = permSheet.getDataRange().getValues();
+  const headers = data.shift().map(h => h.toString().trim().toLowerCase());
+  
+  // Locate columns by name (flexible positioning)
+  const emailIdx = headers.indexOf('email'); 
+  const compAccessIdx = headers.indexOf('access competency'); // NEW COLUMN
+  const scopeIdx = headers.indexOf('viewable department'); // EXISTING COLUMN
+
+  // Find the row for the current user
+  const userRow = data.find(row => row[emailIdx] && row[emailIdx].toString().trim().toLowerCase() === userEmail);
+
+  if (!userRow) return { hasModuleAccess: false, allowedScopes: [] };
+
+  // 1. Determine Module Access (Role)
+  // Grants access if cell contains 'x', 'all', or 'anyone'
+  const rawAccess = (compAccessIdx > -1 && userRow[compAccessIdx]) ? userRow[compAccessIdx].toString().toLowerCase() : '';
+  const hasModuleAccess = ['x', 'all', 'anyone', 'true'].includes(rawAccess);
+
+  // 2. Determine Scope (Reuse Viewable Department)
+  const rawScope = (scopeIdx > -1 && userRow[scopeIdx]) ? userRow[scopeIdx].toString().toLowerCase() : '';
+  let allowedScopes = [];
+  
+  if (['all', 'anyone', ''].includes(rawScope)) {
+    allowedScopes = ['ALL'];
+  } else {
+    // Split by comma if multiple departments are listed
+    allowedScopes = rawScope.split(',').map(s => s.trim().toLowerCase()).filter(String);
+  }
+
+  return { hasModuleAccess, allowedScopes, userEmail };
+}
+
+/**
+ * Helper to validate if a specific department/division is allowed
+ */
+function isScopeAllowed(targetValue, allowedScopes) {
+  if (!targetValue) return false;
+  if (allowedScopes.includes('ALL')) return true;
+  return allowedScopes.includes(targetValue.toString().toLowerCase().trim());
 }

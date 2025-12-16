@@ -2488,7 +2488,7 @@ function navigateToView(viewType, defaultTabId) {
 
   } else {
     if (mainTitle) mainTitle.style.display = 'none';
-    if (tabNav) tabNav.style.display = (viewType === 'predictive' || viewType === 'competency') ? 'none' : 'flex';
+    if (tabNav) tabNav.style.display = (viewType === 'predictive') ? 'none' : 'flex';
     
     const viewClassMap = {
       'analytics': 'analytics-view-tab',
@@ -2501,6 +2501,13 @@ function navigateToView(viewType, defaultTabId) {
         document.querySelectorAll('#tab-navigation .tab').forEach(tab => {
             tab.style.display = tab.classList.contains(targetClass) ? 'flex' : 'none';
         });
+    }
+     // --- FIX: Explicitly show the competency tab if it's the target ---
+    if (viewType === 'competency') {
+      const competencyTab = document.getElementById('tab-competency');
+      if (competencyTab) {
+          competencyTab.style.display = 'flex';
+      }
     }
   }
 

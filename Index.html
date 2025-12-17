@@ -648,11 +648,13 @@
 
 /* --- UPDATED ACCESS CONTROL STYLES (FINAL) --- */
 .disabled-access {
-  opacity: 0.6 !important;               /* Faded look */
-  background-color: #f3f4f6 !important;  /* Light gray background */
-  filter: grayscale(100%);               /* Gray icons */
-  cursor: not-allowed !important;        /* Red 'No' cursor */
-  pointer-events: auto !important;       /* Allow mouse to trigger the cursor */
+  opacity: 0.6 !important;
+  background-color: #f3f4f6 !important;
+  filter: grayscale(100%);
+  cursor: not-allowed !important;
+  /* Ideally 'auto' to let the 'not-allowed' cursor show, 
+     but the JS 'onclick' blocker handles the actual disabling. */
+  pointer-events: auto !important; 
 }
 
 /* NEW: Kill the hover animation and shadow expansion */
@@ -2043,7 +2045,10 @@
   var currentPreviewZoom = 1.0;
   var previewHighlightIds = [];
   var previewChangeDescription = '';
-  var userCanViewCompetency = null; // Default to NULL (Unknown/Loading)
+  // DEFINE GLOBALS
+window.userCanViewCompetency = null; // Explicitly attach to window
+var fullEmployeeData = [];
+// ... other variables ...
 
   // --- NEW: ATTACHMENT CONFIGURATION & LOGIC ---
 
@@ -2443,59 +2448,60 @@ function showHomepage() {
 // ADD THIS NEW FUNCTION
 
 function navigateToView(viewType, defaultTabId) {
-  // --- DEBUG & SECURITY CHECK ---
+  console.log("Navigating to:", viewType); // Debugging
+
+  // 1. ROBUST SECURITY CHECK
   if (viewType === 'competency') {
-      console.log("Checking Competency Access. Status:", userCanViewCompetency);
+      // Check Global Variable
+      const access = window.userCanViewCompetency;
       
-      if (typeof userCanViewCompetency === 'undefined' || userCanViewCompetency === null) {
-          alert("System is still loading permissions. Please wait 5 seconds and try again.");
+      if (access === null) {
+          alert("Permissions are still loading from Google Sheets. Please wait 5 seconds and try again.");
           return;
       }
-      if (userCanViewCompetency === false) {
-          alert("Access Denied: Your account does not have permission for this module.");
+      if (access === false) {
+          alert("Access Denied: You do not have permission to view this module.");
           return;
       }
   }
-  // ------------------------------
 
+  // 2. HIDE HOMEPAGE (The part getting stuck)
   const homeView = document.getElementById('homepage-view');
   const tabArea = document.getElementById('tab-area');
   
   if (homeView) homeView.style.display = 'none';
   if (tabArea) tabArea.style.display = 'block';
 
+  // 3. UI CONTROLS
+  const headerControls = document.getElementById('header-controls');
+  if (headerControls) headerControls.style.display = (viewType === 'org') ? 'flex' : 'none';
+
   const mainTitle = document.getElementById('main-title');
   const tabNav = document.getElementById('tab-navigation');
-  const headerControls = document.getElementById('header-controls');
-  const myRequestsTab = document.getElementById('tab-my-requests');
-  const approvalsTab = document.getElementById('tab-approvals');
-
-  if (headerControls) headerControls.style.display = (viewType === 'org') ? 'flex' : 'none';
 
   if (viewType === 'org') {
     if (mainTitle) mainTitle.style.display = 'none'; 
     if (tabNav) tabNav.style.display = 'flex'; 
     if (document.getElementById('tab-org-chart')) document.getElementById('tab-org-chart').style.display = 'flex';
 
-    if (myRequestsTab) myRequestsTab.style.display = userCanEdit ? 'none' : 'flex';
-    if (approvalsTab) approvalsTab.style.display = userCanApprove ? 'flex' : 'none';
+    if (document.getElementById('tab-my-requests')) document.getElementById('tab-my-requests').style.display = userCanEdit ? 'none' : 'flex';
+    if (document.getElementById('tab-approvals')) document.getElementById('tab-approvals').style.display = userCanApprove ? 'flex' : 'none';
 
     document.querySelectorAll('.analytics-view-tab, .predictive-view-tab, .competency-view-tab').forEach(t => t.style.display = 'none');
 
-    if (userCanApprove && defaultTabId !== 'org-chart') {
-      defaultTabId = 'approvals';
-    }
+    if (userCanApprove && defaultTabId !== 'org-chart') defaultTabId = 'approvals';
 
   } else {
     if (mainTitle) mainTitle.style.display = 'none';
+    // For Competency, we HIDE the main nav bar because it has its own internal tabs
     if (tabNav) tabNav.style.display = (viewType === 'predictive' || viewType === 'competency') ? 'none' : 'flex';
     
+    // Ensure the tab button itself is visible if we need it
     const viewClassMap = {
       'analytics': 'analytics-view-tab',
       'predictive': 'predictive-view-tab',
       'competency': 'competency-view-tab'
     };
-    
     const targetClass = viewClassMap[viewType];
     if (targetClass) {
         document.querySelectorAll('#tab-navigation .tab').forEach(tab => {
@@ -2504,6 +2510,7 @@ function navigateToView(viewType, defaultTabId) {
     }
   }
 
+  // 4. SWITCH TAB
   switchTab(defaultTabId);
 }
 
@@ -3288,34 +3295,43 @@ function onDataFetched(data) {
       return;
     }
   
-    fullEmployeeData = data.current;
+    // --- KEY FIX: SEPARATE DATA ---
+    // A. orgChartData = Everyone (Real People + Ghost Managers)
+    // We will use this ONLY for the Org Chart so the lines connect.
+    orgChartData = data.current || [];
+
+    // B. fullEmployeeData = Real People Only
+    // We use this for Headcount, Search, and Tables.
+    // This FILTERS OUT the ghosts so your Plantilla count is correct (e.g. 85).
+    fullEmployeeData = (data.current || []).filter(emp => !emp.isGhost);
+    // ------------------------------
+
     previousHeadcountData = data.previous;
     snapshotTimestamp = data.snapshotTimestamp;
     currentUserEmail = data.currentUserEmail;
     
-    // --- PERMISSIONS DEBUGGING ---
     userCanEdit = data.canEdit;
     userCanApprove = data.canApprove;
-    userCanViewCompetency = data.canViewCompetency;
-    console.log("Permissions Loaded. View Competency:", userCanViewCompetency);
+    window.userCanViewCompetency = data.canViewCompetency;
 
-    setElementAccess('tab-competency', userCanViewCompetency);
-    setElementAccess('card-competency', userCanViewCompetency);
-    // -----------------------------
+    setElementAccess('tab-competency', window.userCanViewCompetency);
+    setElementAccess('card-competency', window.userCanViewCompetency);
 
     totalApprovedPlantilla = data.totalApprovedPlantilla;
     previousDateString = data.previousDateString;
     dropdownListData = data.dropdownListData;
+    
+    // Use clean data for map lookups
     employeeMap = new Map(fullEmployeeData.map(emp => [emp.nodeId, emp]));
 
     if(userCanEdit) {
-      document.getElementById('add-employee-btn').style.display = 'block';
+      if (document.getElementById('add-employee-btn')) document.getElementById('add-employee-btn').style.display = 'block';
     } else {
-      document.getElementById('request-change-btn').style.display = 'block';
-      document.getElementById('tab-my-requests').style.display = 'block';
+      if (document.getElementById('request-change-btn')) document.getElementById('request-change-btn').style.display = 'block';
+      if (document.getElementById('tab-my-requests')) document.getElementById('tab-my-requests').style.display = 'block';
     }
     if (userCanApprove) {
-      document.getElementById('tab-approvals').style.display = 'block';
+      if (document.getElementById('tab-approvals')) document.getElementById('tab-approvals').style.display = 'block';
     }
     
     google.script.run.withSuccessHandler(updateNotificationBadges).getRequestCounts();
@@ -3324,13 +3340,13 @@ function onDataFetched(data) {
     setupPageEventListeners();
     populateFilters(); 
     
-    updateUI();
+    updateUI(); 
 
     if (competencyViewInitialized) {
         populateCompetencyFilters(); 
         populateHeatmapFilters();    
     }
-  }
+}
 
 function applyCompetencyAccessControl() {
   // 1. Dashboard Card
@@ -8516,40 +8532,54 @@ function updateCompetencyUI() {
 
 /**
  * Universally disables any element (Tab or Card) if access is false.
- * @param {string} elementId - The HTML ID of the element to disable.
- * @param {boolean} hasAccess - Pass true to enable, false to disable.
- */
-/**
- * Universally disables any element (Tab or Card) if access is false.
- */
-/**
- * Universally disables any element (Tab or Card) if access is false.
- * Handles visual gray-out, removes interactions, and clears tooltips.
+ * Modifies the element in-place (No cloning) to prevent event binding issues.
  */
 function setElementAccess(elementId, hasAccess) {
   const el = document.getElementById(elementId);
-  if (!el) return;
+  if (!el) {
+    console.warn(`setElementAccess: Element with ID '${elementId}' not found.`);
+    return;
+  }
 
   if (!hasAccess) {
+    // DISABLE STATE
     el.classList.add('disabled-access'); 
+    
+    // 1. Physically block the click in JS
+    el.onclick = function(e) { 
+        e.preventDefault(); 
+        e.stopPropagation(); 
+        return false; 
+    };
+    
+    // 2. Remove the HTML attribute to look clean
     el.removeAttribute('onclick');
     
-    // Clone to strip listeners
-    const newEl = el.cloneNode(true);
-    el.parentNode.replaceChild(newEl, el);
-    newEl.title = ""; 
+    // 3. Set tooltip
+    el.title = "Access Denied: You do not have permission."; 
 
   } else {
+    // ENABLE STATE
     el.classList.remove('disabled-access');
+    el.title = ""; 
     
-    // Restore onclick logic
-    if (elementId.startsWith('card-')) {
-       // FIX: Force lowercase to ensure it matches 'competency' defined in viewClassMap
+    // 1. Clear the blocking JS handler
+    el.onclick = null;
+
+    // 2. Explicitly restore the correct onclick attribute
+    // We explicitly check specific IDs first for absolute certainty
+    if (elementId === 'card-competency') {
+        el.setAttribute('onclick', "navigateToView('competency', 'competency')");
+    } 
+    else if (elementId === 'tab-competency') {
+        el.setAttribute('onclick', "switchTab('competency')");
+    }
+    // Dynamic Fallback for other potential cards
+    else if (elementId.startsWith('card-')) {
        const viewName = elementId.replace('card-', '').toLowerCase();
        el.setAttribute('onclick', `MapsToView('${viewName}', '${viewName}')`);
-    }
-    
-    if (elementId.startsWith('tab-')) {
+    } 
+    else if (elementId.startsWith('tab-')) {
        const tabName = elementId.replace('tab-', '').toLowerCase();
        el.setAttribute('onclick', `switchTab('${tabName}')`);
     }

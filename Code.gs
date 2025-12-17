@@ -58,16 +58,16 @@ function getAllCompetencies() {
 // IMPORTANT: You MUST update this URL if you create a new web app deployment that changes its link!
 // Please ensure this is the exact URL of your deployed web app that has "Execute as: Me" and "Who has access: Anyone".
 const WEB_APP_URL = "YOUR_WEB_APP_URL_GOES_HERE"; // PASTE YOUR NEW DEPLOYMENT URL HERE
-const JD_GENERAL_FOLDER_ID = '1Sv7uvDKlzFhEiM1ljCrRGvC51KgIZJfp';
-const JD_INCUMBENT_FOLDER_ID = '1ryXesBBwLs8Y1oEfLYDhDIxPQdeB_Ngx';
-const CHANGE_REQUESTS_FOLDER_ID = '1XSW0ktaHt6eRkoZAuHdx8nCo1T2XCSn8';
+const JD_GENERAL_FOLDER_ID = '1b-I5ENMnACXGPshaBqBBj2174H2yhPhW';
+const JD_INCUMBENT_FOLDER_ID = '1DGUtgd3_3sL_FtDl6_tbB1uS-Cx6T8pq';
+const CHANGE_REQUESTS_FOLDER_ID = '13v2wJoJm7LHf6O47rhkRbOAvjO1kQOj8';
 
 
 // Defines the sequential order of approval roles
 const APPROVAL_ROLES = ['Prepared By', 'Reviewed By', 'Noted By', 'Approved By'];
-const MASTERLIST_EXPORT_FOLDER_ID = '1NcOH0Cx5lPRiRilGKkiO1tRiWn1d3P5q'; // <-- ADD THIS LINE
+const MASTERLIST_EXPORT_FOLDER_ID = '1aDBVm310V2ATGMujHVEYwz2EMNrMh4Bi'; // <-- ADD THIS LINE
 const TALENT_DATA_SPREADSHEET_ID = '1sBy8d-uuenTRu_jeT7paTtDmnxcHFOjGgn-eEG91knY'; // <-- ADD THIS LINE
-const COMPETENCY_SPREADSHEET_ID = '1cj_RuroWG5Tl1OqzalyK7t4dLDck-7Ytj5O1eb-Ks5c'; // <-- ADD THIS LINE
+const COMPETENCY_SPREADSHEET_ID = '1D170oJ4KlWMdT0ankBGXEiwjO9PNExEKIz2aIBaMJEU'; // <-- ADD THIS LINE
 // --- END CONFIGURATION ---
 
 function doGet(e) {
@@ -1277,14 +1277,22 @@ function getEmployeeData() {
       }
     }
 
-    // Authorization Helpers
     const isFieldAuthorized = (fieldName) => (userPermissions[fieldName] === 'x' || userPermissions[fieldName] === 'all' || userPermissions[fieldName] === 'anyone');
-    const isDepartmentViewable = (employeeDivision, employeeDepartment) => {
+    
+    // Permission Scope Check
+    const isDepartmentViewable = (div, grp, dept, sect) => {
       const viewableDeptEntry = userPermissions['Viewable Department'] || '';
       if (viewableDeptEntry === 'all' || viewableDeptEntry === 'anyone') return true;
-      const allowedDeptDivs = viewableDeptEntry.split(',').map(item => item.trim().toLowerCase()).filter(item => item);
-      return allowedDeptDivs.includes((employeeDepartment || '').toLowerCase()) || allowedDeptDivs.includes((employeeDivision || '').toLowerCase());
+      
+      const allowedScopes = viewableDeptEntry.split(',').map(item => item.trim().toLowerCase()).filter(item => item);
+      
+      // Check against ALL location levels
+      return allowedScopes.includes((div || '').toLowerCase()) ||
+             allowedScopes.includes((grp || '').toLowerCase()) ||
+             allowedScopes.includes((dept || '').toLowerCase()) ||
+             allowedScopes.includes((sect || '').toLowerCase());
     };
+
     const canEdit = userPermissions['Can Edit'] === 'x' || userPermissions['Can Edit'] === 'all' || userPermissions['Can Edit'] === 'anyone';
     const canApprove = userPermissions['Is Approver'] === 'x' || userPermissions['Is Approver'] === 'all' || userPermissions['Is Approver'] === 'anyone';
 
@@ -1299,7 +1307,6 @@ function getEmployeeData() {
     const mainData = allRows;
 
     const h = new Map(headers.map((name, i) => [String(name).trim().toLowerCase().replace(/\s+/g, ''), i]));
-    
     const val = (row, headerName) => {
         const idx = h.get(headerName.toLowerCase().replace(/\s+/g, ''));
         return (idx !== undefined) ? row[idx] : null;
@@ -1307,6 +1314,7 @@ function getEmployeeData() {
 
     // 5. Build Employee List
     const employeeIdToPositionIdMap = new Map();
+    const allEmployeesMap = new Map(); // Store RAW data for lookups
     const activeEmployees = [];
     const divisions = new Set();
     const groups = new Set();
@@ -1317,6 +1325,7 @@ function getEmployeeData() {
       const empId = val(row, 'Employee ID') ? String(val(row, 'Employee ID')).trim() : null;
       const posId = val(row, 'Position ID') ? String(val(row, 'Position ID')).trim() : null;
       
+      if (posId) allEmployeesMap.set(posId, row);
       if (empId && posId) employeeIdToPositionIdMap.set(empId, posId);
       
       if (empId && (val(row, 'Position Status') || '').toLowerCase() !== 'inactive') {
@@ -1357,14 +1366,18 @@ function getEmployeeData() {
     const employeesToShow = [];
     let hasReturnedAnyEmployee = false;
 
+    // 6. Main Loop
     mainData.forEach(function (row) {
       const posId = val(row, 'Position ID');
       if (!posId) return;
 
-      const employeeDivision = val(row, 'Division') ? String(val(row, 'Division')).trim() : '';
-      const employeeDepartment = val(row, 'Department') ? String(val(row, 'Department')).trim() : '';
+      const div = val(row, 'Division') ? String(val(row, 'Division')).trim() : '';
+      const grp = val(row, 'Group') ? String(val(row, 'Group')).trim() : '';
+      const dept = val(row, 'Department') ? String(val(row, 'Department')).trim() : '';
+      const sect = val(row, 'Section') ? String(val(row, 'Section')).trim() : '';
       
-      if (!isDepartmentViewable(employeeDivision, employeeDepartment)) return;
+      if (!isDepartmentViewable(div, grp, dept, sect)) return;
+      
       hasReturnedAnyEmployee = true;
 
       const managerEmployeeId = val(row, 'Reporting to ID') ? String(val(row, 'Reporting to ID')).trim() : null;
@@ -1403,10 +1416,10 @@ function getEmployeeData() {
         managerEmployeeId: managerEmployeeId || '',
         managerName: val(row, 'Reporting to'),
         jobTitle: val(row, 'Job Title'),
-        division: employeeDivision,
-        group: val(row, 'Group'),
-        department: employeeDepartment,
-        section: val(row, 'Section'),
+        division: div,
+        group: grp,
+        department: dept,
+        section: sect,
         gender: val(row, 'Gender'),
         level: val(row, 'Level'),
         payrollType: isFieldAuthorized('Payroll Type') ? val(row, 'Payroll Type') : null,
@@ -1424,7 +1437,44 @@ function getEmployeeData() {
       });
     });
 
-    // --- RESTORED PLANTILLA LOGIC ---
+    // --- FIX: GHOST NODES ---
+    const visibleIds = new Set(employeesToShow.map(e => e.positionId));
+    const ghostNodes = new Map();
+
+    employeesToShow.forEach(emp => {
+        if (emp.managerId && emp.managerId !== '') {
+            if (!visibleIds.has(emp.managerId)) {
+                const mgrRow = allEmployeesMap.get(emp.managerId);
+                if (mgrRow) {
+                    if (!ghostNodes.has(emp.managerId)) {
+                        ghostNodes.set(emp.managerId, {
+                            positionId: emp.managerId,
+                            nodeId: emp.managerId,
+                            employeeName: val(mgrRow, 'Employee Name') || 'External Manager',
+                            jobTitle: val(mgrRow, 'Job Title') || 'Manager',
+                            employeeId: val(mgrRow, 'Employee ID'),
+                            level: val(mgrRow, 'Level'),
+                            gender: val(mgrRow, 'Gender'),
+                            division: val(mgrRow, 'Division'),
+                            department: val(mgrRow, 'Department'),
+                            managerId: '', 
+                            isGhost: true,
+                            positionStatus: 'Active',
+                            status: val(mgrRow, 'Status') || 'Active' 
+                        });
+                    }
+                } else {
+                    emp.managerId = ''; 
+                }
+            }
+        }
+    });
+
+    ghostNodes.forEach(node => {
+        employeesToShow.push(node);
+    });
+
+    // 7. Previous Headcount & Plantilla Logic (Smart Summing)
     let previousHeadcount = {};
     let totalApprovedPlantilla = 0;
     let previousDateString = null;
@@ -1435,16 +1485,13 @@ function getEmployeeData() {
         const prevDataRange = previousSheet.getDataRange();
         const prevData = prevDataRange.getValues();
         if (prevData.length > 0) {
-          const prevHeaders = prevData.shift(); // Remove headers
+          const prevHeaders = prevData.shift(); 
           const plantillaIndex = prevHeaders.indexOf('Approved Plantilla');
           
-          // Find the last "Filled" column dynamically
           let lastFilledIndex = -1;
           for (let i = prevHeaders.length - 1; i >= 0; i--) {
-            // Case-insensitive check
             if (String(prevHeaders[i]).toLowerCase().includes(' filled')) {
               lastFilledIndex = i;
-              // Extract the date string (e.g., "Jan 2024")
               const headerText = String(prevHeaders[i]);
               previousDateString = headerText.substring(0, headerText.toLowerCase().indexOf(' filled')).trim();
               break; 
@@ -1461,6 +1508,9 @@ function getEmployeeData() {
               const filled = row[lastFilledIndex] || 0;
               const vacant = (row.length > lastVacantIndex) ? (row[lastVacantIndex] || 0) : 0;
               
+              // Skip rows the user is not allowed to see
+              if (!isDepartmentViewable(division, group, department, section)) return;
+
               if (division) {
                  if (!previousHeadcount[division]) previousHeadcount[division] = { filled: 0, vacant: 0, plantilla: null, groups: {} };
                  if (!previousHeadcount[division].groups[group]) previousHeadcount[division].groups[group] = { filled: 0, vacant: 0, plantilla: null, departments: {} };
@@ -1475,9 +1525,40 @@ function getEmployeeData() {
                  target.vacant = vacant;
                  target.plantilla = plantillaValue;
 
-                 if (!group && !department && !section && plantillaValue !== null) {
+                 // --- FIX: SMART SUMMING ---
+                 // Only add to Total if this row represents the HIGHEST level the user can see for this branch.
+                 
+                 let isRootForUser = false;
+                 if (!group && !department && !section) {
+                     // Division Row: Always a root if visible
+                     isRootForUser = true; 
+                 } 
+                 else if (group && !department && !section) {
+                     // Group Row: Root only if parent (Division) is NOT viewable
+                     if (!isDepartmentViewable(division, '', '', '')) {
+                         isRootForUser = true;
+                     }
+                 }
+                 else if (department && !section) {
+                     // Dept Row: Root only if parents (Group and Division) are NOT viewable
+                     if (!isDepartmentViewable(division, group, '', '') && 
+                         !isDepartmentViewable(division, '', '', '')) {
+                         isRootForUser = true;
+                     }
+                 }
+                 else if (section) {
+                     // Section Row: Root only if ALL parents are NOT viewable
+                     if (!isDepartmentViewable(division, group, department, '') &&
+                         !isDepartmentViewable(division, group, '', '') && 
+                         !isDepartmentViewable(division, '', '', '')) {
+                         isRootForUser = true;
+                     }
+                 }
+
+                 if (isRootForUser && plantillaValue !== null) {
                     totalApprovedPlantilla += plantillaValue;
                  }
+                 // --------------------------
               }
             });
           }
@@ -1487,14 +1568,13 @@ function getEmployeeData() {
       Logger.log('Warning: Previous Headcount logic failed: ' + e.message);
     }
 
-    // Return object (Updated to include previousDateString)
     const snapshotTimestamp = PropertiesService.getScriptProperties().getProperty('snapshotTimestamp');
 
     return {
       current: employeesToShow.filter(emp => emp.positionId),
       previous: previousHeadcount,
       snapshotTimestamp: snapshotTimestamp,
-      previousDateString: previousDateString, // <--- Ensure this is passed!
+      previousDateString: previousDateString, 
       currentUserEmail: userEmail,
       userCanSeeAnyDepartment: hasReturnedAnyEmployee,
       totalApprovedPlantilla: totalApprovedPlantilla,
@@ -2271,153 +2351,162 @@ function getUpcomingDues() {
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-
   const upcoming = [];
   const overdue = [];
 
   if (mainSheet.getLastRow() < 2) {
-    return {
-      upcoming,
-      overdue
-    };
+    return { upcoming, overdue };
   }
 
+  // --- 1. ACCESS CONTROL SETUP ---
+  const permissions = getSessionPermissions();
+  
+  // Helper to check if a specific row is viewable by the current user
+  const isRowVisible = (div, grp, dept, sect) => {
+      // If user has 'ALL' access, show everything
+      if (permissions.allowedScopes.includes('ALL')) return true;
+      
+      // Check if any of the employee's location fields match the allowed scopes
+      return permissions.allowedScopes.includes((div || '').toString().trim().toLowerCase()) ||
+             permissions.allowedScopes.includes((grp || '').toString().trim().toLowerCase()) ||
+             permissions.allowedScopes.includes((dept || '').toString().trim().toLowerCase()) ||
+             permissions.allowedScopes.includes((sect || '').toString().trim().toLowerCase());
+  };
+  // -------------------------------
+
+  // --- 2. DYNAMIC HEADER MAPPING ---
   const mainData = mainSheet.getDataRange().getValues();
-  const mainHeaders = mainData.shift();
-  const mainDataMap = new Map(mainData.map(row => [row[mainHeaders.indexOf('Position ID')], row]));
-  const nameIndex = mainHeaders.indexOf('Employee Name');
-  const contractTypeIndex = mainHeaders.indexOf('Contract Type');
-  const contractEndIndex = mainHeaders.indexOf('Contract End Date');
-  const statusIndex = mainHeaders.indexOf('Status');
-  const posStatusIndex = mainHeaders.indexOf('Position Status');
-  const dateHiredIndex = mainHeaders.indexOf('Date Hired');
+  const headers = mainData.shift(); // Remove header row
+  
+  // Map header names to column indices (robust against column moves)
+  const h = new Map(headers.map((name, i) => [String(name).trim().toLowerCase().replace(/\s+/g, ''), i]));
+  const val = (row, headerName) => {
+      const idx = h.get(headerName.toLowerCase().replace(/\s+/g, ''));
+      return (idx !== undefined) ? row[idx] : null;
+  };
+  // ---------------------------------
 
-  mainDataMap.forEach((row, posId) => {
-    const positionStatus = (row[posStatusIndex] || '').toString().trim().toUpperCase();
-    if (positionStatus === 'INACTIVE') return;
+  const mainDataMap = new Map();
+  
+  // Build Map and Process Main Sheet Checks
+  mainData.forEach(row => {
+      const posId = val(row, 'Position ID');
+      if (posId) mainDataMap.set(posId, row);
 
-    const contractType = (row[contractTypeIndex] || '').toString().trim().toUpperCase();
-    const endDate = row[contractEndIndex];
-    if (contractType === 'JPRO' && endDate instanceof Date) {
-      const normalizedEndDate = new Date(endDate.getTime());
-      normalizedEndDate.setHours(0, 0, 0, 0);
-      const timeDiff = normalizedEndDate.getTime() - today.getTime();
-      const days = Math.round(timeDiff / (1000 * 60 * 60 * 24));
-      const employeeName = row[nameIndex];
+      const positionStatus = (val(row, 'Position Status') || '').toString().trim().toUpperCase();
+      if (positionStatus === 'INACTIVE') return;
 
-      if (days >= 0 && days <= 30) {
-        const message = `${employeeName}'s JPRO contract ends in ${days} day${days !== 1 ? 's' : ''}.`;
-        upcoming.push({
-          days,
-          message
-        });
-      } else if (days < 0) {
-        const daysAgo = Math.abs(days);
-        const message = `${employeeName}'s JPRO contract expired ${daysAgo} day${daysAgo !== 1 ? 's' : ''} ago. Please update their status.`;
-        overdue.push({
-          days: daysAgo,
-          message
-        });
+      // --- SCOPE CHECK ---
+      const div = val(row, 'Division');
+      const grp = val(row, 'Group');
+      const dept = val(row, 'Department');
+      const sect = val(row, 'Section');
+      
+      if (!isRowVisible(div, grp, dept, sect)) return; // SKIP if not in user's scope
+      // -------------------
+
+      const employeeName = val(row, 'Employee Name');
+      const contractType = (val(row, 'Contract Type') || '').toString().trim().toUpperCase();
+      const contractEndDate = val(row, 'Contract End Date');
+      const status = (val(row, 'Status') || '').toString().trim().toUpperCase();
+      const dateHired = val(row, 'Date Hired');
+
+      // 1. JPRO Contract Expiry Logic
+      if (contractType === 'JPRO' && contractEndDate instanceof Date) {
+          const normalizedEndDate = new Date(contractEndDate.getTime());
+          normalizedEndDate.setHours(0, 0, 0, 0);
+          const timeDiff = normalizedEndDate.getTime() - today.getTime();
+          const days = Math.round(timeDiff / (1000 * 60 * 60 * 24));
+
+          if (days >= 0 && days <= 30) {
+              upcoming.push({ days, message: `${employeeName}'s JPRO contract ends in ${days} day${days !== 1 ? 's' : ''}.` });
+          } else if (days < 0) {
+              const daysAgo = Math.abs(days);
+              overdue.push({ days: daysAgo, message: `${employeeName}'s JPRO contract expired ${daysAgo} day${daysAgo !== 1 ? 's' : ''} ago. Please update their status.` });
+          }
       }
-    }
+
+      // 2. Probationary / New Hire Logic
+      if ((status === 'PROBATIONARY' || status === 'NEW HIRE') && dateHired instanceof Date) {
+          // 3-Month Evaluation
+          const evaluationDate = new Date(dateHired.getTime());
+          evaluationDate.setMonth(evaluationDate.getMonth() + 3);
+          evaluationDate.setHours(0, 0, 0, 0);
+          const evalDays = Math.round((evaluationDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+          if (evalDays >= 0 && evalDays <= 30) {
+              upcoming.push({ days: evalDays, message: `${employeeName} is due for 3-month evaluation in ${evalDays} day${evalDays !== 1 ? 's' : ''}.` });
+          } else if (evalDays < 0 && evalDays >= -30) {
+              const evalDaysAgo = Math.abs(evalDays);
+              overdue.push({ days: evalDaysAgo, message: `${employeeName}'s 3-month evaluation was due ${evalDaysAgo} day${evalDaysAgo !== 1 ? 's' : ''} ago.` });
+          }
+
+          // 6-Month Regularization
+          const regularizationDate = new Date(dateHired.getTime());
+          regularizationDate.setMonth(regularizationDate.getMonth() + 6);
+          regularizationDate.setHours(0, 0, 0, 0);
+          const regDays = Math.round((regularizationDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+          if (regDays >= 0 && regDays <= 30) {
+              upcoming.push({ days: regDays, message: `${employeeName} is due for regularization in ${regDays} day${regDays !== 1 ? 's' : ''}.` });
+          } else if (regDays < 0) {
+              const regDaysAgo = Math.abs(regDays);
+              overdue.push({ days: regDaysAgo, message: `${employeeName}'s regularization was due ${regDaysAgo} day${regDaysAgo !== 1 ? 's' : ''} ago. Please update their status.` });
+          }
+      }
   });
 
-  if (statusIndex > -1 && dateHiredIndex > -1) {
-    mainData.forEach(row => {
-        const positionStatus = (row[posStatusIndex] || '').toString().trim().toUpperCase();
-        if (positionStatus === 'INACTIVE') return;
-
-        const status = (row[statusIndex] || '').toString().trim().toUpperCase();
-        const startDate = row[dateHiredIndex];
-
-        if ((status === 'PROBATIONARY' || status === 'NEW HIRE') && startDate instanceof Date) {
-            const employeeName = row[nameIndex];
-
-            // 3-Month Evaluation Logic
-            const evaluationDate = new Date(startDate.getTime());
-            evaluationDate.setMonth(evaluationDate.getMonth() + 3);
-            evaluationDate.setHours(0, 0, 0, 0);
-
-            const evalTimeDiff = evaluationDate.getTime() - today.getTime();
-            const evalDays = Math.round(evalTimeDiff / (1000 * 60 * 60 * 24));
-
-            // --- MODIFIED LOGIC HERE ---
-            // Only show notification from 30 days before to 30 days after the due date.
-            if (evalDays >= 0 && evalDays <= 30) {
-                const message = `${employeeName} is due for 3-month evaluation in ${evalDays} day${evalDays !== 1 ? 's' : ''}.`;
-                upcoming.push({ days: evalDays, message });
-            } else if (evalDays < 0 && evalDays >= -30) { // Condition changed
-                const evalDaysAgo = Math.abs(evalDays);
-                const message = `${employeeName}'s 3-month evaluation was due ${evalDaysAgo} day${evalDaysAgo !== 1 ? 's' : ''} ago.`;
-                overdue.push({ days: evalDaysAgo, message });
-            }
-
-            // 6-Month Regularization Logic (remains the same)
-            const regularizationDate = new Date(startDate.getTime());
-            regularizationDate.setMonth(regularizationDate.getMonth() + 6);
-            regularizationDate.setHours(0, 0, 0, 0);
-
-            const regTimeDiff = regularizationDate.getTime() - today.getTime();
-            const regDays = Math.round(regTimeDiff / (1000 * 60 * 60 * 24));
-            if (regDays >= 0 && regDays <= 30) {
-                const message = `${employeeName} is due for regularization in ${regDays} day${regDays !== 1 ? 's' : ''}.`;
-                upcoming.push({ days: regDays, message });
-            } else if (regDays < 0) {
-                const regDaysAgo = Math.abs(regDays);
-                const message = `${employeeName}'s regularization was due ${regDaysAgo} day${regDaysAgo !== 1 ? 's' : ''} ago. Please update their status.`;
-                overdue.push({ days: regDaysAgo, message });
-            }
-        }
-    });
-  }
-
+  // 3. Resignation Logic (from Log Sheet)
   if (logSheet && logSheet.getLastRow() > 1) {
     const logData = logSheet.getDataRange().getValues();
     const logHeaders = logData.shift();
-    const logPosIdIndex = logHeaders.indexOf('Position ID');
-    const logNameIndex = logHeaders.indexOf('Employee Name');
-    const logStatusIndex = logHeaders.indexOf('Status');
-    const logEffectiveDateIndex = logHeaders.indexOf('Effective Date');
-    if (logPosIdIndex > -1 && logStatusIndex > -1 && logEffectiveDateIndex > -1) {
+    const lIdx = (name) => logHeaders.indexOf(name);
+    
+    const logPosIdIdx = lIdx('Position ID');
+    const logNameIndex = lIdx('Employee Name');
+    const logStatusIndex = lIdx('Status');
+    const logEffectiveDateIndex = lIdx('Effective Date');
+
+    if (logPosIdIdx > -1 && logStatusIndex > -1 && logEffectiveDateIndex > -1) {
       const latestResignations = new Map();
+      
+      // Find latest resignation per position
       for (let i = logData.length - 1; i >= 0; i--) {
         const row = logData[i];
-        const posId = row[logPosIdIndex];
+        const posId = row[logPosIdIdx];
         const logStatus = (row[logStatusIndex] || '').trim().toUpperCase();
         if (posId && logStatus === 'RESIGNED' && !latestResignations.has(posId)) {
-          latestResignations.set(posId, {
-            date: row[logEffectiveDateIndex],
-            name: row[logNameIndex]
-          });
+          latestResignations.set(posId, { date: row[logEffectiveDateIndex], name: row[logNameIndex] });
         }
       }
 
       latestResignations.forEach((resignation, posId) => {
-        const currentPosData = mainDataMap.get(posId);
-        if (!currentPosData || (currentPosData[statusIndex] || '').toUpperCase() !== 'RESIGNED') {
-          return;
-        }
+        // Cross-reference with current main data to ensure we still check permissions
+        const currentPosRow = mainDataMap.get(posId);
+        if (!currentPosRow) return;
+
+        // --- SCOPE CHECK (Again, for the resignation logic) ---
+        const div = val(currentPosRow, 'Division');
+        const grp = val(currentPosRow, 'Group');
+        const dept = val(currentPosRow, 'Department');
+        const sect = val(currentPosRow, 'Section');
+        if (!isRowVisible(div, grp, dept, sect)) return;
+        // ------------------------------------------------------
+
+        const currentStatus = (val(currentPosRow, 'Status') || '').toString().trim().toUpperCase();
+        if (currentStatus !== 'RESIGNED') return;
 
         const effectiveDate = resignation.date;
         if (effectiveDate instanceof Date) {
           const normalizedEffectiveDate = new Date(effectiveDate.getTime());
           normalizedEffectiveDate.setHours(0, 0, 0, 0);
-          const timeDiff = normalizedEffectiveDate.getTime() - today.getTime();
-          const days = Math.round(timeDiff / (1000 * 60 * 60 * 24));
+          const days = Math.round((normalizedEffectiveDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
           if (days >= 0 && days <= 30) {
-            const message = `${resignation.name}'s resignation is effective in ${days} day${days !== 1 ? 's' : ''}.`;
-            upcoming.push({
-              days,
-              message
-            });
+            upcoming.push({ days, message: `${resignation.name}'s resignation is effective in ${days} day${days !== 1 ? 's' : ''}.` });
           } else if (days < 0) {
             const daysAgo = Math.abs(days);
-            const message = `${resignation.name}'s resignation was ${daysAgo} day${daysAgo !== 1 ? 's' : ''} ago. Please update the position to VACANT.`;
-            overdue.push({
-              days: daysAgo,
-              message
-            });
+            overdue.push({ days: daysAgo, message: `${resignation.name}'s resignation was ${daysAgo} day${daysAgo !== 1 ? 's' : ''} ago. Please update the position to VACANT.` });
           }
         }
       });
@@ -2426,10 +2515,8 @@ function getUpcomingDues() {
 
   const sortedUpcoming = upcoming.sort((a, b) => a.days - b.days).map(d => d.message);
   const sortedOverdue = overdue.sort((a, b) => a.days - b.days).map(d => d.message);
-  return {
-    upcoming: sortedUpcoming,
-    overdue: sortedOverdue
-  };
+  
+  return { upcoming: sortedUpcoming, overdue: sortedOverdue };
 }
 
 
@@ -3374,24 +3461,26 @@ function getTeamCompetencyHeatmap(filters) {
     const mainData = mainSheet.getDataRange().getValues();
     const mainHeaders = mainData.shift();
     
-    const idx = {
-        empId: mainHeaders.indexOf('Employee ID'),
-        div: mainHeaders.indexOf('Division'),
-        grp: mainHeaders.indexOf('Group'),
-        dept: mainHeaders.indexOf('Department'),
-        sect: mainHeaders.indexOf('Section')
-    };
+    // Dynamic Header Mapping for Main Sheet
+    const hMap = new Map(mainHeaders.map((h, i) => [String(h).trim().toLowerCase().replace(/\s+/g, ''), i]));
+    const idx = (name) => hMap.get(name.toLowerCase().replace(/\s+/g, ''));
+
+    const colEmpId = idx('employeeid');
+    const colDiv = idx('division');
+    const colGrp = idx('group');
+    const colDept = idx('department');
+    const colSect = idx('section');
 
     const employeeLocationMap = new Map();
-    if (idx.empId !== -1) {
+    if (colEmpId !== undefined) {
         mainData.forEach(row => {
-          const empId = String(row[idx.empId]).trim();
+          const empId = String(row[colEmpId]).trim();
           if (empId) {
             employeeLocationMap.set(empId, {
-                division: row[idx.div] || '',
-                group: row[idx.grp] || '',
-                department: row[idx.dept] || '',
-                section: row[idx.sect] || ''
+                division: row[colDiv] || '',
+                group: row[colGrp] || '',
+                department: row[colDept] || '',
+                section: row[colSect] || ''
             });
           }
         });
@@ -3403,27 +3492,24 @@ function getTeamCompetencyHeatmap(filters) {
     
     const compEmpIdIndex = compHeaders.indexOf('EMPLOYEE ID');
     const compNameIndex = compHeaders.indexOf('EMPLOYEE NAME');
-    if (compEmpIdIndex === -1) return { error: "Header 'EMPLOYEE ID' not found." };
+    if (compEmpIdIndex === -1) return { error: "Header 'EMPLOYEE ID' not found in Competency Matrix." };
 
+    // 2. Filter Employees based on Selection & Scope
     const filteredEmployees = compData.filter(row => {
       const empId = String(row[compEmpIdIndex]).trim();
       const loc = employeeLocationMap.get(empId);
       
       if (!loc) return false; 
 
-      // --- SCOPE ENFORCEMENT ---
+      // Scope Check
       if (!permissions.allowedScopes.includes('ALL')) {
-         const empDept = (loc.department || '').toLowerCase();
-         const empDiv = (loc.division || '').toLowerCase();
-         
-         // If neither Dept nor Div is in allowed scopes, skip this row
          if (!isScopeAllowed(loc.department, permissions.allowedScopes) && 
              !isScopeAllowed(loc.division, permissions.allowedScopes)) {
              return false; 
          }
       }
-      // -------------------------
 
+      // Filter Check
       if (activeFilters.division && activeFilters.division !== 'all' && loc.division !== activeFilters.division) return false;
       if (activeFilters.group && activeFilters.group !== 'all' && loc.group !== activeFilters.group) return false;
       if (activeFilters.department && activeFilters.department !== 'all' && loc.department !== activeFilters.department) return false;
@@ -3434,27 +3520,42 @@ function getTeamCompetencyHeatmap(filters) {
 
     if (filteredEmployees.length === 0) return { headers: [], employeeScores: [] };
 
+    // 3. Build Smart Columns
     const competencyColumns = [];
     const competencyHeaders = [];
     const allDefinedCompetencies = getAllCompetencies();
 
     allDefinedCompetencies.forEach(competencyName => {
+        // Find columns in matrix (Required vs Actual)
         const indices = compHeaders.map((h, i) => (h === competencyName ? i : -1)).filter(i => i !== -1);
+        
         let actualIndex = -1;
+        // Logic: Usually 1st is Required, 2nd is Actual.
         if (indices.length >= 2) actualIndex = indices[1]; 
         
         if (actualIndex !== -1) {
-            const cleanName = competencyName.replace(/^(CORE|LEAD|TECH)\s?-\s?/i, '');
-            let category = "OTHER";
-            if (competencyName.startsWith("CORE")) category = "CORE";
-            else if (competencyName.startsWith("LEAD")) category = "LEADERSHIP";
-            else if (competencyName.startsWith("TECH")) category = "TECHNICAL";
+            // --- NEW: RELEVANCE CHECK ---
+            // Check if ANY employee in the filtered list has a score > 0 for this competency.
+            const isRelevant = filteredEmployees.some(row => {
+                const score = parseFloat(row[actualIndex]);
+                return !isNaN(score) && score > 0;
+            });
 
-            competencyColumns.push({ name: cleanName, index: actualIndex });
-            competencyHeaders.push({ name: cleanName, category: category });
+            // Only add the column if at least one person has a score
+            if (isRelevant) {
+                const cleanName = competencyName.replace(/^(CORE|LEAD|TECH)\s?-\s?/i, '');
+                let category = "OTHER";
+                if (competencyName.startsWith("CORE")) category = "CORE";
+                else if (competencyName.startsWith("LEAD")) category = "LEADERSHIP";
+                else if (competencyName.startsWith("TECH")) category = "TECHNICAL";
+
+                competencyColumns.push({ name: cleanName, index: actualIndex });
+                competencyHeaders.push({ name: cleanName, category: category });
+            }
         }
     });
 
+    // 4. Map Scores
     const employeeScores = filteredEmployees.map(row => {
       const scores = competencyColumns.map(col => {
         const val = parseFloat(row[col.index]);
@@ -3464,6 +3565,7 @@ function getTeamCompetencyHeatmap(filters) {
     });
 
     return { headers: competencyHeaders, employeeScores: employeeScores };
+
   } catch (e) {
     Logger.log('Error in getTeamCompetencyHeatmap: ' + e.message);
     return { error: e.message };

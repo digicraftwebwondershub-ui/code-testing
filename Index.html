@@ -671,6 +671,20 @@
   border-bottom-color: transparent !important;
 }
 
+/* --- HIGHLIGHT STYLES FOR FILTERED NODES --- */
+.node-card.highlight-match {
+  border: 3px solid #2563eb !important; /* Bright Blue Border */
+  box-shadow: 0 0 12px rgba(37, 99, 235, 0.6) !important; /* Blue Glow */
+  transform: scale(1.02); /* Slight Zoom */
+  z-index: 20; /* Bring to front */
+}
+
+/* Optional: Slightly dim the connector nodes to make matches pop even more */
+.node-card.connector-node {
+  opacity: 0.85;
+  border-color: #9ca3af; /* Neutral Gray */
+}
+
   </style>
 </head>
 <body>
@@ -2048,7 +2062,7 @@
   // DEFINE GLOBALS
 window.userCanViewCompetency = null; // Explicitly attach to window
 var fullEmployeeData = [];
-// ... other variables ...
+var orgChartData = [];
 
   // --- NEW: ATTACHMENT CONFIGURATION & LOGIC ---
 
@@ -3297,12 +3311,11 @@ function onDataFetched(data) {
   
     // --- KEY FIX: SEPARATE DATA ---
     // A. orgChartData = Everyone (Real People + Ghost Managers)
-    // We will use this ONLY for the Org Chart so the lines connect.
+    // We use this for the Org Chart connectivity.
     orgChartData = data.current || [];
 
     // B. fullEmployeeData = Real People Only
-    // We use this for Headcount, Search, and Tables.
-    // This FILTERS OUT the ghosts so your Plantilla count is correct (e.g. 85).
+    // We use this for Headcount, Search, and Tables to ensure counts are accurate.
     fullEmployeeData = (data.current || []).filter(emp => !emp.isGhost);
     // ------------------------------
 
@@ -3321,9 +3334,12 @@ function onDataFetched(data) {
     previousDateString = data.previousDateString;
     dropdownListData = data.dropdownListData;
     
-    // Use clean data for map lookups
-    employeeMap = new Map(fullEmployeeData.map(emp => [emp.nodeId, emp]));
+    // --- FIX: USE 'orgChartData' FOR LOOKUPS ---
+    // This allows the chart to find Ghost Managers (so they show up as Cards, not IDs)
+    // while keeping fullEmployeeData clean for headcounts.
+    employeeMap = new Map(orgChartData.map(emp => [emp.nodeId, emp]));
 
+    // Button Visibility Checks
     if(userCanEdit) {
       if (document.getElementById('add-employee-btn')) document.getElementById('add-employee-btn').style.display = 'block';
     } else {
@@ -3340,6 +3356,7 @@ function onDataFetched(data) {
     setupPageEventListeners();
     populateFilters(); 
     
+    // Updates UI using the clean 'fullEmployeeData' (Headcounts remain correct!)
     updateUI(); 
 
     if (competencyViewInitialized) {
@@ -3601,111 +3618,188 @@ function updateNotificationBadges(counts) {
 }
 
 function drawChart(filteredData) {
-      var chartDataForDisplay = getChartData(filteredData);
-      if (chartDataForDisplay.length === 0) {
-          document.getElementById('chart_div').innerHTML = '<p class="text-center text-gray-500 pt-10">No positions match filter.</p>';
-          return;
+  // --- 1. SMART DATA SELECTION (Recursive & Highlighting) ---
+  let finalData = filteredData;
+  let matchingIds = new Set(); // Stores IDs of employees that match the filter
+  let hasActiveFilter = false; // Tracks if we should apply highlighting
+
+  // Helper to safely escape single quotes for onclick events
+  const safe = (str) => (str || '').replace(/'/g, "\\'");
+
+  // Use 'orgChartData' to preserve Ghost Nodes and ensure connectivity
+  if (typeof orgChartData !== 'undefined' && orgChartData.length > 0) {
+      
+      // Get Filter Values safely
+      const getVal = (id) => document.getElementById(id)?.value || 'all';
+      const dVal = getVal('division-filter-value');
+      const gVal = getVal('group-filter-value');
+      const dpVal = getVal('department-filter-value');
+      const sVal = getVal('section-filter-value');
+      const showInactive = document.getElementById('show-inactive-checkbox')?.checked || false;
+
+      // Check if any filter is actually active
+      if (dVal !== 'all' || gVal !== 'all' || dpVal !== 'all' || sVal !== 'all') {
+          hasActiveFilter = true;
       }
-      dataTable = new google.visualization.DataTable();
-      dataTable.addColumn('string', 'Node ID');
-      dataTable.addColumn('string', 'Reporting to ID');
-      chartDataForDisplay.forEach(function(emp) {
-          let nodeHtml;
-          let actionsHtml = '';
-          const isInactive = (emp.positionStatus || '').toUpperCase() === 'INACTIVE';
 
-          let inactiveOverlayHtml = '';
-          if (isInactive) {
-              inactiveOverlayHtml = '<div class="inactive-overlay">INACTIVE</div>';
-          }
+      // Filter Real Employees
+      const matchingRealEmployees = orgChartData.filter(emp => {
+          if (emp.isGhost) return false; 
+          
+          const isActive = (emp.positionStatus || '').toLowerCase() !== 'inactive';
+          if (!showInactive && !isActive) return false;
 
-          if (userCanEdit) {
-              let primaryActionBtn = '';
-              if (isInactive) {
-                  primaryActionBtn = '<button title="Reactivate" onclick="event.stopPropagation(); reactivateEmployee(\'' + emp.positionId + '\')" class="action-btn">' +
-                                        '<svg class="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clip-rule="evenodd"></path></svg>' +
-                                      '</button>';
-              } else {
-                  primaryActionBtn = '<button title="Deactivate" onclick="event.stopPropagation(); deactivateEmployee(\'' + emp.positionId + '\')" class="action-btn">' +
-                                        '<svg class="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd"></path></svg>' +
-                                      '</button>';
-              }
-
-              // --- NEW BUTTON ADDED HERE ---
-              let competencyBtn = '';
-              if (emp.employeeId) { // Only show for filled positions
-                  competencyBtn = '<button title="View Competency Profile" onclick="event.stopPropagation(); viewCompetencyProfile(\'' + emp.employeeId + '\')" class="action-btn">' +
-                                    '<svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>' +
-                                  '</button>';
-              }
-
-              actionsHtml = '<div class="node-actions">' +
-                              '<button title="Edit" onclick="event.stopPropagation(); openModal(\'edit\', \'' + emp.nodeId + '\')" class="action-btn">' +
-                                '<svg class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828zM5 14l-1 4 4-1 7.586-7.586-2.828-2.828L5 14z"></path></svg>' +
-                              '</button>' +
-                              primaryActionBtn +
-                              competencyBtn + // Add the new button to the list
-                              '<button title="Job Description" onclick="event.stopPropagation(); openJdModal(\'' + emp.positionId + '\', \'' + (emp.employeeId || '') + '\', \'' + (emp.jobTitle || '') + '\')" class="action-btn">' +
-                                '<svg class="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a2 2 0 00-2 2v8a2 2 0 002 2h2a2 2 0 002-2V4a2 2 0 00-2-2H9z"></path><path d="M4 12a2 2 0 012-2h10a2 2 0 012 2v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5z"></path></svg>' +
-                              '</button>' +
-                            '</div>';
-          }
-
-          if (emp.employeeId) {
-              let resignTag = '';
-              if (emp.status.toUpperCase() === 'RESIGNED' && emp.resignationDate) {
-                  resignTag = '<div style="position: absolute; top: 4px; left: 4px; background-color: #ef4444; color: white; padding: 2px 6px; border-radius: 9999px; font-size: 10px; font-weight: bold; z-index: 5;">RESIGNEE (Eff. ' + emp.resignationDate + ')</div>';
-              }
-              const contractTypeUpper = emp.stylingContractType ? emp.stylingContractType.toUpperCase() : '';
-              let levelBorderClass = 'level-' + (emp.level || 'default') + '-border';
-              let levelBgClass = 'level-' + (emp.level || 'default') + '-bg';
-              let contractClass = '';
-              if (contractTypeUpper === 'JREL' || contractTypeUpper === 'JPRO') {
-                  levelBorderClass = 'contract-jrel-jpro-border';
-                  levelBgClass = 'contract-jrel-jpro-bg';
-                  contractClass = 'contract-dashed';
-              } else if (contractTypeUpper === 'JREG') {
-                  levelBorderClass = 'contract-jreg-border';
-                  levelBgClass = 'contract-jreg-bg';
-                  contractClass = 'contract-dashed';
-              } else if (contractTypeUpper === 'OTHERS') {
-                  levelBorderClass = 'contract-others-border';
-                  levelBgClass = 'contract-others-bg';
-                  contractClass = 'contract-dashed';
-              }
-              const photoUrl = emp.gender && emp.gender.toLowerCase() === 'female' ? 'https://i.imgur.com/dTvdfy0.png' : 'https://i.imgur.com/bIbZ89x.png';
-              const deptSection = emp.section ? (emp.department + ' (' + emp.section + ')') : emp.department;
-              const payrollBadge = emp.payrollType ? '<div class="badge bg-badge-payroll">' + emp.payrollType + '</div>' : '';
-              const jobLevelBadge = emp.jobLevel ? '<div class="badge bg-badge-joblevel">' + emp.jobLevel + '</div>' : '';
-              const contractBadge = emp.contractType ? '<div class="badge bg-badge-contract">' + emp.contractType + '</div>' : '';
-              const competencyBadge = emp.competency ? '<div class="badge bg-badge-competency">' + emp.competency + '</div>' : '';
-              const badgeHtml = '<div class="badge-grid">' + payrollBadge + jobLevelBadge + contractBadge + competencyBadge + '</div>';
-              const normalizedStatus = toTitleCase(emp.status);
-              const statusClass = statusColors[normalizedStatus] || '';
-              const statusDot = statusClass && !resignTag ? '<div class="status-dot ' + statusClass + '"></div>' : '';
-              
-              nodeHtml = '<div class="node-card ' + levelBorderClass + ' ' + levelBgClass + ' ' + contractClass + '" onmouseover="showTooltip(event, \'' + emp.nodeId + '\')" onmouseout="hideTooltip()">' +
-                            inactiveOverlayHtml + resignTag + statusDot + actionsHtml +
-                            '<img src="' + photoUrl + '" onerror="this.onerror=null;this.src=\'https://i.imgur.com/RHvayzz.png\';">' +
-                            '<div class="node-text">' +
-                              '<div class="name">' + emp.employeeName + '</div>' +
-                              '<div class="title">' + emp.jobTitle + '</div>' +
-                              '<div class="dept">' + (deptSection || '') + '</div>' +
-                            '</div>' +
-                            badgeHtml +
-                          '</div>';
-          } else {
-              nodeHtml = '<div class="vacant-card" onmouseover="showTooltip(event, \'' + emp.nodeId + '\')" onmouseout="hideTooltip()">' +
-                            inactiveOverlayHtml + actionsHtml +
-                            '<div class="name">VACANT</div>' +
-                            '<div class="title">' + emp.jobTitle + '</div>' +
-                          '</div>';
-          }
-          dataTable.addRow([{ v: emp.nodeId, f: nodeHtml }, emp.managerId]);
+          if (dVal !== 'all' && emp.division !== dVal) return false;
+          if (gVal !== 'all' && emp.group !== gVal) return false;
+          if (dpVal !== 'all' && emp.department !== dpVal) return false;
+          if (sVal !== 'all' && emp.section !== sVal) return false;
+          
+          return true;
       });
-      chart = new google.visualization.OrgChart(document.getElementById('chart_div'));
-      chart.draw(dataTable, { allowHtml: true, allowCollapse: true });
-    }
+
+      // Store matches for highlighting
+      matchingRealEmployees.forEach(emp => matchingIds.add(emp.nodeId));
+
+      // Recursively find Ghost Managers
+      const neededGhosts = new Set();
+      let nodesToTrace = [...matchingRealEmployees]; 
+
+      // Walk up the hierarchy
+      while(nodesToTrace.length > 0) {
+          const nextTrace = [];
+          nodesToTrace.forEach(node => {
+              if (node.managerId) {
+                  const manager = orgChartData.find(e => e.nodeId === node.managerId);
+                  if (manager && manager.isGhost) {
+                      if (!neededGhosts.has(manager)) {
+                          neededGhosts.add(manager);
+                          nextTrace.push(manager); 
+                      }
+                  }
+              }
+          });
+          nodesToTrace = nextTrace; 
+      }
+
+      // Combine
+      finalData = [...matchingRealEmployees, ...Array.from(neededGhosts)];
+  }
+
+  // --- 2. RENDER CHART ---
+  var chartDataForDisplay = getChartData(finalData);
+
+  if (chartDataForDisplay.length === 0) {
+      document.getElementById('chart_div').innerHTML = '<p class="text-center text-gray-500 pt-10">No positions match filter.</p>';
+      return;
+  }
+
+  dataTable = new google.visualization.DataTable();
+  dataTable.addColumn('string', 'Node ID');
+  dataTable.addColumn('string', 'Reporting to ID');
+  
+  chartDataForDisplay.forEach(function(emp) {
+      let nodeHtml;
+      let actionsHtml = '';
+      const isInactive = (emp.positionStatus || '').toUpperCase() === 'INACTIVE';
+
+      // Visual Highlight Logic
+      let highlightClass = '';
+      if (hasActiveFilter) {
+          if (matchingIds.has(emp.nodeId)) {
+              highlightClass = 'highlight-match'; // Blue
+          } else {
+              highlightClass = 'connector-node'; // Gray
+          }
+      }
+
+      let inactiveOverlayHtml = isInactive ? '<div class="inactive-overlay">INACTIVE</div>' : '';
+
+      if (userCanEdit) {
+          let primaryActionBtn = isInactive 
+              ? `<button title="Reactivate" onclick="event.stopPropagation(); reactivateEmployee('${safe(emp.positionId)}')" class="action-btn"><svg class="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clip-rule="evenodd"></path></svg></button>`
+              : `<button title="Deactivate" onclick="event.stopPropagation(); deactivateEmployee('${safe(emp.positionId)}')" class="action-btn"><svg class="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd"></path></svg></button>`;
+
+          let competencyBtn = emp.employeeId 
+              ? `<button title="View Competency Profile" onclick="event.stopPropagation(); viewCompetencyProfile('${safe(emp.employeeId)}')" class="action-btn"><svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg></button>`
+              : '';
+
+          actionsHtml = `<div class="node-actions">
+                          <button title="Edit" onclick="event.stopPropagation(); openModal('edit', '${safe(emp.nodeId)}')" class="action-btn"><svg class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828zM5 14l-1 4 4-1 7.586-7.586-2.828-2.828L5 14z"></path></svg></button>
+                          ${primaryActionBtn}
+                          ${competencyBtn}
+                          <button title="Job Description" onclick="event.stopPropagation(); openJdModal('${safe(emp.positionId)}', '${safe(emp.employeeId)}', '${safe(emp.jobTitle)}')" class="action-btn"><svg class="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a2 2 0 00-2 2v8a2 2 0 002 2h2a2 2 0 002-2V4a2 2 0 00-2-2H9z"></path><path d="M4 12a2 2 0 012-2h10a2 2 0 012 2v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5z"></path></svg></button>
+                        </div>`;
+      }
+
+      if (emp.employeeId) {
+          let resignTag = (emp.status.toUpperCase() === 'RESIGNED' && emp.resignationDate) 
+              ? '<div style="position: absolute; top: 4px; left: 4px; background-color: #ef4444; color: white; padding: 2px 6px; border-radius: 9999px; font-size: 10px; font-weight: bold; z-index: 5;">RESIGNEE (Eff. ' + emp.resignationDate + ')</div>' 
+              : '';
+          
+          const contractTypeUpper = emp.stylingContractType ? emp.stylingContractType.toUpperCase() : '';
+          let levelBorderClass = 'level-' + (emp.level || 'default') + '-border';
+          let levelBgClass = 'level-' + (emp.level || 'default') + '-bg';
+          let contractClass = '';
+
+          if (['JREL', 'JPRO'].includes(contractTypeUpper)) {
+              levelBorderClass = 'contract-jrel-jpro-border'; levelBgClass = 'contract-jrel-jpro-bg'; contractClass = 'contract-dashed';
+          } else if (contractTypeUpper === 'JREG') {
+              levelBorderClass = 'contract-jreg-border'; levelBgClass = 'contract-jreg-bg'; contractClass = 'contract-dashed';
+          } else if (contractTypeUpper === 'OTHERS') {
+              levelBorderClass = 'contract-others-border'; levelBgClass = 'contract-others-bg'; contractClass = 'contract-dashed';
+          }
+
+          const photoUrl = emp.gender && emp.gender.toLowerCase() === 'female' ? 'https://i.imgur.com/dTvdfy0.png' : 'https://i.imgur.com/bIbZ89x.png';
+          const deptSection = emp.section ? (emp.department + ' (' + emp.section + ')') : emp.department;
+          
+          const badgeHtml = `<div class="badge-grid">
+              ${emp.payrollType ? `<div class="badge bg-badge-payroll">${emp.payrollType}</div>` : ''}
+              ${emp.jobLevel ? `<div class="badge bg-badge-joblevel">${emp.jobLevel}</div>` : ''}
+              ${emp.contractType ? `<div class="badge bg-badge-contract">${emp.contractType}</div>` : ''}
+              ${emp.competency ? `<div class="badge bg-badge-competency">${emp.competency}</div>` : ''}
+          </div>`;
+
+          const normalizedStatus = toTitleCase(emp.status);
+          const statusClass = statusColors[normalizedStatus] || '';
+          const statusDot = statusClass && !resignTag ? '<div class="status-dot ' + statusClass + '"></div>' : '';
+          
+          nodeHtml = `<div class="node-card ${levelBorderClass} ${levelBgClass} ${contractClass} ${highlightClass}" onmouseover="showTooltip(event, '${safe(emp.nodeId)}')" onmouseout="hideTooltip()">
+                        ${inactiveOverlayHtml}${resignTag}${statusDot}${actionsHtml}
+                        <img src="${photoUrl}" onerror="this.onerror=null;this.src='https://i.imgur.com/RHvayzz.png';">
+                        <div class="node-text">
+                          <div class="name">${emp.employeeName}</div>
+                          <div class="title">${emp.jobTitle}</div>
+                          <div class="dept">${deptSection || ''}</div>
+                        </div>
+                        ${badgeHtml}
+                      </div>`;
+      } else {
+          nodeHtml = `<div class="vacant-card ${highlightClass}" onmouseover="showTooltip(event, '${safe(emp.nodeId)}')" onmouseout="hideTooltip()">
+                        ${inactiveOverlayHtml}${actionsHtml}
+                        <div class="name">VACANT</div>
+                        <div class="title">${emp.jobTitle}</div>
+                      </div>`;
+      }
+      dataTable.addRow([{ v: emp.nodeId, f: nodeHtml }, emp.managerId]);
+  });
+
+  chart = new google.visualization.OrgChart(document.getElementById('chart_div'));
+  chart.draw(dataTable, { allowHtml: true, allowCollapse: true });
+
+  google.visualization.events.addListener(chart, 'select', function() {
+      var selection = chart.getSelection();
+      if (selection.length > 0) {
+          var rowIndex = selection[0].row;
+          var nodeId = dataTable.getValue(rowIndex, 0); 
+          
+          if (typeof employeeMap !== 'undefined' && employeeMap.has(nodeId)) {
+              if (typeof showEmployeeDetails === 'function') {
+                  showEmployeeDetails(employeeMap.get(nodeId));
+              }
+          }
+      }
+  });
+}
 
 function showTooltip(event, nodeId) {
     clearTimeout(tooltipTimeout);
@@ -7300,23 +7394,15 @@ function handleImplementAction(requestId) {
   google.script.run
     .withSuccessHandler(function(response) {
       hideSavingOverlay();
-      // NEW: Check for the 'success' property in the response object
       if (response && response.success) {
         alert(response.message);
         closeRequestDetailsModal();
-        
-        // Full data refresh for the main org chart
         fetchData(); 
-        
-        // Force a refresh of the request list to show the "Implemented" status
-        // changeRequestsDataLoaded = false; // This line is now removed
         loadChangeRequestData(renderApprovalsTable);
-
-        // Also refresh the notification badges
         google.script.run.withSuccessHandler(updateNotificationBadges).getRequestCounts();
       } else {
-        // If the backend returns a structured error, display it. Otherwise, show a generic failure message.
-        alert('Implementation Failed: ' (response ? response.error : 'An unknown error occurred on the server.'));
+        // FIX: Added the missing '+' sign below
+        alert('Implementation Failed: ' + (response ? response.error : 'An unknown error occurred on the server.'));
       }
     })
     .withFailureHandler(err => {

@@ -6314,12 +6314,14 @@ function drawCompetencyDashboard(employeeId) {
 
 // REVISED - This function now sets the gauge's maximum value to 4.
     function renderOverallScoreGauge(overall) {
+        // --- FIX: Add a defensive check to prevent errors if 'overall' is null or undefined ---
+        const actualScore = (overall && overall.actual) ? overall.actual : 0;
+        const requiredScore = (overall && overall.required) ? overall.required : 0;
+
         const data = google.visualization.arrayToDataTable([
           ['Label', 'Value'],
-          ['Score', overall.actual]
+          ['Score', actualScore]
         ]);
-        
-        const requiredScore = overall.required;
         // Adjusted color ranges for a 0-4 scale
         const redFrom = 0;
         const redTo = requiredScore - 1;

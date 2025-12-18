@@ -1283,10 +1283,7 @@ function getEmployeeData() {
     const isDepartmentViewable = (div, grp, dept, sect) => {
       const viewableDeptEntry = userPermissions['Viewable Department'] || '';
       if (viewableDeptEntry === 'all' || viewableDeptEntry === 'anyone') return true;
-      
       const allowedScopes = viewableDeptEntry.split(',').map(item => item.trim().toLowerCase()).filter(item => item);
-      
-      // Check against ALL location levels
       return allowedScopes.includes((div || '').toLowerCase()) ||
              allowedScopes.includes((grp || '').toLowerCase()) ||
              allowedScopes.includes((dept || '').toLowerCase()) ||
@@ -1312,9 +1309,9 @@ function getEmployeeData() {
         return (idx !== undefined) ? row[idx] : null;
     };
 
-    // 5. Build Employee List
+    // 5. Pre-process Data Maps
     const employeeIdToPositionIdMap = new Map();
-    const allEmployeesMap = new Map(); // Store RAW data for lookups
+    const allEmployeesMap = new Map(); 
     const activeEmployees = [];
     const divisions = new Set();
     const groups = new Set();
@@ -1366,7 +1363,7 @@ function getEmployeeData() {
     const employeesToShow = [];
     let hasReturnedAnyEmployee = false;
 
-    // 6. Main Loop
+    // 6. Main Loop - Filter Viewable Employees
     mainData.forEach(function (row) {
       const posId = val(row, 'Position ID');
       if (!posId) return;
@@ -1437,19 +1434,32 @@ function getEmployeeData() {
       });
     });
 
-    // --- FIX: GHOST NODES ---
+    // --- FIX: RECURSIVE GHOST NODE GENERATION ---
     const visibleIds = new Set(employeesToShow.map(e => e.positionId));
     const ghostNodes = new Map();
+    let nodesToCheck = [...employeesToShow]; // Queue for processing hierarchy
 
-    employeesToShow.forEach(emp => {
-        if (emp.managerId && emp.managerId !== '') {
-            if (!visibleIds.has(emp.managerId)) {
-                const mgrRow = allEmployeesMap.get(emp.managerId);
-                if (mgrRow) {
-                    if (!ghostNodes.has(emp.managerId)) {
-                        ghostNodes.set(emp.managerId, {
-                            positionId: emp.managerId,
-                            nodeId: emp.managerId,
+    // We loop until we stop finding new ghost managers (walking up the tree)
+    while (nodesToCheck.length > 0) {
+        const nextBatch = [];
+        
+        nodesToCheck.forEach(node => {
+            if (node.managerId && node.managerId !== '') {
+                // If manager is not visible and not already processed as a ghost
+                if (!visibleIds.has(node.managerId) && !ghostNodes.has(node.managerId)) {
+                    const mgrRow = allEmployeesMap.get(node.managerId);
+                    if (mgrRow) {
+                        // 1. Resolve Grand-Manager ID (Recursive Step)
+                        const rawManagerEmpId = val(mgrRow, 'Reporting to ID');
+                        let grandManagerPosId = '';
+                        if (rawManagerEmpId) {
+                             if (rawManagerEmpId.includes('-')) grandManagerPosId = rawManagerEmpId;
+                             else grandManagerPosId = employeeIdToPositionIdMap.get(rawManagerEmpId) || '';
+                        }
+
+                        const newGhost = {
+                            positionId: node.managerId,
+                            nodeId: node.managerId,
                             employeeName: val(mgrRow, 'Employee Name') || 'External Manager',
                             jobTitle: val(mgrRow, 'Job Title') || 'Manager',
                             employeeId: val(mgrRow, 'Employee ID'),
@@ -1457,24 +1467,43 @@ function getEmployeeData() {
                             gender: val(mgrRow, 'Gender'),
                             division: val(mgrRow, 'Division'),
                             department: val(mgrRow, 'Department'),
-                            managerId: '', 
+                            // Store the real manager ID so the chain continues up
+                            managerId: grandManagerPosId, 
                             isGhost: true,
                             positionStatus: 'Active',
-                            status: val(mgrRow, 'Status') || 'Active' 
-                        });
+                            status: val(mgrRow, 'Status') || 'Active'
+                        };
+                        
+                        // Prevent self-referencing loops
+                        if (newGhost.managerId === newGhost.positionId) {
+                            newGhost.managerId = '';
+                        }
+
+                        ghostNodes.set(node.managerId, newGhost);
+                        nextBatch.push(newGhost); // Add to queue to find *their* manager next
                     }
-                } else {
-                    emp.managerId = ''; 
                 }
             }
+        });
+        
+        nodesToCheck = nextBatch;
+    }
+
+    // Final Cleanup: If a ghost's manager doesn't exist in our known universe, clear it.
+    const finalAllIds = new Set([...visibleIds, ...ghostNodes.keys()]);
+    ghostNodes.forEach(ghost => {
+        if (ghost.managerId && !finalAllIds.has(ghost.managerId)) {
+             ghost.managerId = ''; // Become a Root Node
         }
     });
 
+    // Add all discovered ghosts to the main list
     ghostNodes.forEach(node => {
         employeesToShow.push(node);
     });
+    // --------------------------------------------------
 
-    // 7. Previous Headcount & Plantilla Logic (Smart Summing)
+    // 7. Previous Headcount Logic
     let previousHeadcount = {};
     let totalApprovedPlantilla = 0;
     let previousDateString = null;
@@ -1503,14 +1532,14 @@ function getEmployeeData() {
             
             prevData.forEach(function (row) {
               const division = row[0], group = row[1] || '', department = row[2] || '', section = row[3] || '';
+              
+              if (!isDepartmentViewable(division, group, department, section)) return;
+
               const rawPlantilla = row[plantillaIndex];
               const plantillaValue = (plantillaIndex !== -1 && rawPlantilla !== '' && !isNaN(rawPlantilla)) ? parseInt(rawPlantilla) : null;
               const filled = row[lastFilledIndex] || 0;
               const vacant = (row.length > lastVacantIndex) ? (row[lastVacantIndex] || 0) : 0;
               
-              // Skip rows the user is not allowed to see
-              if (!isDepartmentViewable(division, group, department, section)) return;
-
               if (division) {
                  if (!previousHeadcount[division]) previousHeadcount[division] = { filled: 0, vacant: 0, plantilla: null, groups: {} };
                  if (!previousHeadcount[division].groups[group]) previousHeadcount[division].groups[group] = { filled: 0, vacant: 0, plantilla: null, departments: {} };
@@ -1525,29 +1554,22 @@ function getEmployeeData() {
                  target.vacant = vacant;
                  target.plantilla = plantillaValue;
 
-                 // --- FIX: SMART SUMMING ---
-                 // Only add to Total if this row represents the HIGHEST level the user can see for this branch.
-                 
                  let isRootForUser = false;
                  if (!group && !department && !section) {
-                     // Division Row: Always a root if visible
-                     isRootForUser = true; 
+                     isRootForUser = true;
                  } 
                  else if (group && !department && !section) {
-                     // Group Row: Root only if parent (Division) is NOT viewable
                      if (!isDepartmentViewable(division, '', '', '')) {
                          isRootForUser = true;
                      }
                  }
                  else if (department && !section) {
-                     // Dept Row: Root only if parents (Group and Division) are NOT viewable
                      if (!isDepartmentViewable(division, group, '', '') && 
                          !isDepartmentViewable(division, '', '', '')) {
                          isRootForUser = true;
                      }
                  }
                  else if (section) {
-                     // Section Row: Root only if ALL parents are NOT viewable
                      if (!isDepartmentViewable(division, group, department, '') &&
                          !isDepartmentViewable(division, group, '', '') && 
                          !isDepartmentViewable(division, '', '', '')) {
@@ -1558,7 +1580,6 @@ function getEmployeeData() {
                  if (isRootForUser && plantillaValue !== null) {
                     totalApprovedPlantilla += plantillaValue;
                  }
-                 // --------------------------
               }
             });
           }

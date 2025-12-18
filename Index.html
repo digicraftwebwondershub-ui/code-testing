@@ -63,6 +63,9 @@
       width: auto;
       border: 2px solid;
       text-align: left;
+      
+      /* --- NEW: Add margin to space out nodes --- */
+      margin: 12px 16px; 
     }
     .node-card:hover .node-actions {
       display: flex;
@@ -164,6 +167,9 @@
       width: auto;
       border: 2px dashed #9ca3af;
       background-color: #f9fafb;
+
+      /* --- NEW: Add margin to space out vacant nodes too --- */
+      margin: 12px 16px;
     }
     .vacant-card:hover .node-actions {
       display: flex;
@@ -684,6 +690,29 @@
   opacity: 0.85;
   border-color: #9ca3af; /* Neutral Gray */
 }
+
+/* --- CHART CONTAINER FIXES --- */
+    #chart-wrapper {
+      width: 100%;
+      height: 85vh;
+      overflow: auto; /* Allow scrolling both horizontal and vertical */
+      padding: 20px;  /* Add padding so content isn't flush against the edge */
+      box-sizing: border-box; /* Ensure padding is calculated inside width */
+      position: relative; /* Needed for absolute positioning context if used */
+      text-align: center; /* helps center the chart initially */
+    }
+
+    #chart_div {
+      display: inline-block; /* Allows the div to expand with the chart */
+      min-width: 100%; /* Ensures it takes up at least full width */
+      transform-origin: top center; /* When zooming, zoom from center top */
+    }
+    
+    /* Ensure the chart table itself doesn't collapse margins */
+    #chart_div > table {
+      margin: 0 auto !important;
+      border-collapse: separate !important;
+    }
 
   </style>
 </head>
@@ -3620,6 +3649,8 @@ function updateNotificationBadges(counts) {
 function drawChart(filteredData) {
   // --- START FIX: SMART DATA SELECTION (RECURSIVE) ---
   let finalData = filteredData;
+  let matchingIds = new Set(); // NEW: To store IDs of direct matches
+  let isFiltered = false;      // NEW: Track if we are in a filtered state
 
   // Use 'orgChartData' to preserve Ghost Nodes and ensure connectivity
   if (typeof orgChartData !== 'undefined' && orgChartData.length > 0) {
@@ -3630,6 +3661,11 @@ function drawChart(filteredData) {
       const dpVal = document.getElementById('department-filter-value')?.value || 'all';
       const sVal = document.getElementById('section-filter-value')?.value || 'all';
       
+      // NEW: Determine if any filter is active
+      if (dVal !== 'all' || gVal !== 'all' || dpVal !== 'all' || sVal !== 'all') {
+          isFiltered = true;
+      }
+
       // FIX 2: Check the "Show Inactive" Checkbox
       const showInactive = document.getElementById('show-inactive-checkbox')?.checked || false;
 
@@ -3650,8 +3686,11 @@ function drawChart(filteredData) {
           return true;
       });
 
-      // 2. Recursively find which Ghost Managers are needed to connect them
-      const neededGhosts = new Set();
+      // NEW: Store IDs of strict matches for highlighting
+      matchingRealEmployees.forEach(e => matchingIds.add(e.nodeId));
+
+      // 2. Recursively find ALL Managers (Real or Ghost) needed to connect them
+      const neededConnectors = new Set();
       let nodesToTrace = [...matchingRealEmployees]; 
 
       // Walk up the hierarchy
@@ -3660,14 +3699,18 @@ function drawChart(filteredData) {
           
           nodesToTrace.forEach(node => {
               if (node.managerId) {
-                  // Look for the manager in the FULL dataset (which includes ghosts)
+                  // Look for the manager in the FULL dataset
                   const manager = orgChartData.find(e => e.nodeId === node.managerId);
                   
-                  if (manager && manager.isGhost) {
-                      // If we haven't processed this ghost yet, add it
-                      if (!neededGhosts.has(manager)) {
-                          neededGhosts.add(manager);
-                          nextTrace.push(manager); // Add to queue to trace *their* manager next
+                  if (manager) {
+                      // If we haven't processed this manager yet, and they aren't already a "match"
+                      // (We add them to neededConnectors so they appear on the chart)
+                      if (!neededConnectors.has(manager) && !matchingIds.has(manager.nodeId)) {
+                          neededConnectors.add(manager);
+                          nextTrace.push(manager); // Trace their manager next
+                      } else if (!neededConnectors.has(manager) && matchingIds.has(manager.nodeId)) {
+                          // If the manager IS a match, we still need to trace up, but don't add to connectors list (already in matches)
+                          nextTrace.push(manager);
                       }
                   }
               }
@@ -3676,8 +3719,8 @@ function drawChart(filteredData) {
           nodesToTrace = nextTrace; // Move up one level
       }
 
-      // 3. Combine matching real employees + all required ancestors
-      finalData = [...matchingRealEmployees, ...Array.from(neededGhosts)];
+      // 3. Combine matching employees + all required connectors
+      finalData = [...matchingRealEmployees, ...Array.from(neededConnectors)];
   }
   // --- END FIX ---
 
@@ -3694,10 +3737,18 @@ function drawChart(filteredData) {
   dataTable.addColumn('string', 'Node ID');
   dataTable.addColumn('string', 'Reporting to ID');
   
-  // This loop builds your custom HTML cards (Restored from your original code)
+  // This loop builds your custom HTML cards
   chartDataForDisplay.forEach(function(emp) {
       let nodeHtml;
       let actionsHtml = '';
+      
+      // NEW: Highlight Logic
+      let highlightClass = '';
+      if (isFiltered) {
+          // If in strict match list, highlight blue. Else, apply connector style.
+          highlightClass = matchingIds.has(emp.nodeId) ? 'highlight-match' : 'connector-node';
+      }
+
       const isInactive = (emp.positionStatus || '').toUpperCase() === 'INACTIVE';
 
       let inactiveOverlayHtml = '';
@@ -3769,7 +3820,8 @@ function drawChart(filteredData) {
           const statusClass = statusColors[normalizedStatus] || '';
           const statusDot = statusClass && !resignTag ? '<div class="status-dot ' + statusClass + '"></div>' : '';
           
-          nodeHtml = '<div class="node-card ' + levelBorderClass + ' ' + levelBgClass + ' ' + contractClass + '" onmouseover="showTooltip(event, \'' + emp.nodeId + '\')" onmouseout="hideTooltip()">' +
+          // ADDED highlightClass HERE
+          nodeHtml = '<div class="node-card ' + levelBorderClass + ' ' + levelBgClass + ' ' + contractClass + ' ' + highlightClass + '" onmouseover="showTooltip(event, \'' + emp.nodeId + '\')" onmouseout="hideTooltip()">' +
                         inactiveOverlayHtml + resignTag + statusDot + actionsHtml +
                         '<img src="' + photoUrl + '" onerror="this.onerror=null;this.src=\'https://i.imgur.com/RHvayzz.png\';">' +
                         '<div class="node-text">' +
@@ -3780,7 +3832,8 @@ function drawChart(filteredData) {
                         badgeHtml +
                       '</div>';
       } else {
-          nodeHtml = '<div class="vacant-card" onmouseover="showTooltip(event, \'' + emp.nodeId + '\')" onmouseout="hideTooltip()">' +
+          // ADDED highlightClass HERE
+          nodeHtml = '<div class="vacant-card ' + highlightClass + '" onmouseover="showTooltip(event, \'' + emp.nodeId + '\')" onmouseout="hideTooltip()">' +
                         inactiveOverlayHtml + actionsHtml +
                         '<div class="name">VACANT</div>' +
                         '<div class="title">' + emp.jobTitle + '</div>' +
@@ -3791,6 +3844,10 @@ function drawChart(filteredData) {
 
   chart = new google.visualization.OrgChart(document.getElementById('chart_div'));
   chart.draw(dataTable, { allowHtml: true, allowCollapse: true });
+
+  // Center the scroll view on load (Optional fix)
+  const wrapper = document.getElementById('chart-wrapper');
+  wrapper.scrollLeft = (wrapper.scrollWidth - wrapper.clientWidth) / 2;
 
   google.visualization.events.addListener(chart, 'select', function() {
       var selection = chart.getSelection();

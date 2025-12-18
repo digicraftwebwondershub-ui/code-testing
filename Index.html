@@ -2438,7 +2438,7 @@ function handleLogin(response) {
     document.getElementById('app-view').style.display = 'block';
     document.getElementById('user-info').textContent = 'Logged in as: ' + response.userEmail;
     // Now that the user is logged in, load the chart libraries and fetch data
-    google.charts.load('current', { packages: ['orgchart', 'corechart'] });
+    google.charts.load('current', { packages: ['orgchart', 'corechart', 'gauge'] });
     google.charts.setOnLoadCallback(fetchData);
   } else {
     document.getElementById('login-view').style.display = 'none';

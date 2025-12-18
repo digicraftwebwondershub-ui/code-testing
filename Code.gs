@@ -66,6 +66,7 @@ const CHANGE_REQUESTS_FOLDER_ID = '13v2wJoJm7LHf6O47rhkRbOAvjO1kQOj8';
 // Defines the sequential order of approval roles
 const APPROVAL_ROLES = ['Prepared By', 'Reviewed By', 'Noted By', 'Approved By'];
 const MASTERLIST_EXPORT_FOLDER_ID = '1aDBVm310V2ATGMujHVEYwz2EMNrMh4Bi'; // <-- ADD THIS LINE
+const HUB_SPREADSHEET_ID = '1g4-vE2b2g42La50B4d11p-p-27j3f6g9l6j1h3k5c8E'; // ID of the main Hub spreadsheet
 const TALENT_DATA_SPREADSHEET_ID = '1sBy8d-uuenTRu_jeT7paTtDmnxcHFOjGgn-eEG91knY'; // <-- ADD THIS LINE
 const COMPETENCY_SPREADSHEET_ID = '1D170oJ4KlWMdT0ankBGXEiwjO9PNExEKIz2aIBaMJEU'; // <-- ADD THIS LINE
 // --- END CONFIGURATION ---
@@ -104,7 +105,7 @@ function clearScriptCache() {
 
 function processRequestAction(requestId, action, comments) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
     const sheet = ss.getSheetByName('Org Chart Requests');
     if (!sheet) throw new Error('"Org Chart Requests" sheet not found.');
     
@@ -161,7 +162,7 @@ function logToSheet(message) {
 function implementApprovedChange(requestId) {
   try {
     logToSheet(`Starting implementation for request ID: ${requestId}`);
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
     const sheet = ss.getSheetByName('Org Chart Requests');
     if (!sheet) {
       throw new Error('"Org Chart Requests" sheet not found.');
@@ -395,7 +396,7 @@ function implementApprovedChange(requestId) {
 function _getEmployeeGender(employeeId) {
   if (!employeeId) return '';
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
     const allSheets = ss.getSheets();
     let mainSheet = null;
 
@@ -435,7 +436,7 @@ function _getEmployeeGender(employeeId) {
 
 function getRequestCounts() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
     const sheet = ss.getSheetByName('Org Chart Requests');
     if (!sheet || sheet.getLastRow() < 2) {
       return { myRequestsPending: 0, myRequestsRejected: 0, approvals: 0 };
@@ -482,7 +483,7 @@ function getRequestCounts() {
 function getChangeRequests() {
   try {
     Logger.log('getChangeRequests function started.');
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
     const sheet = ss.getSheetByName('Org Chart Requests');
     if (!sheet || sheet.getLastRow() < 2) {
       Logger.log('Sheet "Org Chart Requests" not found or empty.');
@@ -571,7 +572,7 @@ function getEmployeeDetails(employeeName) {
     return null;
   }
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
     const mainSheet = ss.getSheets()[0];
     if (mainSheet.getLastRow() < 2) {
       return null;
@@ -610,7 +611,7 @@ function getEmployeeDetails(employeeName) {
 
 function getLastIncumbentInfo(positionId) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
     const logSheet = ss.getSheetByName('change_log_sheet');
     if (!logSheet || logSheet.getLastRow() < 2) {
       return { dateBecameVacant: null };
@@ -1232,7 +1233,7 @@ function getIncumbencyHistory() {
 
 function getEmployeeData() {
   try {
-    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    const spreadsheet = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
     const userEmail = Session.getActiveUser().getEmail().toLowerCase();
     const mainSheet = spreadsheet.getSheets()[0]; 
 
@@ -1611,7 +1612,7 @@ function getEmployeeData() {
 }
 
 function getHistoricalNotes() {
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const spreadsheet = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
   const logSheet = spreadsheet.getSheetByName('change_log_sheet');
   const history = {};
   if (!logSheet || logSheet.getLastRow() < 2) return history;
@@ -1653,7 +1654,7 @@ function getHistoricalNotes() {
 
 function getApprovalData(department) {
   try {
-    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    const spreadsheet = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
     const snapshotTimestamp = PropertiesService.getScriptProperties().getProperty('snapshotTimestamp');
     const approvers = getApproversData()[department] || {};
     let approvalStatus = {};
@@ -1686,7 +1687,7 @@ function getApprovalData(department) {
 
 function recordApproval(role, department) {
   try {
-    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    const spreadsheet = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
     const approvalsSheet = spreadsheet.getSheetByName('Approvals');
     if (!approvalsSheet) throw new Error("Sheet 'Approvals' not found.");
     const user = Session.getActiveUser();
@@ -1722,7 +1723,7 @@ function recordApproval(role, department) {
 
 
 function getListsForDropdowns() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
   const mainSheet = ss.getSheets()[0];
   const refSheet = ss.getSheetByName("Reference Data");
 
@@ -1776,7 +1777,7 @@ function generateNewPositionId(division, section) {
     if (!division || !section) {
       return "ERROR: Division and Section are required.";
     }
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
     const mainSheet = ss.getSheets()[0];
 
 
@@ -1824,7 +1825,7 @@ function saveEmployeeData(dataObject, mode) {
     try {
         scriptProperties.setProperty('scriptChangeLock', 'true');
 
-        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        const ss = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
         const mainSheet = ss.getSheets()[0];
         logToSheet(`Target sheet: "${mainSheet.getName()}"`);
         const headers = mainSheet.getRange(1, 1, 1, mainSheet.getLastColumn()).getValues()[0];
@@ -2050,7 +2051,7 @@ function deactivatePosition(positionId) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
     const mainSheet = ss.getSheets()[0];
     const positionIdCol = mainSheet.getRange("A:A").getValues();
     const rowIndex = positionIdCol.findIndex(row => row[0] === positionId);
@@ -2290,7 +2291,7 @@ function getDetailedIncumbencyHistory(posId) {
   }
 
   try {
-    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    const spreadsheet = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
     const mainSheet = spreadsheet.getSheets()[0];
     const logSheet = spreadsheet.getSheetByName('change_log_sheet');
     if (!logSheet || !mainSheet || logSheet.getLastRow() < 2) return [];
@@ -2366,7 +2367,7 @@ function getDetailedIncumbencyHistory(posId) {
  */
 // PASTE THIS ENTIRE CORRECTED FUNCTION
 function getUpcomingDues() {
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const spreadsheet = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
   const mainSheet = spreadsheet.getSheets()[0];
   const logSheet = spreadsheet.getSheetByName('change_log_sheet');
 
@@ -2543,7 +2544,7 @@ function getUpcomingDues() {
 
 // PASTE THIS ENTIRE CORRECTED FUNCTION
 function getResignationData(filters) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
   const mainSheet = ss.getSheets()[0];
   const resignationSheet = ss.getSheetByName('Resignation Data');
   const emptyResult = { reasonCounts: {}, resignationGenderCounts: {}, resignationContractCounts: {}, resignationDivisionCounts: {}, resignationJobGroupCounts: {}, monthlyTurnover: [], yearlyHiresLeavers: { hires: 0, leavers: 0 }, ytdTurnover: 0, attritionRate: 0, overallHeadcount: 0, filteredResignationsCount: 0, retentionRate: 0 };
@@ -2677,7 +2678,7 @@ function getResignationData(filters) {
 }
 
 function getAnalyticsData(filters) {
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const spreadsheet = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
   const mainSheet = spreadsheet.getSheets()[0];
   const previousSheet = spreadsheet.getSheetByName('Previous Headcount');
   let headers = [];
@@ -2862,7 +2863,7 @@ function getAnalyticsData(filters) {
 }
 
 function getEmployeeMovementData(filters) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
   const mainSheet = ss.getSheets()[0];
   const logSheet = ss.getSheetByName('change_log_sheet');
 
@@ -3093,7 +3094,7 @@ function getDateHired(employeeId) {
     return null;
   }
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
     const mainSheet = ss.getSheets()[0];
     if (mainSheet.getLastRow() < 2) {
       return null;
@@ -3147,7 +3148,7 @@ function reactivatePosition(positionId) {
 
 function getMasterlistData(filters) {
   try {
-    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    const spreadsheet = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
     const mainSheet = spreadsheet.getSheets()[0];
     
     if (mainSheet.getLastRow() < 1) {
@@ -3297,7 +3298,7 @@ function getRequestDocumentList(requestId) {
     if (!requestFolders.hasNext()) {
       // If the folder doesn't exist, it might be an older request before folder creation was implemented.
       // In that case, we can try to find a single file link in the sheet data.
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const ss = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
       const sheet = ss.getSheetByName('Org Chart Requests');
       if (sheet) {
           const data = sheet.getDataRange().getValues();
@@ -3346,7 +3347,7 @@ function getRequestDocumentList(requestId) {
 
 function getAttritionRiskData() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
     const mainSheet = ss.getSheets()[0];
     const resignationSheet = ss.getSheetByName('Resignation Data');
     const logSheet = ss.getSheetByName('change_log_sheet');
@@ -3472,7 +3473,7 @@ function getTeamCompetencyHeatmap(filters) {
   if (!hasFilter) return { error: 'Please select at least one filter.' };
 
   try {
-    const hubSs = SpreadsheetApp.getActiveSpreadsheet();
+    const hubSs = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
     const mainSheet = hubSs.getSheets()[0];
     const compSs = SpreadsheetApp.openById(COMPETENCY_SPREADSHEET_ID);
     const compSheet = compSs.getSheetByName('Competency Matrix');
@@ -3601,7 +3602,7 @@ function getCompetencyDeepDive(employeeId, competencyName) {
 
   try {
     // 1. Open Sheets
-    const hubSs = SpreadsheetApp.getActiveSpreadsheet();
+    const hubSs = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
     const mainSheet = hubSs.getSheets()[0];
     const compSs = SpreadsheetApp.openById(COMPETENCY_SPREADSHEET_ID);
     const compSheet = compSs.getSheetByName('Competency Matrix');
@@ -3801,7 +3802,7 @@ function getHiringPredictions() {
 function checkUserAccess() {
   try {
     const userEmail = Session.getActiveUser().getEmail().toLowerCase();
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
     const permissionsSheet = ss.getSheetByName('Permissions');
     
     if (!permissionsSheet) {
@@ -3829,7 +3830,7 @@ function checkUserAccess() {
 
 function submitChangeRequest(requestData) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
     const sheet = ss.getSheetByName('Org Chart Requests');
     if (!sheet) throw new Error('"Org Chart Requests" sheet not found.');
     
@@ -3954,7 +3955,7 @@ function submitChangeRequest(requestData) {
 
 function getApproverList() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
     const sheet = ss.getSheetByName('Permissions');
     if (!sheet || sheet.getLastRow() < 2) {
       return [];
@@ -3995,7 +3996,7 @@ function getApproverList() {
 function getTalentAnalyticsData() {
   try {
     // Open both spreadsheets
-    const hubSs = SpreadsheetApp.getActiveSpreadsheet();
+    const hubSs = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
     const talentSs = SpreadsheetApp.openById(TALENT_DATA_SPREADSHEET_ID);
 
     // Get current active employees from the main hub sheet
@@ -4227,7 +4228,7 @@ function getCompetencyAnalytics(employeeId) {
   if (!employeeId) return { error: 'No employee ID provided.' };
 
   try {
-    const hubSs = SpreadsheetApp.getActiveSpreadsheet();
+    const hubSs = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
     const compSs = SpreadsheetApp.openById(COMPETENCY_SPREADSHEET_ID);
     const mainSheet = hubSs.getSheets()[0];
     const compSheet = compSs.getSheetByName('Competency Matrix');
@@ -4403,7 +4404,7 @@ function getCompetencyAnalytics(employeeId) {
  */
 function getPreviewOrgChartData(requestId) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(HUB_SPREADSHEET_ID);
     const mainSheet = ss.getSheets()[0];
     const requestSheet = ss.getSheetByName('Org Chart Requests');
 

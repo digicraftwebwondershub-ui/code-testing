@@ -1238,7 +1238,6 @@ function getEmployeeData() {
 
     // 1. Fetch Permissions
     const permissions = getSessionPermissions();
-
     // 2. Fetch Resignation Data
     const logSheet = spreadsheet.getSheetByName('change_log_sheet');
     const resignationDates = new Map();
@@ -1248,7 +1247,6 @@ function getEmployeeData() {
       const posIdIdx = logHeaders.indexOf('position id');
       const statusIdx = logHeaders.indexOf('status');
       const dateIdx = logHeaders.indexOf('effective date');
-
       if (posIdIdx > -1 && statusIdx > -1 && dateIdx > -1) {
         logData.forEach(row => {
           if (row[posIdIdx] && String(row[statusIdx]).toUpperCase() === 'RESIGNED' && row[dateIdx] instanceof Date) {
@@ -1278,7 +1276,6 @@ function getEmployeeData() {
     }
 
     const isFieldAuthorized = (fieldName) => (userPermissions[fieldName] === 'x' || userPermissions[fieldName] === 'all' || userPermissions[fieldName] === 'anyone');
-    
     // Permission Scope Check
     const isDepartmentViewable = (div, grp, dept, sect) => {
       const viewableDeptEntry = userPermissions['Viewable Department'] || '';
@@ -1289,10 +1286,8 @@ function getEmployeeData() {
              allowedScopes.includes((dept || '').toLowerCase()) ||
              allowedScopes.includes((sect || '').toLowerCase());
     };
-
     const canEdit = userPermissions['Can Edit'] === 'x' || userPermissions['Can Edit'] === 'all' || userPermissions['Can Edit'] === 'anyone';
     const canApprove = userPermissions['Is Approver'] === 'x' || userPermissions['Is Approver'] === 'all' || userPermissions['Is Approver'] === 'anyone';
-
     // 4. Fetch Main Data
     if (mainSheet.getLastRow() < 2) {
       return { current: [], previous: {}, snapshotTimestamp: null, currentUserEmail: userEmail, canEdit: canEdit, canApprove: canApprove, canViewCompetency: false, totalApprovedPlantilla: 0 };
@@ -1300,7 +1295,7 @@ function getEmployeeData() {
 
     const lastCol = Math.max(25, mainSheet.getLastColumn()); 
     const allRows = mainSheet.getRange(1, 1, mainSheet.getLastRow(), lastCol).getValues();
-    const headers = allRows.shift(); 
+    const headers = allRows.shift();
     const mainData = allRows;
 
     const h = new Map(headers.map((name, i) => [String(name).trim().toLowerCase().replace(/\s+/g, ''), i]));
@@ -1317,7 +1312,6 @@ function getEmployeeData() {
     const groups = new Set();
     const departments = new Set();
     const sections = new Set();
-
     mainData.forEach(row => {
       const empId = val(row, 'Employee ID') ? String(val(row, 'Employee ID')).trim() : null;
       const posId = val(row, 'Position ID') ? String(val(row, 'Position ID')).trim() : null;
@@ -1334,7 +1328,6 @@ function getEmployeeData() {
       const dept = val(row, 'Department'); if(dept) departments.add(dept);
       const sect = val(row, 'Section'); if(sect) sections.add(sect);
     });
-
     const refSheet = spreadsheet.getSheetByName("Reference Data");
     let staticLists = {};
     if (refSheet) {
@@ -1357,12 +1350,10 @@ function getEmployeeData() {
         sections: [...sections].sort(),
         ...staticLists
     };
-
     const historicalNotes = getHistoricalNotes();
     const incumbencyHistory = getIncumbencyHistory();
     const employeesToShow = [];
     let hasReturnedAnyEmployee = false;
-
     // 6. Main Loop - Filter Viewable Employees
     mainData.forEach(function (row) {
       const posId = val(row, 'Position ID');
@@ -1430,26 +1421,25 @@ function getEmployeeData() {
         dateOfBirth: dateOfBirth,
         contractEndDate: contractEndDate,
         historicalNote: history,
-        resignationDate: resignationDate
+        resignationDate: resignationDate,
+        // --- NEW: EVALUATION DATES ---
+        thirdMonthEval: val(row, '3rd Month Eval Date') instanceof Date ? Utilities.formatDate(val(row, '3rd Month Eval Date'), Session.getScriptTimeZone(), 'yyyy-MM-dd') : null,
+        fifthMonthEval: val(row, '5th Month Eval Date') instanceof Date ? Utilities.formatDate(val(row, '5th Month Eval Date'), Session.getScriptTimeZone(), 'yyyy-MM-dd') : null
       });
     });
 
-    // --- FIX: RECURSIVE GHOST NODE GENERATION ---
+    // --- RECURSIVE GHOST NODE GENERATION ---
     const visibleIds = new Set(employeesToShow.map(e => e.positionId));
     const ghostNodes = new Map();
-    let nodesToCheck = [...employeesToShow]; // Queue for processing hierarchy
+    let nodesToCheck = [...employeesToShow]; 
 
-    // We loop until we stop finding new ghost managers (walking up the tree)
     while (nodesToCheck.length > 0) {
         const nextBatch = [];
-        
         nodesToCheck.forEach(node => {
             if (node.managerId && node.managerId !== '') {
-                // If manager is not visible and not already processed as a ghost
                 if (!visibleIds.has(node.managerId) && !ghostNodes.has(node.managerId)) {
                     const mgrRow = allEmployeesMap.get(node.managerId);
                     if (mgrRow) {
-                        // 1. Resolve Grand-Manager ID (Recursive Step)
                         const rawManagerEmpId = val(mgrRow, 'Reporting to ID');
                         let grandManagerPosId = '';
                         if (rawManagerEmpId) {
@@ -1467,37 +1457,30 @@ function getEmployeeData() {
                             gender: val(mgrRow, 'Gender'),
                             division: val(mgrRow, 'Division'),
                             department: val(mgrRow, 'Department'),
-                            // Store the real manager ID so the chain continues up
                             managerId: grandManagerPosId, 
                             isGhost: true,
                             positionStatus: 'Active',
                             status: val(mgrRow, 'Status') || 'Active'
                         };
-                        
-                        // Prevent self-referencing loops
                         if (newGhost.managerId === newGhost.positionId) {
                             newGhost.managerId = '';
                         }
 
                         ghostNodes.set(node.managerId, newGhost);
-                        nextBatch.push(newGhost); // Add to queue to find *their* manager next
+                        nextBatch.push(newGhost); 
                     }
                 }
             }
         });
-        
         nodesToCheck = nextBatch;
     }
 
-    // Final Cleanup: If a ghost's manager doesn't exist in our known universe, clear it.
     const finalAllIds = new Set([...visibleIds, ...ghostNodes.keys()]);
     ghostNodes.forEach(ghost => {
         if (ghost.managerId && !finalAllIds.has(ghost.managerId)) {
-             ghost.managerId = ''; // Become a Root Node
+             ghost.managerId = ''; 
         }
     });
-
-    // Add all discovered ghosts to the main list
     ghostNodes.forEach(node => {
         employeesToShow.push(node);
     });
@@ -1514,7 +1497,7 @@ function getEmployeeData() {
         const prevDataRange = previousSheet.getDataRange();
         const prevData = prevDataRange.getValues();
         if (prevData.length > 0) {
-          const prevHeaders = prevData.shift(); 
+          const prevHeaders = prevData.shift();
           const plantillaIndex = prevHeaders.indexOf('Approved Plantilla');
           
           let lastFilledIndex = -1;
@@ -1523,13 +1506,12 @@ function getEmployeeData() {
               lastFilledIndex = i;
               const headerText = String(prevHeaders[i]);
               previousDateString = headerText.substring(0, headerText.toLowerCase().indexOf(' filled')).trim();
-              break; 
+              break;
             }
           }
 
           if (lastFilledIndex !== -1) {
             const lastVacantIndex = lastFilledIndex + 1;
-            
             prevData.forEach(function (row) {
               const division = row[0], group = row[1] || '', department = row[2] || '', section = row[3] || '';
               
@@ -2381,35 +2363,25 @@ function getUpcomingDues() {
 
   // --- 1. ACCESS CONTROL SETUP ---
   const permissions = getSessionPermissions();
-  
-  // Helper to check if a specific row is viewable by the current user
   const isRowVisible = (div, grp, dept, sect) => {
-      // If user has 'ALL' access, show everything
       if (permissions.allowedScopes.includes('ALL')) return true;
-      
-      // Check if any of the employee's location fields match the allowed scopes
       return permissions.allowedScopes.includes((div || '').toString().trim().toLowerCase()) ||
              permissions.allowedScopes.includes((grp || '').toString().trim().toLowerCase()) ||
              permissions.allowedScopes.includes((dept || '').toString().trim().toLowerCase()) ||
              permissions.allowedScopes.includes((sect || '').toString().trim().toLowerCase());
   };
-  // -------------------------------
 
   // --- 2. DYNAMIC HEADER MAPPING ---
   const mainData = mainSheet.getDataRange().getValues();
-  const headers = mainData.shift(); // Remove header row
+  const headers = mainData.shift();
   
-  // Map header names to column indices (robust against column moves)
   const h = new Map(headers.map((name, i) => [String(name).trim().toLowerCase().replace(/\s+/g, ''), i]));
   const val = (row, headerName) => {
       const idx = h.get(headerName.toLowerCase().replace(/\s+/g, ''));
       return (idx !== undefined) ? row[idx] : null;
   };
-  // ---------------------------------
 
   const mainDataMap = new Map();
-  
-  // Build Map and Process Main Sheet Checks
   mainData.forEach(row => {
       const posId = val(row, 'Position ID');
       if (posId) mainDataMap.set(posId, row);
@@ -2417,14 +2389,12 @@ function getUpcomingDues() {
       const positionStatus = (val(row, 'Position Status') || '').toString().trim().toUpperCase();
       if (positionStatus === 'INACTIVE') return;
 
-      // --- SCOPE CHECK ---
       const div = val(row, 'Division');
       const grp = val(row, 'Group');
       const dept = val(row, 'Department');
       const sect = val(row, 'Section');
       
-      if (!isRowVisible(div, grp, dept, sect)) return; // SKIP if not in user's scope
-      // -------------------
+      if (!isRowVisible(div, grp, dept, sect)) return;
 
       const employeeName = val(row, 'Employee Name');
       const contractType = (val(row, 'Contract Type') || '').toString().trim().toUpperCase();
@@ -2438,7 +2408,6 @@ function getUpcomingDues() {
           normalizedEndDate.setHours(0, 0, 0, 0);
           const timeDiff = normalizedEndDate.getTime() - today.getTime();
           const days = Math.round(timeDiff / (1000 * 60 * 60 * 24));
-
           if (days >= 0 && days <= 30) {
               upcoming.push({ days, message: `${employeeName}'s JPRO contract ends in ${days} day${days !== 1 ? 's' : ''}.` });
           } else if (days < 0) {
@@ -2449,35 +2418,44 @@ function getUpcomingDues() {
 
       // 2. Probationary / New Hire Logic
       if ((status === 'PROBATIONARY' || status === 'NEW HIRE') && dateHired instanceof Date) {
-          // 3-Month Evaluation
-          const evaluationDate = new Date(dateHired.getTime());
-          evaluationDate.setMonth(evaluationDate.getMonth() + 3);
-          evaluationDate.setHours(0, 0, 0, 0);
-          const evalDays = Math.round((evaluationDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          
+          // --- GET COMPLETED DATES ---
+          const eval3Done = val(row, '3rd Month Eval Date');
+          const eval5Done = val(row, '5th Month Eval Date');
 
-          if (evalDays >= 0 && evalDays <= 30) {
-              upcoming.push({ days: evalDays, message: `${employeeName} is due for 3-month evaluation in ${evalDays} day${evalDays !== 1 ? 's' : ''}.` });
-          } else if (evalDays < 0 && evalDays >= -30) {
-              const evalDaysAgo = Math.abs(evalDays);
-              overdue.push({ days: evalDaysAgo, message: `${employeeName}'s 3-month evaluation was due ${evalDaysAgo} day${evalDaysAgo !== 1 ? 's' : ''} ago.` });
+          // 3-Month Evaluation Logic
+          if (!eval3Done) {
+              const evaluationDate = new Date(dateHired.getTime());
+              evaluationDate.setMonth(evaluationDate.getMonth() + 3);
+              evaluationDate.setHours(0, 0, 0, 0);
+              const evalDays = Math.round((evaluationDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+              
+              if (evalDays >= 0 && evalDays <= 30) {
+                  upcoming.push({ days: evalDays, message: `${employeeName} is due for 3-month evaluation in ${evalDays} day${evalDays !== 1 ? 's' : ''}.` });
+              } else if (evalDays < 0 && evalDays >= -30) {
+                  const evalDaysAgo = Math.abs(evalDays);
+                  overdue.push({ days: evalDaysAgo, message: `${employeeName}'s 3-month evaluation was due ${evalDaysAgo} day${evalDaysAgo !== 1 ? 's' : ''} ago.` });
+              }
           }
 
-          // 6-Month Regularization
-          const regularizationDate = new Date(dateHired.getTime());
-          regularizationDate.setMonth(regularizationDate.getMonth() + 6);
-          regularizationDate.setHours(0, 0, 0, 0);
-          const regDays = Math.round((regularizationDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-          if (regDays >= 0 && regDays <= 30) {
-              upcoming.push({ days: regDays, message: `${employeeName} is due for regularization in ${regDays} day${regDays !== 1 ? 's' : ''}.` });
-          } else if (regDays < 0) {
-              const regDaysAgo = Math.abs(regDays);
-              overdue.push({ days: regDaysAgo, message: `${employeeName}'s regularization was due ${regDaysAgo} day${regDaysAgo !== 1 ? 's' : ''} ago. Please update their status.` });
+          // 5th Month / Regularization Logic
+          if (!eval5Done) {
+              const regularizationDate = new Date(dateHired.getTime());
+              regularizationDate.setMonth(regularizationDate.getMonth() + 5); 
+              regularizationDate.setHours(0, 0, 0, 0);
+              const regDays = Math.round((regularizationDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+              
+              if (regDays >= 0 && regDays <= 30) {
+                  upcoming.push({ days: regDays, message: `${employeeName} is due for 5th-month evaluation in ${regDays} day${regDays !== 1 ? 's' : ''}.` });
+              } else if (regDays < 0) {
+                  const regDaysAgo = Math.abs(regDays);
+                  overdue.push({ days: regDaysAgo, message: `${employeeName}'s 5th-month evaluation was due ${regDaysAgo} day${regDaysAgo !== 1 ? 's' : ''} ago.` });
+              }
           }
       }
   });
 
-  // 3. Resignation Logic (from Log Sheet)
+  // 3. Resignation Logic
   if (logSheet && logSheet.getLastRow() > 1) {
     const logData = logSheet.getDataRange().getValues();
     const logHeaders = logData.shift();
@@ -2490,8 +2468,6 @@ function getUpcomingDues() {
 
     if (logPosIdIdx > -1 && logStatusIndex > -1 && logEffectiveDateIndex > -1) {
       const latestResignations = new Map();
-      
-      // Find latest resignation per position
       for (let i = logData.length - 1; i >= 0; i--) {
         const row = logData[i];
         const posId = row[logPosIdIdx];
@@ -2502,17 +2478,14 @@ function getUpcomingDues() {
       }
 
       latestResignations.forEach((resignation, posId) => {
-        // Cross-reference with current main data to ensure we still check permissions
         const currentPosRow = mainDataMap.get(posId);
         if (!currentPosRow) return;
 
-        // --- SCOPE CHECK (Again, for the resignation logic) ---
         const div = val(currentPosRow, 'Division');
         const grp = val(currentPosRow, 'Group');
         const dept = val(currentPosRow, 'Department');
         const sect = val(currentPosRow, 'Section');
         if (!isRowVisible(div, grp, dept, sect)) return;
-        // ------------------------------------------------------
 
         const currentStatus = (val(currentPosRow, 'Status') || '').toString().trim().toUpperCase();
         if (currentStatus !== 'RESIGNED') return;
@@ -2522,7 +2495,6 @@ function getUpcomingDues() {
           const normalizedEffectiveDate = new Date(effectiveDate.getTime());
           normalizedEffectiveDate.setHours(0, 0, 0, 0);
           const days = Math.round((normalizedEffectiveDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
           if (days >= 0 && days <= 30) {
             upcoming.push({ days, message: `${resignation.name}'s resignation is effective in ${days} day${days !== 1 ? 's' : ''}.` });
           } else if (days < 0) {

@@ -4263,6 +4263,14 @@ function drawChart(filteredData) {
   });
 }
 
+// --- RESTORED FUNCTION: Show Employee Details on Click ---
+function showEmployeeDetails(employee) {
+  if (!employee) return;
+  // Use the existing modal in 'edit' mode to show details
+  // If the user doesn't have permission, the modal logic will handle read-only or hide buttons
+  openModal('edit', employee.nodeId);
+}
+
 function showTooltip(event, nodeId) {
     if (typeof tooltipTimeout !== 'undefined') clearTimeout(tooltipTimeout);
     
@@ -6193,57 +6201,6 @@ function drawPredictiveInsights() {
 }
 
 // --- END: NEW PREDICTIVE INSIGHTS SCRIPT ---
-
-// --- START: NEW PREDICTIVE INSIGHTS SCRIPT ---
-
-function drawPredictiveInsights() {
-  predictiveDataLoaded = true;
-  document.getElementById('attrition-risk-loader').style.display = 'flex';
-  document.getElementById('attrition-risk-content').style.display = 'none';
-
-  google.script.run
-    .withSuccessHandler(function(data) {
-      const tableBody = document.getElementById('attrition-risk-table-body');
-      tableBody.innerHTML = ''; 
-
-      if (data.error) {
-        tableBody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-red-500">Error: ${data.error}</td></tr>`;
-      } else if (data.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-gray-500">No significant attrition risks identified based on current data.</td></tr>`;
-      } else {
-        data.forEach(employee => {
-          const row = document.createElement('tr');
-          let riskLevelHtml = '';
-          if (employee.score >= 5) {
-              riskLevelHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">High</span>';
-          } else if (employee.score >= 3) {
-              riskLevelHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Medium</span>';
-          } else {
-              riskLevelHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Low</span>';
-          }
-
-          row.innerHTML = `
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${employee.name}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${employee.position}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${employee.department}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-bold">${riskLevelHtml}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${employee.factors}</td>
-          `;
-          tableBody.appendChild(row);
-        });
-      }
-
-      document.getElementById('attrition-risk-loader').style.display = 'none';
-      document.getElementById('attrition-risk-content').style.display = 'block';
-    })
-    .withFailureHandler(function(err) {
-      const tableBody = document.getElementById('attrition-risk-table-body');
-      tableBody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-red-500">Failed to load predictive data. Error: ${err.message}</td></tr>`;
-      document.getElementById('attrition-risk-loader').style.display = 'none';
-      document.getElementById('attrition-risk-content').style.display = 'block';
-    })
-    .getAttritionRiskData();
-}
 
 function drawHiringPredictions() {
   document.getElementById('tth-prediction-loader').style.display = 'flex';

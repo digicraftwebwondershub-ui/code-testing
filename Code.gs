@@ -58,16 +58,16 @@ function getAllCompetencies() {
 // IMPORTANT: You MUST update this URL if you create a new web app deployment that changes its link!
 // Please ensure this is the exact URL of your deployed web app that has "Execute as: Me" and "Who has access: Anyone".
 const WEB_APP_URL = "YOUR_WEB_APP_URL_GOES_HERE"; // PASTE YOUR NEW DEPLOYMENT URL HERE
-const JD_GENERAL_FOLDER_ID = '1b-I5ENMnACXGPshaBqBBj2174H2yhPhW';
-const JD_INCUMBENT_FOLDER_ID = '1DGUtgd3_3sL_FtDl6_tbB1uS-Cx6T8pq';
-const CHANGE_REQUESTS_FOLDER_ID = '13v2wJoJm7LHf6O47rhkRbOAvjO1kQOj8';
+const JD_GENERAL_FOLDER_ID = '1Sv7uvDKlzFhEiM1ljCrRGvC51KgIZJfp';
+const JD_INCUMBENT_FOLDER_ID = '1ryXesBBwLs8Y1oEfLYDhDIxPQdeB_Ngx';
+const CHANGE_REQUESTS_FOLDER_ID = '1XSW0ktaHt6eRkoZAuHdx8nCo1T2XCSn8';
 
 
 // Defines the sequential order of approval roles
 const APPROVAL_ROLES = ['Prepared By', 'Reviewed By', 'Noted By', 'Approved By'];
-const MASTERLIST_EXPORT_FOLDER_ID = '1aDBVm310V2ATGMujHVEYwz2EMNrMh4Bi'; // <-- ADD THIS LINE
+const MASTERLIST_EXPORT_FOLDER_ID = '1NcOH0Cx5lPRiRilGKkiO1tRiWn1d3P5q'; // <-- ADD THIS LINE
 const TALENT_DATA_SPREADSHEET_ID = '1sBy8d-uuenTRu_jeT7paTtDmnxcHFOjGgn-eEG91knY'; // <-- ADD THIS LINE
-const COMPETENCY_SPREADSHEET_ID = '1D170oJ4KlWMdT0ankBGXEiwjO9PNExEKIz2aIBaMJEU'; // <-- ADD THIS LINE
+const COMPETENCY_SPREADSHEET_ID = '1cj_RuroWG5Tl1OqzalyK7t4dLDck-7Ytj5O1eb-Ks5c'; // <-- ADD THIS LINE
 // --- END CONFIGURATION ---
 
 function doGet(e) {
@@ -1395,6 +1395,7 @@ function getEmployeeData() {
         resignationDate = Utilities.formatDate(resignationDates.get(posId), Session.getScriptTimeZone(), 'yyyy-MM-dd');
       }
 
+      // --- UPDATE THIS BLOCK IN getEmployeeData ---
       employeesToShow.push({
         positionId: posId,
         employeeId: val(row, 'Employee ID'),
@@ -1415,6 +1416,12 @@ function getEmployeeData() {
         contractType: isFieldAuthorized('Contract Type') ? val(row, 'Contract Type') : null,
         stylingContractType: val(row, 'Contract Type'),
         competency: isFieldAuthorized('Competency') ? val(row, 'Competency') : null,
+        
+        // --- NEW FIELDS ---
+        workLocation: val(row, 'Work Location'),
+        movementType: val(row, 'Movement Type'),
+        // ------------------
+
         status: employeeStatus,
         positionStatus: val(row, 'Position Status') || 'Active',
         dateHired: dateHired,
@@ -1422,7 +1429,6 @@ function getEmployeeData() {
         contractEndDate: contractEndDate,
         historicalNote: history,
         resignationDate: resignationDate,
-        // --- NEW: EVALUATION DATES ---
         thirdMonthEval: val(row, '3rd Month Eval Date') instanceof Date ? Utilities.formatDate(val(row, '3rd Month Eval Date'), Session.getScriptTimeZone(), 'yyyy-MM-dd') : null,
         fifthMonthEval: val(row, '5th Month Eval Date') instanceof Date ? Utilities.formatDate(val(row, '5th Month Eval Date'), Session.getScriptTimeZone(), 'yyyy-MM-dd') : null
       });
@@ -2976,42 +2982,68 @@ function generateMasterlistSheetWithPrompt() {
   }
 }
 
+/**
+ * GETS LATEST JD (Supports Folders & Loose Files)
+ */
 function getJdFileUrl(positionId, employeeId, jobTitle, type) {
   try {
-    let folder;
-    let files;
+    const rootFolderId = (type === 'general') ? JD_GENERAL_FOLDER_ID : JD_INCUMBENT_FOLDER_ID;
+    const rootFolder = DriveApp.getFolderById(rootFolderId);
     
+    // 1. Prepare Names
+    const cleanPosId = (positionId || "NO-ID").toString().toUpperCase().trim();
+    const cleanTitle = (jobTitle || "JOB-TITLE").toString().toUpperCase().trim();
+    
+    let filePrefix;
+    let folderName;
+
     if (type === 'general') {
-      folder = DriveApp.getFolderById(JD_GENERAL_FOLDER_ID);
-      const searchPrefix = positionId;
-      files = folder.getFiles();
-      // Loop through all files in the folder to find a match
-      while (files.hasNext()) {
-        const file = files.next();
-        // If a file starts with the Position ID, we've found it
-        if (file.getName().startsWith(searchPrefix)) {
-          // Use the correct embedding URL format
-          return `https://drive.google.com/file/d/${file.getId()}/preview`;
-        }
-      }
-    } else if (type === 'incumbent') {
-      if (!employeeId) {
-        return null; // Still require an employeeId for this type
-      }
-      folder = DriveApp.getFolderById(JD_INCUMBENT_FOLDER_ID);
-      // The incumbent filename is more specific, so we can do a more targeted search
-      const fileName = `${positionId}-${jobTitle}-${employeeId}.pdf`;
-      files = folder.getFilesByName(fileName);
-      if (files.hasNext()) {
-        const file = files.next();
-        // Use the correct embedding URL format
-        return `https://drive.google.com/file/d/${file.getId()}/preview`;
-      }
+      // General: Search files by ID, Folder by "ID TITLE"
+      filePrefix = cleanPosId; 
+      folderName = `${cleanPosId} ${cleanTitle}`;
     } else {
-      throw new Error("Invalid job description type specified.");
+      // Incumbent: Search files and folder by full string
+      const cleanEmpId = (employeeId || "NO-EMP").toString().trim();
+      filePrefix = `${cleanPosId}-${cleanTitle}-${cleanEmpId}`;
+      folderName = filePrefix;
     }
 
-    return null; // Return null if no file was found after searching
+    // 2. Determine Search Folder
+    // Check if the specific sub-folder exists. If yes, search THERE. If no, search ROOT.
+    let searchFolder = rootFolder;
+    const subFolders = rootFolder.getFoldersByName(folderName);
+    
+    if (subFolders.hasNext()) {
+        searchFolder = subFolders.next();
+    }
+
+    // 3. Find Matches in the determined folder
+    const files = searchFolder.getFiles();
+    const matches = [];
+    const versionRegex = /Ver_(\d+)/i;
+
+    while (files.hasNext()) {
+      const file = files.next();
+      const name = file.getName();
+      
+      if (name.toUpperCase().startsWith(filePrefix)) {
+        const match = name.match(versionRegex);
+        // Default to 0 if no version number (Legacy support)
+        const version = match ? parseInt(match[1], 10) : 0;
+        
+        matches.push({
+          file: file,
+          version: version,
+          name: name
+        });
+      }
+    }
+
+    if (matches.length === 0) return null;
+
+    // 4. Sort Descending (Highest Version First) and Return
+    matches.sort((a, b) => b.version - a.version);
+    return `https://drive.google.com/file/d/${matches[0].file.getId()}/preview`;
 
   } catch (e) {
     Logger.log(`Error in getJdFileUrl: ${e.toString()}`);
@@ -5065,4 +5097,97 @@ function isScopeAllowed(targetValue, allowedScopes) {
   if (!targetValue) return false;
   if (allowedScopes.includes('ALL')) return true;
   return allowedScopes.includes(targetValue.toString().toLowerCase().trim());
+}
+
+/**
+ * UPLOADS JD & AUTO-ORGANIZES FOLDERS
+ * Logic: If version count > 1, creates a sub-folder and moves files there.
+ */
+function uploadJdFile(fileData, type, positionId, employeeId, jobTitle) {
+  try {
+    const rootFolderId = (type === 'general') ? JD_GENERAL_FOLDER_ID : JD_INCUMBENT_FOLDER_ID;
+    const rootFolder = DriveApp.getFolderById(rootFolderId);
+    
+    // 1. Clean Metadata
+    const cleanPosId = (positionId || "NO-ID").toString().toUpperCase().trim();
+    const cleanTitle = (jobTitle || "JOB-TITLE").toString().toUpperCase().trim();
+    
+    // 2. Define Naming Conventions
+    let filePrefix; 
+    let folderName; 
+    
+    if (type === 'general') {
+       // Example: "04-CSD-001 ACCOUNTANT"
+       filePrefix = `${cleanPosId} ${cleanTitle}`;
+       folderName = filePrefix; 
+    } else {
+       // Example: "04-CSD-001-ACCOUNTANT-EMP123"
+       const cleanEmpId = (employeeId || "NO-EMP").toString().trim();
+       filePrefix = `${cleanPosId}-${cleanTitle}-${cleanEmpId}`;
+       folderName = filePrefix;
+    }
+
+    // 3. Determine Search/Save Location
+    // First, check if a specific sub-folder ALREADY exists
+    let targetFolder = rootFolder;
+    let isSubFolder = false;
+    
+    const subFolders = rootFolder.getFoldersByName(folderName);
+    if (subFolders.hasNext()) {
+        targetFolder = subFolders.next();
+        isSubFolder = true;
+    }
+
+    // 4. Scan Current Location for Versions
+    const files = targetFolder.getFiles();
+    let maxVersion = 0;
+    const existingFiles = []; 
+    const versionRegex = /Ver_(\d+)/i;
+
+    while (files.hasNext()) {
+      const f = files.next();
+      const fName = f.getName().toUpperCase();
+      
+      // Strict prefix check to avoid grabbing wrong files
+      if (fName.startsWith(filePrefix.toUpperCase())) {
+        existingFiles.push(f);
+        const match = fName.match(versionRegex);
+        if (match && match[1]) {
+          const vNum = parseInt(match[1], 10);
+          if (vNum > maxVersion) maxVersion = vNum;
+        }
+      }
+    }
+
+    // 5. AUTO-ORGANIZE LOGIC
+    // If we are currently in Root (not subfolder) AND we found previous files...
+    // It means we are about to create Version 2 (or higher).
+    // We should create a folder now to keep things clean.
+    if (!isSubFolder && existingFiles.length > 0) {
+        // Create the specific folder
+        const newSubFolder = rootFolder.createFolder(folderName);
+        
+        // Move ALL existing loose files into the new folder
+        existingFiles.forEach(file => {
+            file.moveTo(newSubFolder);
+        });
+        
+        // Update our target to the new folder
+        targetFolder = newSubFolder;
+    }
+
+    // 6. Calculate New Version & Name
+    const nextVersion = maxVersion + 1;
+    const dateStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "MM-dd-yy");
+    const fileName = `${filePrefix} Ver_${nextVersion} [${dateStr}].pdf`;
+
+    // 7. Save New File
+    const blob = Utilities.newBlob(Utilities.base64Decode(fileData.content), fileData.mimeType, fileName);
+    const newFile = targetFolder.createFile(blob);
+    
+    return { success: true, name: fileName, url: newFile.getUrl() };
+
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
 }

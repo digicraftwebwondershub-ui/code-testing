@@ -52,32 +52,56 @@
       background: none !important;
       box-shadow: none !important;
     }
-    .node-card {
-      position: relative;
-      display: inline-flex;
-      align-items: flex-start;
-      padding: 8px;
-      border-radius: 8px;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
-      min-width: 320px;
-      width: auto;
-      border: 2px solid;
-      text-align: left;
-      
-      /* --- NEW: Add margin to space out nodes --- */
-      margin: 12px 16px; 
-    }
-    .node-card:hover .node-actions {
-      display: flex;
-    }
-    .node-card img {
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      margin-right: 12px;
-      object-fit: cover;
-      flex-shrink: 0;
-    }
+
+/* --- MODERN NODE STYLES --- */
+.node-card {
+  position: relative;
+  display: inline-flex;
+  align-items: center; /* Vertically center content */
+  padding: 12px 16px;  /* More breathing room */
+  border-radius: 12px; /* Smooth corners */
+  background-color: #ffffff;
+  
+  /* Modern Shadow */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  min-width: 340px; 
+  width: auto;
+  
+  /* LEFT ACCENT STYLE */
+  border-style: solid;
+  border-width: 0 0 0 6px; 
+  
+  margin: 12px 16px; 
+  cursor: pointer;
+  overflow: visible !important; /* Critical for Edit Buttons */
+}
+
+/* --- FIX: ALLOW BUTTONS TO HANG OUTSIDE CARDS --- */
+.node-card, .vacant-card {
+  overflow: visible !important; 
+}
+
+/* Hover Effect */
+.node-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  z-index: 20;
+}
+
+/* Modern Image Styling */
+.node-card img {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  margin-right: 16px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
     .node-text {
       flex-grow: 1;
       margin-right: 8px;
@@ -155,25 +179,34 @@
     .contract-others-border { border-color: #6b7280; }
     .contract-others-bg { background-color: #e5e7eb; }
     .contract-dashed { border-style: dashed !important; border-width: 2px !important; }
-    .vacant-card {
-      position: relative;
-      display: inline-flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      padding: 8px 12px;
-      border-radius: 8px;
-      min-width: 280px;
-      width: auto;
-      border: 2px dashed #9ca3af;
-      background-color: #f9fafb;
 
-      /* --- NEW: Add margin to space out vacant nodes too --- */
-      margin: 12px 16px;
-    }
-    .vacant-card:hover .node-actions {
-      display: flex;
-    }
+/* --- MODERN VACANT CARD --- */
+.vacant-card {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  border-radius: 12px;
+  min-width: 300px;
+  
+  border: 2px dashed #cbd5e1; 
+  background-color: #f8fafc; 
+  background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+  background-size: 10px 10px;
+  
+  margin: 12px 16px;
+  transition: all 0.2s;
+  overflow: visible !important; /* Critical for Edit Buttons */
+}
+
+.vacant-card:hover {
+  border-color: #94a3b8;
+  background-color: #f1f5f9;
+  transform: translateY(-2px);
+}
+
     .status-dot {
       position: absolute;
       top: -5px;
@@ -191,27 +224,33 @@
     .bg-lateral-transfer { background-color: #0ea5e9; }
     .plantilla-over { background-color: #fee2e2; }
     .plantilla-at { background-color: #f1f5f9; }
-    #custom-tooltip {
-      position: absolute;
-      display: none;
-      background-color: white;
-      border-width: 2px;
-      border-style: solid;
-      border-radius: 8px;
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-      padding: 12px;
-      min-width: 280px;
-      z-index: 1000;
-    }
-    #custom-tooltip img {
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      display: block;
-      margin: 0 auto 10px;
-      border-width: 3px;
-      border-style: solid;
-    }
+    
+ /* --- MODERN FLOATING TOOLTIP --- */
+#custom-tooltip {
+  position: absolute;
+  display: none;
+  background-color: rgba(255, 255, 255, 0.98); 
+  backdrop-filter: blur(8px);
+  border-radius: 16px; 
+  box-shadow: 
+    0 10px 15px -3px rgba(0, 0, 0, 0.1), 
+    0 4px 6px -2px rgba(0, 0, 0, 0.05),
+    0 20px 25px -5px rgba(0, 0, 0, 0.1); 
+  padding: 0;
+  min-width: 340px; /* Slightly wider for new columns */
+  max-width: 380px;
+  z-index: 9999;
+  overflow: hidden;
+}
+
+/* FIX: Force Tooltip Image Alignment */
+#custom-tooltip img {
+  display: inline-block !important;
+  margin: 0 12px 0 0 !important;
+  border: 2px solid white !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
     #custom-tooltip p {
       margin: 0 0 2px 0;
       font-size: 12px;
@@ -886,6 +925,49 @@
   border: 1px solid #e2e8f0;
 }
 
+/* --- ACTION BUTTON CONTAINER --- */
+.node-actions {
+  position: absolute;
+  top: -14px;   /* Positioned slightly higher to clear the new card style */
+  right: -14px; /* Positioned slightly further right */
+  display: none; /* Hidden by default */
+  gap: 6px;     /* Space between buttons */
+  z-index: 50;  /* Ensure they float above the card and connectors */
+}
+
+/* Show buttons when hovering over the Employee or Vacant Card */
+.node-card:hover .node-actions,
+.vacant-card:hover .node-actions {
+  display: flex !important;
+}
+
+/* --- INDIVIDUAL BUTTON STYLING --- */
+.action-btn {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0; /* Slate-200 */
+  border-radius: 50%;        /* Perfect circle */
+  width: 32px;               /* Slightly larger for easier clicking */
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); /* Nice floaty shadow */
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+  background-color: #f8fafc; /* Light gray hover */
+  transform: scale(1.1);     /* Slight grow effect */
+  border-color: #94a3b8;     /* Darker border on hover */
+}
+
+/* Fix SVG size inside buttons */
+.action-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
   </style>
 </head>
 <body>
@@ -973,6 +1055,11 @@
         </div>
 
         <div class="col-span-12 md:col-span-6">
+          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Work Location</label>
+          <input type="text" id="worklocation" class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-800 placeholder-slate-400" placeholder="e.g. Head Office">
+        </div>
+
+        <div class="col-span-12 md:col-span-6">
           <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Job Title <span class="text-red-500">*</span></label>
           <div id="jobtitle-dropdown-container" class="w-full"></div>
           <input type="hidden" id="jobtitle">
@@ -1004,6 +1091,12 @@
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Section <span class="text-red-500">*</span></label>
                 <div id="section-dropdown-container" class="w-full"></div>
                 <input type="hidden" id="section">
+            </div>
+            <div>
+              <div class="col-span-12 md:col-span-6">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Movement Type</label>
+                <div id="movementtype-dropdown-container" class="w-full"></div>
+                <input type="hidden" id="movementtype">
             </div>
         </div>
 
@@ -1165,11 +1258,6 @@
       <div class="flex gap-3 w-full md:w-auto justify-end">
         <button onclick="closeJdModal()" class="px-6 py-2.5 rounded-lg border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-200 transition-colors">
           Close
-        </button>
-        <button onclick="window.print()" class="hidden md:flex items-center px-4 py-2.5 rounded-lg text-emerald-700 font-medium hover:bg-emerald-50 transition-colors">
-           <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-           Print
-        </button>
       </div>
     </div>
 
@@ -2429,6 +2517,11 @@
 window.userCanViewCompetency = null; // Explicitly attach to window
 var fullEmployeeData = [];
 var orgChartData = [];
+var currentJdContext = {
+  positionId: null,
+  employeeId: null,
+  jobTitle: null
+};
 
   // --- NEW: ATTACHMENT CONFIGURATION & LOGIC ---
 
@@ -4171,146 +4264,174 @@ function drawChart(filteredData) {
 }
 
 function showTooltip(event, nodeId) {
-    // 1. Clear any pending hide timer so it stays open
     if (typeof tooltipTimeout !== 'undefined') clearTimeout(tooltipTimeout);
     
-    var employee = employeeMap.get(nodeId); if (!employee) return;
+    var employee = employeeMap.get(nodeId); 
+    if (!employee) return;
+    
     var tooltipDiv = document.getElementById('custom-tooltip');
-    var contentHtml = '';
-    var borderColor;
+    
+    // --- 1. COLOR & BORDER LOGIC ---
+    var headerColor = '#64748b'; // Default Gray
+    var borderColor = 'rgba(255, 255, 255, 0.5)';
     var borderStyle = 'solid';
-
-    if (employee.employeeId) {
-      // --- Border Logic (Your Original Code) ---
-      var contractTypeUpper = employee.stylingContractType ? employee.stylingContractType.toUpperCase() : '';
-      if (contractTypeUpper === 'JREL' || contractTypeUpper === 'JPRO') {
+    var borderWidth = '1px';
+    
+    var contractTypeUpper = employee.stylingContractType ? employee.stylingContractType.toUpperCase() : '';
+    
+    if (contractTypeUpper === 'JREL' || contractTypeUpper === 'JPRO') {
+        headerColor = '#f97316'; // Orange
         borderColor = '#f97316';
         borderStyle = 'dashed';
-      } else if (contractTypeUpper === 'JREG') {
+        borderWidth = '3px';
+    } else if (contractTypeUpper === 'JREG') {
+        headerColor = '#3b82f6'; // Blue
         borderColor = '#3b82f6';
         borderStyle = 'dashed';
-      } else if (contractTypeUpper === 'OTHERS') {
+        borderWidth = '3px';
+    } else if (contractTypeUpper === 'OTHERS') {
+        headerColor = '#6b7280'; // Gray
         borderColor = '#6b7280';
         borderStyle = 'dashed';
-      } else {
-        borderColor = levelColors[employee.level] || levelColors.default;
-        borderStyle = 'solid';
-      }
+        borderWidth = '3px';
+    } else if (levelColors[employee.level]) {
+        headerColor = levelColors[employee.level];
+    }
 
-      // --- Header & Details (Your Original Code) ---
-      var photoUrl = employee.gender && employee.gender.toLowerCase() === 'female' ? 'https://i.imgur.com/dTvdfy0.png' : 'https://i.imgur.com/bIbZ89x.png';
-      var imgBorderStyle = 'border-color:' + borderColor + ';';
-      contentHtml = '<img src="' + photoUrl + '" style="' + imgBorderStyle + '" onerror="this.onerror=null;this.src=\'https://i.imgur.com/RHvayzz.png\';">' +
-      '<p><strong>Position ID:</strong> ' + (employee.positionId || 'N/A') + '</p>' +
-      '<p><strong>Emp. ID:</strong> ' + (employee.employeeId || 'N/A') + '</p>' +
-      '<p><strong>Name:</strong> ' + (employee.employeeName || 'N/A') + '</p>' +
-      '<p><strong>Date Hired:</strong> ' + (employee.dateHired || 'N/A') + '</p>' +
-      '<p><strong>Job Title:</strong> ' + (employee.jobTitle || 'N/A') + '</p>' +
-      '<p><strong>Division:</strong> ' + (employee.division || 'N/A') + '</p>' +
-      '<p><strong>Group:</strong> ' + (employee.group || 'N/A') + '</p>' +
-      '<p><strong>Department:</strong> ' + (employee.department || 'N/A') + '</p>' +
-      '<p><strong>Section:</strong> ' + (employee.section || 'N/A') + '</p>' +
-      '<p><strong>Reporting to:</strong> ' + (employee.managerName || 'N/A') + '</p>';
-      
-      let incumbentHtml = '<i>No history available</i>';
-      if (employee.historicalNote) {
-          if (employee.historicalNote.lastIncumbents && employee.historicalNote.lastIncumbents.length > 0) {
-              incumbentHtml = employee.historicalNote.lastIncumbents[0];
-              incumbentHtml += ` <span onclick="openHistoryModal('${employee.positionId}')" class="text-blue-600 hover:underline cursor-pointer" style="font-weight: bold;">(View History)</span>`;
-          } else if (employee.historicalNote.isNewPosition) {
-              incumbentHtml = '<i>Newly Created Position</i>';
-          }
-      }
-      contentHtml += '<p><strong>Last Incumbent:</strong> ' + incumbentHtml + '</p>';
-      
-      if (employee.payrollType) contentHtml += '<p><strong>Payroll Type:</strong> ' + employee.payrollType + '</p>';
-      if (employee.jobLevel) contentHtml += '<p><strong>Job Level:</strong> ' + employee.jobLevel + '</p>';
-      if (employee.contractType) contentHtml += '<p><strong>Contract Type:</strong> ' + employee.contractType + '</p>';
-      if (employee.contractEndDate) contentHtml += '<p><strong>Contract End:</strong> ' + employee.contractEndDate + '</p>';
-      if (employee.competency) contentHtml += '<p><strong>Competency:</strong> ' + employee.competency + '</p>';
-      
-      if (employee.status.toUpperCase() === 'RESIGNED' && employee.resignationDate) {
-        contentHtml += '<div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #e5e7eb;">' +
-          '<p><strong>Status:</strong> <span style="color: #ef4444; font-weight: bold;">RESIGNEE</span></p>' +
-          '<p><strong>Effective Date:</strong> ' + employee.resignationDate + '</p>' +
-          '</div>';
-      } else {
-        // --- NEW INSERTION: PROBATION EVALUATION DETAILS ---
+    tooltipDiv.style.border = `${borderWidth} ${borderStyle} ${borderColor}`;
+
+    var contentHtml = '';
+
+    if (employee.employeeId) {
+        // --- 2. HEADER SECTION ---
+        var photoUrl = employee.gender && employee.gender.toLowerCase() === 'female' ? 'https://i.imgur.com/dTvdfy0.png' : 'https://i.imgur.com/bIbZ89x.png';
+        
+        contentHtml += `
+        <div style="background: linear-gradient(to right, ${headerColor}, ${headerColor}cc); padding: 16px; display: flex; align-items: center; justify-content: flex-start;">
+            <img src="${photoUrl}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null;this.src='https://i.imgur.com/RHvayzz.png';">
+            <div>
+                <div style="color: white; font-weight: 700; font-size: 16px; line-height: 1.2; text-align: left;">${employee.employeeName || 'N/A'}</div>
+                <div style="color: rgba(255,255,255,0.95); font-size: 12px; margin-top: 3px; font-weight: 500; text-align: left;">${employee.jobTitle || 'N/A'}</div>
+            </div>
+        </div>
+        `;
+
+        // --- 3. GRID INFO SECTION ---
+        contentHtml += `<div style="padding: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; border-bottom: 1px solid #f1f5f9;">`;
+        
+        const gridItem = (label, value) => `
+            <div style="overflow: hidden; text-align: left;">
+                <div style="font-size: 10px; text-transform: uppercase; color: #94a3b8; font-weight: 700; margin-bottom: 1px;">${label}</div>
+                <div style="font-size: 12px; color: #334155; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${value || '-'}</div>
+            </div>`;
+
+        // Add Work Location here
+        contentHtml += gridItem('Employee ID', employee.employeeId);
+        contentHtml += gridItem('Date Hired', employee.dateHired);
+        contentHtml += gridItem('Work Location', employee.workLocation); // <--- ADDED
+        contentHtml += gridItem('Division', employee.division);
+        contentHtml += gridItem('Group', employee.group);
+        contentHtml += gridItem('Department', employee.department);
+        contentHtml += gridItem('Section', employee.section);
+        contentHtml += gridItem('Job Level', employee.jobLevel);
+        contentHtml += gridItem('Payroll Type', employee.payrollType);
+        contentHtml += gridItem('Contract', employee.contractType);
+        contentHtml += gridItem('Contract End', employee.contractEndDate);
+        contentHtml += gridItem('Competency', employee.competency);
+        contentHtml += gridItem('Manager', employee.managerName);
+        
+        contentHtml += `</div>`; 
+
+        // --- 4. STATUS & HISTORY ---
+        contentHtml += `<div style="padding: 12px 16px 16px 16px; display: flex; flex-direction: column; gap: 10px;">`;
+
+        // Incumbent Logic
+        let incumbentText = 'None';
+        if (employee.historicalNote) {
+            if (employee.historicalNote.lastIncumbents && employee.historicalNote.lastIncumbents.length > 0) {
+                incumbentText = employee.historicalNote.lastIncumbents[0];
+            } else if (employee.historicalNote.isNewPosition) {
+                incumbentText = 'Newly Created Position';
+            }
+        }
+        
+        contentHtml += `<div style="font-size: 11px; color: #64748b; background: #f8fafc; padding: 6px 10px; rounded: 6px; border: 1px solid #e2e8f0; text-align: left;">
+                            <strong>Last Incumbent:</strong> ${incumbentText} 
+                            <span onclick="openHistoryModal('${employee.positionId}')" style="color: #2563eb; cursor: pointer; text-decoration: underline; margin-left: 4px; font-weight:bold;">(History)</span>
+                         </div>`;
+
+        // Probation Logic
         var statusUpper = (employee.status || '').toUpperCase();
         if ((statusUpper === 'PROBATIONARY' || statusUpper === 'NEW HIRE') && employee.dateHired) {
             var hiredObj = new Date(employee.dateHired);
             if (!isNaN(hiredObj.getTime())) {
-                // Calculate Dates
                 var d3 = new Date(hiredObj); d3.setMonth(d3.getMonth() + 3);
                 var d5 = new Date(hiredObj); d5.setMonth(d5.getMonth() + 5);
                 var dReg = new Date(hiredObj); dReg.setMonth(dReg.getMonth() + 6);
-
-                // Format Dates (Short format)
                 var opts = { month: 'short', day: 'numeric', year: 'numeric' };
                 var date3 = d3.toLocaleDateString('en-US', opts);
                 var date5 = d5.toLocaleDateString('en-US', opts);
                 var dateReg = dReg.toLocaleDateString('en-US', opts);
-
-                // Check Completion
                 var done3 = employee.thirdMonthEval ? '<span style="color:#16a34a; font-weight:bold;">(Done)</span>' : '<span style="color:#ef4444; font-weight:bold;">(Pending)</span>';
                 var done5 = employee.fifthMonthEval ? '<span style="color:#16a34a; font-weight:bold;">(Done)</span>' : '<span style="color:#ef4444; font-weight:bold;">(Pending)</span>';
 
-                // Append Yellow Box HTML
-                contentHtml += '<div style="margin-top: 10px; padding: 8px; background-color: #fefce8; border: 1px solid #fef08a; border-radius: 4px; font-size: 11px; color: #713f12;">' +
-                    '<div style="font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; color: #854d0e;">' +
-                    '<span style="width: 8px; height: 8px; background-color: #eab308; border-radius: 50%; margin-right: 6px;"></span>' +
-                    'PROBATIONARY STATUS' +
-                    '</div>' +
-                    '<div style="display: grid; grid-template-columns: auto 1fr; column-gap: 8px; row-gap: 2px;">' +
-                    '<span style="color: #4b5563;">3rd Mo. Due:</span> <span>' + date3 + ' ' + done3 + '</span>' +
-                    '<span style="color: #4b5563;">5th Mo. Due:</span> <span>' + date5 + ' ' + done5 + '</span>' +
-                    '<span style="color: #4b5563;">Regularization:</span> <span style="font-weight: bold; color: #1d4ed8;">' + dateReg + '</span>' +
-                    '</div>' +
-                    '</div>';
+                contentHtml += `
+                <div style="padding: 8px; background-color: #fefce8; border: 1px solid #fef08a; border-radius: 6px; font-size: 11px; color: #713f12; text-align: left;">
+                    <div style="font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; color: #854d0e;">
+                        <span style="width: 8px; height: 8px; background-color: #eab308; border-radius: 50%; margin-right: 6px;"></span>
+                        PROBATION STATUS
+                    </div>
+                    <div style="display: grid; grid-template-columns: auto 1fr; column-gap: 8px; row-gap: 2px;">
+                        <span style="color: #4b5563;">3rd Mo. Due:</span> <span>${date3} ${done3}</span>
+                        <span style="color: #4b5563;">5th Mo. Due:</span> <span>${date5} ${done5}</span>
+                        <span style="color: #4b5563;">Regularization:</span> <span style="font-weight: bold; color: #1d4ed8;">${dateReg}</span>
+                    </div>
+                </div>`;
             }
         }
-        // ---------------------------------------------------
 
         var normalizedStatus = toTitleCase(employee.status);
-        if (normalizedStatus && statusNotes[normalizedStatus]) {
-          var tagColor = statusTagColors[normalizedStatus];
-          var note = statusNotes[normalizedStatus];
-          contentHtml += '<div id="tooltip-status-section" style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #e5e7eb;">' +
-          '<div style="display: flex; align-items: center; font-weight: bold; color: ' + tagColor + ';">' +
-          '<span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: ' + tagColor + '; margin-right: 8px;"></span>' + normalizedStatus + '</div>' +
-          '<p style="font-size: 11px; color: #6b7280; margin-top: 2px; padding-left: 18px;">' + note + '</p>';
-          if (employee.historicalNote && employee.historicalNote.previousRole && ['Internal Transfer', 'Promotion', 'Lateral Transfer'].includes(normalizedStatus)) {
-              contentHtml += '<p style="font-size: 11px; color: ' + tagColor + '; padding-left: 18px;"><i>' + employee.historicalNote.previousRole + '</i></p>';
-          }
-          contentHtml += '</div>';
+        if (statusNotes[normalizedStatus] && statusUpper !== 'ACTIVE') {
+             var tagColor = statusTagColors[normalizedStatus] || '#64748b';
+             contentHtml += `
+             <div style="padding: 8px; background-color: #f9fafb; border-left: 3px solid ${tagColor}; border-radius: 0 4px 4px 0; font-size: 11px; text-align: left;">
+                <div style="font-weight: 700; color: ${tagColor};">${normalizedStatus}</div>
+                <div style="color: #64748b; margin-top: 1px;">${statusNotes[normalizedStatus]}</div>
+             </div>`;
         }
-      }
-    } else { // Vacant Node
-      borderColor = '#9ca3af';
-      borderStyle = 'dashed';
-      contentHtml = '<p><strong>Position ID:</strong> ' + (employee.positionId || 'N/A') + '</p>' +
-      '<p><strong>Position:</strong> VACANT</p>' +
-      '<p><strong>Job Title:</strong> ' + (employee.jobTitle || 'N/A') + '</p>' +
-      '<p><strong>Group:</strong> ' + (employee.group || 'N/A') + '</p>' +
-      '<p><strong>Department:</strong> ' + (employee.department || 'N/A') + '</p>';
-      
-      let incumbentHtml = '<i>No history available</i>';
-      if (employee.historicalNote && employee.historicalNote.lastIncumbents && employee.historicalNote.lastIncumbents.length > 0) {
-          incumbentHtml = employee.historicalNote.lastIncumbents[0];
-          incumbentHtml += ` <span onclick="openHistoryModal('${employee.positionId}')" class="text-blue-600 hover:underline cursor-pointer" style="font-weight: bold;">(View History)</span>`;
-      }
-      contentHtml += '<p><strong>Last Incumbent:</strong> ' + incumbentHtml + '</p>';
+        contentHtml += `</div>`; 
+
+    } else {
+        // --- VACANT CARD TOOLTIP ---
+        contentHtml += `
+        <div style="background: repeating-linear-gradient(45deg, #f1f5f9, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px); padding: 16px; border-bottom: 2px dashed #cbd5e1;">
+            <div style="color: #64748b; font-weight: 800; font-size: 18px; text-align: center; letter-spacing: 1px;">VACANT POSITION</div>
+        </div>
+        <div style="padding: 16px; text-align: left;">
+            <p style="margin: 0 0 4px 0; font-size: 12px; color: #94a3b8; font-weight: 700; text-transform: uppercase;">Position ID</p>
+            <p style="margin: 0 0 12px 0; font-size: 14px; color: #334155; font-weight: 600;">${employee.positionId || 'N/A'}</p>
+            <p style="margin: 0 0 4px 0; font-size: 12px; color: #94a3b8; font-weight: 700; text-transform: uppercase;">Title</p>
+            <p style="margin: 0 0 12px 0; font-size: 14px; color: #334155; font-weight: 600;">${employee.jobTitle || 'N/A'}</p>
+            <p style="margin: 0 0 4px 0; font-size: 12px; color: #94a3b8; font-weight: 700; text-transform: uppercase;">Group / Dept</p>
+            <p style="margin: 0 0 12px 0; font-size: 13px; color: #334155;">${employee.group || '-'} / ${employee.department || '-'}</p>
+            
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; margin-top: 8px;">
+               <div style="font-size: 11px; color: #64748b;">
+                 <strong>Last Incumbent:</strong> ${employee.historicalNote && employee.historicalNote.lastIncumbents && employee.historicalNote.lastIncumbents[0] ? employee.historicalNote.lastIncumbents[0] : 'None'}
+                 <span onclick="openHistoryModal('${employee.positionId}')" style="color: #2563eb; cursor: pointer; text-decoration: underline; margin-left: 4px;">(View History)</span>
+               </div>
+            </div>
+        </div>`;
     }
 
     tooltipDiv.innerHTML = contentHtml;
-    tooltipDiv.style.borderColor = borderColor;
-    tooltipDiv.style.borderStyle = borderStyle;
+    
+    // Positioning
     var tooltipHeight = tooltipDiv.offsetHeight;
     var yPos = event.pageY - tooltipHeight - 15;
-    if (yPos < window.scrollY) {
-      yPos = event.pageY + 20;
-    }
+    if (yPos < window.scrollY) yPos = event.pageY + 20;
     var xPos = event.pageX + 15;
+    
     tooltipDiv.style.left = xPos + 'px';
     tooltipDiv.style.top = yPos + 'px';
     tooltipDiv.style.display = 'block';
@@ -4980,7 +5101,9 @@ function handleEmployeeIdBlur(event) {
 
     document.getElementById('employeename').addEventListener('input', handleEmployeeNameInput);
     document.getElementById('startdateinposition').addEventListener('input', syncNewHireDate);
+    document.getElementById('employeeid').addEventListener('blur', handleEmployeeIdBlur);
     
+    // Hide conditional fields initially
     document.getElementById('effective-date-wrapper').style.display = 'none';
     document.getElementById('effectivedate').required = false;
     document.getElementById('start-date-wrapper').style.display = 'none';
@@ -4989,15 +5112,21 @@ function handleEmployeeIdBlur(event) {
     document.getElementById('contractenddate').required = false;
     document.getElementById('datehired').required = false;
 
-    document.getElementById('employeeid').addEventListener('blur', handleEmployeeIdBlur);
-
+    // --- DEFINE DROPDOWNS ---
     let statusOptions = [...(dropdownListData.status || [])];
     if (!statusOptions.includes('VACANT')) statusOptions.push('VACANT');
     if (!statusOptions.includes('PROMOTION')) statusOptions.push('PROMOTION');
     if (!statusOptions.includes('INTERNAL TRANSFER')) statusOptions.push('INTERNAL TRANSFER');
     statusOptions.sort();
 
-    // --- REUSABLE HELPER FOR SHOWING/HIDING EVALUATION FIELDS ---
+    // --- NEW: Movement Type Options ---
+    const movementOptions = [
+        'New Hire', 'Replacement', 'Promotion', 'Lateral Transfer', 
+        'Internal Transfer', 'Re-designation', 'Regularization', 
+        'Resignation', 'Reorganization'
+    ];
+
+    // --- REUSABLE HELPER FOR PROBATION FIELDS ---
     const updateProbationFields = (sel) => {
         const statusUpper = sel ? sel.toUpperCase() : '';
         const trackingWrapper = document.getElementById('probationary-tracking-wrapper');
@@ -5008,10 +5137,12 @@ function handleEmployeeIdBlur(event) {
         }
     };
 
+    // --- INITIALIZE DROPDOWNS ---
     createSearchableDropdown('jobtitle-dropdown-container', dropdownListData.jobtitle || [], null, null, (sel) => { document.getElementById('jobtitle').value = sel; });
     createSearchableDropdown('level-dropdown-container', dropdownListData.level || [], null, null, (sel) => { document.getElementById('level').value = sel; });
     createSearchableDropdown('payrolltype-dropdown-container', dropdownListData.payrolltype || [], null, null, (sel) => { document.getElementById('payrolltype').value = sel; });
     createSearchableDropdown('joblevel-dropdown-container', dropdownListData.joblevel || [], null, null, (sel) => { document.getElementById('joblevel').value = sel; });
+    
     createSearchableDropdown('contracttype-dropdown-container', dropdownListData.contracttype || [], null, null, (sel) => { 
         document.getElementById('contracttype').value = sel; 
         const endDateWrapper = document.getElementById('contract-end-date-wrapper');
@@ -5025,15 +5156,15 @@ function handleEmployeeIdBlur(event) {
             endDateInput.value = '';
         }
     });
+
     createSearchableDropdown('competency-dropdown-container', dropdownListData.competency || [], null, null, (sel) => { document.getElementById('competency').value = sel; });
     
-    // UPDATED STATUS DROPDOWN WITH PROBATION CHECK
+    // Status Logic
     createSearchableDropdown('status-dropdown-container', statusOptions, null, null, (sel) => { 
       document.getElementById('status').value = sel; 
-      updateProbationFields(sel); // Check visibility immediately
+      updateProbationFields(sel);
 
       const selUpper = sel ? sel.toUpperCase() : '';
-      
       const effectiveDateWrapper = document.getElementById('effective-date-wrapper');
       const effectiveDateLabel = document.getElementById('effective-date-label');
       const effectiveDateInput = document.getElementById('effectivedate');
@@ -5077,15 +5208,15 @@ function handleEmployeeIdBlur(event) {
       startDateWrapper.style.display = showStartDateField ? 'block' : 'none';
       startDateInput.required = showStartDateField;
 
+      // Logic for Regularization Start Date
       if (selUpper === 'REGULAR') {
           const mode = document.getElementById('form-mode').value;
           if (mode === 'edit') {
               const positionId = document.getElementById('positionid').value;
               google.script.run
                   .withSuccessHandler(function(startDate) {
-                      if (startDate) {
-                          startDateInput.value = startDate;
-                      } else {
+                      if (startDate) startDateInput.value = startDate;
+                      else {
                           const dateHired = document.getElementById('datehired').value;
                           if(dateHired) startDateInput.value = dateHired;
                       }
@@ -5103,11 +5234,9 @@ function handleEmployeeIdBlur(event) {
           dateHiredInput.required = true;
           const employeeId = document.getElementById('employeeid').value;
           if (mode === 'edit' && employeeId && !dateHiredInput.value) {
-              google.script.run
-                  .withSuccessHandler(function(hiredDate) {
-                      if (hiredDate) dateHiredInput.value = hiredDate;
-                  })
-                  .getDateHired(employeeId);
+              google.script.run.withSuccessHandler(function(hiredDate) {
+                  if (hiredDate) dateHiredInput.value = hiredDate;
+              }).getDateHired(employeeId);
           }
       } else {
           dateHiredInput.required = false;
@@ -5117,21 +5246,29 @@ function handleEmployeeIdBlur(event) {
     createSearchableDropdown('gender-dropdown-container', ['Male', 'Female'], null, null, (sel) => { document.getElementById('gender').value = sel; });
     createSearchableDropdown('reasonforleaving-dropdown-container', dropdownListData.reasonforleaving || [], null, null, (sel) => { document.getElementById('reasonforleaving').value = sel; });
     createSearchableDropdown('positionstatus-dropdown-container', ['Active', 'Inactive'], null, null, (sel) => { document.getElementById('positionstatus').value = sel; });
+    
+    // --- NEW: Movement Type Dropdown ---
+    createSearchableDropdown('movementtype-dropdown-container', movementOptions, null, null, (sel) => { document.getElementById('movementtype').value = sel; });
+
     createSearchableDropdown('reportingto-dropdown-container', dropdownListData.managers || [], 'name', 'id', handleManagerSelection);
     createSearchableDropdown('division-dropdown-container', dropdownListData.divisions || [], null, null, (sel) => updateDependentDropdowns('division', sel));
     createSearchableDropdown('group-dropdown-container', [], null, null, (sel) => updateDependentDropdowns('group', sel));
     createSearchableDropdown('department-dropdown-container', [], null, null, (sel) => updateDependentDropdowns('department', sel));
     createSearchableDropdown('section-dropdown-container', [], null, null, (sel) => { document.getElementById('section').value = sel; handleIdGeneration(); });
 
+    // --- POPULATE DATA ---
     if (mode === 'add') {
       document.getElementById('modal-title').textContent = 'Add New Position';
       document.getElementById('positionid').value = 'Select Division/Section...';
       document.getElementById('original-status').value = '';
-      
-      // Clear new fields
       document.getElementById('3rdmonthevaldate').value = '';
       document.getElementById('5thmonthevaldate').value = '';
       
+      // Clear New Fields
+      document.getElementById('worklocation').value = '';
+      setSearchableDropdownValue('movementtype-dropdown-container', '');
+      document.getElementById('movementtype').value = '';
+
     } else {
       document.getElementById('modal-title').textContent = 'Edit Position / Employee';
       const employee = employeeMap.get(nodeId);
@@ -5146,30 +5283,39 @@ function handleEmployeeIdBlur(event) {
       document.getElementById('datehired').value = employee.dateHired || '';
       document.getElementById('dateofbirth').value = employee.dateOfBirth || '';
       document.getElementById('contractenddate').value = employee.contractEndDate || '';
+      
       setSearchableDropdownValue('reportingto-dropdown-container', employee.managerName || '');
       document.getElementById('reportingtoid').value = employee.managerEmployeeId || '';
       document.getElementById('reportingtoid_display').value = employee.managerEmployeeId || '';
       document.getElementById('reportingto').value = employee.managerName || '';
+      
       setSearchableDropdownValue('jobtitle-dropdown-container', employee.jobTitle || '');
       setSearchableDropdownValue('level-dropdown-container', employee.level || '');
       setSearchableDropdownValue('payrolltype-dropdown-container', employee.payrollType || '');
       setSearchableDropdownValue('joblevel-dropdown-container', employee.jobLevel || '');
       setSearchableDropdownValue('contracttype-dropdown-container', employee.contractType || '');
+      
+      // Trigger change for JPRO logic
       const contractTypeInput = document.querySelector('#contracttype-dropdown-container .searchable-dropdown-input');
       if (contractTypeInput) setTimeout(() => contractTypeInput.dispatchEvent(new Event('change')), 0);
+      
       setSearchableDropdownValue('competency-dropdown-container', employee.competency || '');
       setSearchableDropdownValue('status-dropdown-container', employee.status || '');
       setSearchableDropdownValue('gender-dropdown-container', employee.gender || '');
       setSearchableDropdownValue('positionstatus-dropdown-container', employee.positionStatus || '');
+      
       setSearchableDropdownValue('division-dropdown-container', employee.division || '', true);
       updateDependentDropdowns('division', employee.division, employee);
 
-      // --- POPULATE NEW EVALUATION FIELDS ---
+      // Populate Evaluation Fields
       document.getElementById('3rdmonthevaldate').value = employee.thirdMonthEval || '';
       document.getElementById('5thmonthevaldate').value = employee.fifthMonthEval || '';
-      
-      // Update visibility based on loaded status
       updateProbationFields(employee.status);
+
+      // --- POPULATE NEW FIELDS ---
+      document.getElementById('worklocation').value = employee.workLocation || '';
+      setSearchableDropdownValue('movementtype-dropdown-container', employee.movementType || '');
+      document.getElementById('movementtype').value = employee.movementType || '';
     }
     document.getElementById('employee-modal').style.display = 'flex';
 }
@@ -5232,81 +5378,200 @@ function handleEmployeeIdBlur(event) {
     document.getElementById('history-modal').style.display = 'none';
   }
 
-  function openJdModal(positionId, employeeId, jobTitle) {
-    // 1. Get Elements
+function openJdModal(positionId, employeeId, jobTitle) {
+    // 1. Save Context (So the Back button can use it later)
+    currentJdContext.positionId = positionId;
+    currentJdContext.employeeId = employeeId;
+    currentJdContext.jobTitle = jobTitle || 'Job Description Document';
+
+    // 2. Setup UI
     const modal = document.getElementById('jd-modal');
     const title = document.getElementById('jd-modal-title');
-    const content = document.getElementById('jd-content');
-    const loading = document.getElementById('jd-loading'); 
+    
+    if (title) title.textContent = currentJdContext.jobTitle;
 
-    // 2. Set Header
-    if (title) title.textContent = jobTitle || 'Job Description Document';
-
-    // 3. SHOW MODAL (Flexbox fix)
     if (modal) {
         modal.classList.remove('hidden');
         modal.classList.add('flex');
     }
 
-    // 4. Hide Loader initially
+    // 3. Render the Selection Screen (Your original HTML logic is moved here)
+    showJdSelectionScreen();
+}
+
+function fetchJdContent(type, positionId, employeeId, jobTitle) {
+    const content = document.getElementById('jd-content');
+    const loading = document.getElementById('jd-loading');
+
+    // 1. Show Loading State
+    if (content) content.innerHTML = ''; 
+    if (loading) loading.classList.remove('hidden'); 
+
+    // 2. Map Frontend Type to Backend Type
+    // Backend expects 'general' or 'incumbent'
+    const backendType = (type === 'signed') ? 'incumbent' : 'general';
+
+    // 3. Call Existing Backend Function
+    google.script.run
+        .withSuccessHandler(renderJdResult)
+        .withFailureHandler(renderJdError)
+        .getJdFileUrl(positionId, employeeId, jobTitle, backendType);
+}
+
+function showJdSelectionScreen() {
+    const content = document.getElementById('jd-content');
+    const loading = document.getElementById('jd-loading');
+    const title = document.getElementById('jd-modal-title');
+
+    // Reset Title & Loader
+    if (title) title.textContent = currentJdContext.jobTitle;
     if (loading) loading.classList.add('hidden');
 
-    // 5. INJECT THE SELECTION BUTTONS (The "2 Buttons" you mentioned)
-    // We use a clean grid layout for the choices
     if (content) {
-        content.innerHTML = `
-        <div class="flex flex-col items-center justify-center h-full py-8 space-y-6">
-            <h4 class="text-slate-600 font-medium mb-4">Please select which document to view:</h4>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
-                
-                <button onclick="fetchJdContent('general', '${positionId}', '${employeeId}')" 
-                    class="group relative flex flex-col items-center p-6 bg-white border-2 border-slate-200 rounded-xl hover:border-emerald-500 hover:shadow-lg transition-all duration-300">
-                    <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4 group-hover:bg-emerald-100 transition-colors">
-                        <svg class="w-8 h-8 text-slate-500 group-hover:text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                    </div>
-                    <h5 class="text-lg font-bold text-slate-700 group-hover:text-emerald-700">General JD</h5>
-                    <p class="text-sm text-slate-500 text-center mt-2">Standard job description template for this position.</p>
-                </button>
+        // Safe string escaping
+        const safeTitle = (currentJdContext.jobTitle || '').replace(/'/g, "\\'");
+        const hasIncumbent = !!currentJdContext.employeeId;
 
-                <button onclick="fetchJdContent('signed', '${positionId}', '${employeeId}')" 
-                    class="group relative flex flex-col items-center p-6 bg-white border-2 border-slate-200 rounded-xl hover:border-blue-500 hover:shadow-lg transition-all duration-300">
+        // --- DYNAMIC HTML FOR SIGNED CARD ---
+        let signedCardHtml = '';
+        
+        if (hasIncumbent) {
+            signedCardHtml = `
+            <div class="relative flex flex-col bg-white border-2 border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 group">
+                <button onclick="fetchJdContent('signed', '${currentJdContext.positionId}', '${currentJdContext.employeeId}', '${safeTitle}')" 
+                    class="flex-1 flex flex-col items-center p-6 w-full text-center hover:bg-blue-50 transition-colors">
                     <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4 group-hover:bg-blue-100 transition-colors">
                         <svg class="w-8 h-8 text-slate-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     </div>
                     <h5 class="text-lg font-bold text-slate-700 group-hover:text-blue-700">Signed JD</h5>
-                    <p class="text-sm text-slate-500 text-center mt-2">PDF with incumbent signature from Google Drive.</p>
+                    <p class="text-sm text-slate-500 mt-2">View current signed document.</p>
                 </button>
+                <div class="bg-slate-50 border-t border-slate-200 p-2 flex justify-center">
+                    <button onclick="triggerJdUpload('signed')" class="flex items-center text-xs font-bold text-blue-600 hover:text-blue-800 uppercase tracking-wide px-3 py-1 rounded hover:bg-blue-100 transition-colors">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        Upload Signed
+                    </button>
+                </div>
+            </div>`;
+        } else {
+            // DISABLED STATE (Vacant)
+            signedCardHtml = `
+            <div class="relative flex flex-col bg-slate-50 border-2 border-slate-100 rounded-xl overflow-hidden opacity-60">
+                <button disabled class="flex-1 flex flex-col items-center p-6 w-full text-center cursor-not-allowed">
+                    <div class="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center mb-4">
+                        <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                    </div>
+                    <h5 class="text-lg font-bold text-slate-400">Signed JD</h5>
+                    <p class="text-sm text-slate-400 mt-2">Not available (Vacant)</p>
+                </button>
+            </div>`;
+        }
+
+        content.innerHTML = `
+        <div class="flex flex-col items-center justify-center h-full py-8 space-y-6 fade-in">
+            <h4 class="text-slate-600 font-medium mb-4">Select Document Action:</h4>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
+                
+                <div class="relative flex flex-col bg-white border-2 border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 group">
+                    <button onclick="fetchJdContent('general', '${currentJdContext.positionId}', '${currentJdContext.employeeId}', '${safeTitle}')" 
+                        class="flex-1 flex flex-col items-center p-6 w-full text-center hover:bg-emerald-50 transition-colors">
+                        <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4 group-hover:bg-emerald-100 transition-colors">
+                            <svg class="w-8 h-8 text-slate-500 group-hover:text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        </div>
+                        <h5 class="text-lg font-bold text-slate-700 group-hover:text-emerald-700">General JD</h5>
+                        <p class="text-sm text-slate-500 mt-2">Standard job description.</p>
+                    </button>
+                    <div class="bg-slate-50 border-t border-slate-200 p-2 flex justify-center">
+                        <button onclick="triggerJdUpload('general')" class="flex items-center text-xs font-bold text-emerald-600 hover:text-emerald-800 uppercase tracking-wide px-3 py-1 rounded hover:bg-emerald-100 transition-colors">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                            Upload General
+                        </button>
+                    </div>
+                </div>
+
+                ${signedCardHtml}
 
             </div>
+
+            <input type="file" id="jd-upload-input" class="hidden" accept=".pdf,.doc,.docx" onchange="handleJdUpload(event)">
+            <input type="hidden" id="jd-upload-type">
         </div>
         `;
     }
 }
 
-function fetchJdContent(type, positionId, employeeId) {
-    const content = document.getElementById('jd-content');
-    const loading = document.getElementById('jd-loading');
+// --- UPLOAD HANDLERS ---
 
-    // 1. Show Loading State
-    if (content) content.innerHTML = ''; // Clear buttons
-    if (loading) loading.classList.remove('hidden'); // Show spinner
+function triggerJdUpload(type) {
+    // 1. Set the type (general vs signed) so we know where to save it
+    document.getElementById('jd-upload-type').value = type;
+    
+    // 2. Trigger the hidden file input
+    document.getElementById('jd-upload-input').click();
+}
 
-    // 2. Call Google Apps Script based on button clicked
-    if (type === 'general') {
-        // Option A: Get General Text/HTML Description
-        google.script.run
-            .withSuccessHandler(renderJdResult)
-            .withFailureHandler(renderJdError)
-            .getGeneralJobDescription(positionId); // Checks your backend function name
-    } 
-    else if (type === 'signed') {
-        // Option B: Get Signed PDF URL (Google Drive)
-        google.script.run
-            .withSuccessHandler(renderJdResult)
-            .withFailureHandler(renderJdError)
-            .getSignedJobDescription(employeeId); // Checks your backend function name
+function handleJdUpload(event) {
+    const file = event.target.files[0];
+    const type = document.getElementById('jd-upload-type').value;
+    
+    if (!file) return;
+
+    // Validation
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit check (optional)
+        alert("File is too large. Please upload a PDF smaller than 5MB.");
+        return;
     }
+
+    // Prepare UI
+    const content = document.getElementById('jd-content');
+    content.innerHTML = `
+        <div class="flex flex-col items-center justify-center h-full text-blue-600">
+            <svg class="animate-spin h-10 w-10 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="font-bold">Uploading ${type.toUpperCase()} JD...</p>
+            <p class="text-sm text-gray-500 mt-1">${file.name}</p>
+        </div>`;
+
+    // Process File
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const fileData = {
+            name: file.name,
+            mimeType: file.type,
+            content: e.target.result.split(',')[1] // Base64
+        };
+
+        // Send to Backend
+        google.script.run
+            .withSuccessHandler(function(response) {
+                if (response.success) {
+                    alert(`✅ Upload Successful!\nFile saved as: ${response.name}`);
+                    // Refresh view to show new file
+                    showJdSelectionScreen(); 
+                } else {
+                    alert("Upload Failed: " + response.error);
+                    showJdSelectionScreen();
+                }
+            })
+            .withFailureHandler(function(err) {
+                alert("System Error: " + err.message);
+                showJdSelectionScreen();
+            })
+            .uploadJdFile(
+                fileData, 
+                type, 
+                currentJdContext.positionId, 
+                currentJdContext.employeeId, 
+                currentJdContext.jobTitle
+            );
+    };
+    reader.readAsDataURL(file);
+    
+    // Clear input so same file can be selected again if needed
+    event.target.value = ''; 
 }
 
 // Helper: Success Render
@@ -5316,23 +5581,34 @@ function renderJdResult(htmlOrUrl) {
     if (loading) loading.classList.add('hidden');
 
     if (content) {
+        // --- THE NEW BACK BUTTON ---
+        // This button calls showJdSelectionScreen(), which re-draws the two big buttons
+        const backButtonHtml = `
+            <div class="mb-4 flex items-center border-b pb-2">
+                <button onclick="showJdSelectionScreen()" class="flex items-center text-sm font-bold text-slate-500 hover:text-blue-600 transition-colors px-3 py-2 rounded hover:bg-slate-50">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                    Back to Options
+                </button>
+            </div>
+        `;
+
         if (!htmlOrUrl) {
-            content.innerHTML = '<div class="text-center py-10 text-slate-400">No document found for this selection.</div>';
+            content.innerHTML = backButtonHtml + '<div class="text-center py-10 text-slate-400">No document found for this selection.</div>';
             return;
         }
         
-        // Detect if result is a URL (likely a PDF/Drive link) or HTML text
-        // Note: Adjust logic if your backend returns an iframe string directly
+        // Detect content type
+        let mainBody = '';
         if (htmlOrUrl.includes('<iframe') || htmlOrUrl.includes('<embed')) {
-            // It's already an embed code
-            content.innerHTML = htmlOrUrl;
+            mainBody = htmlOrUrl;
         } else if (htmlOrUrl.startsWith('http')) {
-            // It's a direct link, wrap it in an iframe
-            content.innerHTML = `<iframe src="${htmlOrUrl}" width="100%" height="600px" style="border:none; border-radius:8px;"></iframe>`;
+            mainBody = `<iframe src="${htmlOrUrl}" width="100%" height="600px" style="border:none; border-radius:8px;"></iframe>`;
         } else {
-            // It's just text/HTML
-            content.innerHTML = htmlOrUrl;
+            mainBody = htmlOrUrl;
         }
+
+        // Inject: Back Button + Document Content
+        content.innerHTML = backButtonHtml + mainBody;
     }
 }
 
@@ -5428,6 +5704,9 @@ function showSavingOverlay(message) {
       // --- NEW EVALUATION FIELDS ---
       "3rdmonthevaldate": document.getElementById('3rdmonthevaldate').value,
       "5thmonthevaldate": document.getElementById('5thmonthevaldate').value
+    // --- NEW FIELDS ---
+      worklocation: document.getElementById('worklocation').value,
+      movementtype: document.getElementById('movementtype').value
     };
     const originalStatus = document.getElementById('original-status').value;
 

@@ -2481,6 +2481,7 @@
 </div>
 
 <script>
+
   // --- GLOBAL VARIABLES ---
   var analyticsDataLoaded = false;
   var resignationDataLoaded = false;
@@ -4827,7 +4828,7 @@ document.addEventListener('click', function(event) {
   
   function renderApprovalBoxes(data, department) {
       const container = document.getElementById('approval-section');
-      if (!data) {
+      if (!data || !data.approvers) {
           container.innerHTML = `<p class="text-red-500">Could not retrieve approval data. Please try again.</p>`;
           return;
       }

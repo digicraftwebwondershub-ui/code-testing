@@ -5185,3 +5185,43 @@ function uploadJdFile(fileData, type, positionId, employeeId, jobTitle) {
     return { success: false, error: e.message };
   }
 }
+
+/**
+ * Fetches full employee details by ID for the auto-populate feature.
+ */
+function getEmployeeFullDetails(employeeId) {
+  if (!employeeId) return null;
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const mainSheet = ss.getSheets()[0];
+    const data = mainSheet.getDataRange().getValues();
+    const headers = data.shift(); // Extract headers
+    
+    // Helper to find column index safely
+    const getIdx = (search) => headers.findIndex(h => String(h).toLowerCase().replace(/\s/g,'') === search.toLowerCase().replace(/\s/g,''));
+
+    const idIdx = getIdx('EmployeeID');
+    const nameIdx = getIdx('EmployeeName');
+    const dobIdx = getIdx('DateofBirth');
+    const hiredIdx = getIdx('DateHired');
+    const genderIdx = getIdx('Gender');
+
+    if (idIdx === -1) return null;
+
+    // Find the row matching the Employee ID
+    const row = data.find(r => String(r[idIdx]).trim().toUpperCase() === String(employeeId).trim().toUpperCase());
+    
+    if (!row) return null;
+
+    return {
+      name: (nameIdx > -1) ? row[nameIdx] : '',
+      dob: (dobIdx > -1 && row[dobIdx] instanceof Date) ? Utilities.formatDate(row[dobIdx], Session.getScriptTimeZone(), 'yyyy-MM-dd') : '',
+      hired: (hiredIdx > -1 && row[hiredIdx] instanceof Date) ? Utilities.formatDate(row[hiredIdx], Session.getScriptTimeZone(), 'yyyy-MM-dd') : '',
+      gender: (genderIdx > -1) ? row[genderIdx] : ''
+    };
+
+  } catch (e) {
+    Logger.log("Error in getEmployeeFullDetails: " + e.message);
+    return null;
+  }
+}

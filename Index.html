@@ -53,29 +53,28 @@
       box-shadow: none !important;
     }
 
-/* --- MODERN NODE STYLES --- */
+/* --- MODERN NODE CARD --- */
 .node-card {
   position: relative;
   display: inline-flex;
   align-items: center; /* Vertically center content */
   padding: 12px 16px;  /* More breathing room */
-  border-radius: 12px; /* Smooth corners */
+  border-radius: 12px; /* Smooth, modern corners */
   background-color: #ffffff;
   
-  /* Modern Shadow */
+  /* Modern Shadow: Soft & lifting */
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* Smooth hover animation */
   
   min-width: 340px; 
   width: auto;
   
-  /* LEFT ACCENT STYLE */
+  /* LEFT ACCENT STYLE: Only show color on the left */
   border-style: solid;
   border-width: 0 0 0 6px; 
   
   margin: 12px 16px; 
   cursor: pointer;
-  overflow: visible !important; /* Critical for Edit Buttons */
 }
 
 /* --- FIX: ALLOW BUTTONS TO HANG OUTSIDE CARDS --- */
@@ -83,14 +82,14 @@
   overflow: visible !important; 
 }
 
-/* Hover Effect */
+/* Hover Effect: Lift the card up */
 .node-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   z-index: 20;
 }
 
-/* Modern Image Styling */
+/* Make the profile picture look premium */
 .node-card img {
   width: 56px;
   height: 56px;
@@ -98,7 +97,7 @@
   margin-right: 16px;
   object-fit: cover;
   flex-shrink: 0;
-  border: 2px solid white;
+  border: 2px solid white; /* Clean white ring */
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
@@ -191,14 +190,14 @@
   border-radius: 12px;
   min-width: 300px;
   
+  /* Dashed border with subtle dot pattern */
   border: 2px dashed #cbd5e1; 
   background-color: #f8fafc; 
-  background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+  background-image: radial-gradient(#e2e8f0 1px, transparent 1px); /* Polka dot pattern */
   background-size: 10px 10px;
   
   margin: 12px 16px;
   transition: all 0.2s;
-  overflow: visible !important; /* Critical for Edit Buttons */
 }
 
 .vacant-card:hover {
@@ -225,32 +224,47 @@
     .plantilla-over { background-color: #fee2e2; }
     .plantilla-at { background-color: #f1f5f9; }
     
- /* --- MODERN FLOATING TOOLTIP --- */
+    /* --- MODERN FLOATING TOOLTIP --- */
 #custom-tooltip {
   position: absolute;
   display: none;
+  
+  /* Glassmorphism Effect */
   background-color: rgba(255, 255, 255, 0.98); 
   backdrop-filter: blur(8px);
+  
+  /* Subtle border and Deep Shadow */
+  border: 1px solid rgba(255, 255, 255, 0.5); 
   border-radius: 16px; 
   box-shadow: 
     0 10px 15px -3px rgba(0, 0, 0, 0.1), 
     0 4px 6px -2px rgba(0, 0, 0, 0.05),
     0 20px 25px -5px rgba(0, 0, 0, 0.1); 
-  padding: 0;
-  min-width: 340px; /* Slightly wider for new columns */
-  max-width: 380px;
+    
+  padding: 0; /* Important: Remove padding so the header fits perfectly */
+  min-width: 320px;
+  max-width: 360px;
   z-index: 9999;
   overflow: hidden;
 }
 
-/* FIX: Force Tooltip Image Alignment */
+    #custom-tooltip img {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      display: block;
+      margin: 0 auto 10px;
+      border-width: 3px;
+      border-style: solid;
+    }
+
+    /* --- FIX TOOLTIP IMAGE ALIGNMENT --- */
 #custom-tooltip img {
-  display: inline-block !important;
-  margin: 0 12px 0 0 !important;
+  display: inline-block !important; /* Overrides the old 'block' */
+  margin: 0 12px 0 0 !important;    /* Overrides the old '0 auto' margins */
   border: 2px solid white !important;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
-
     #custom-tooltip p {
       margin: 0 0 2px 0;
       font-size: 12px;
@@ -1055,11 +1069,6 @@
         </div>
 
         <div class="col-span-12 md:col-span-6">
-          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Work Location</label>
-          <input type="text" id="worklocation" class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-800 placeholder-slate-400" placeholder="e.g. Head Office">
-        </div>
-
-        <div class="col-span-12 md:col-span-6">
           <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Job Title <span class="text-red-500">*</span></label>
           <div id="jobtitle-dropdown-container" class="w-full"></div>
           <input type="hidden" id="jobtitle">
@@ -1091,12 +1100,6 @@
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Section <span class="text-red-500">*</span></label>
                 <div id="section-dropdown-container" class="w-full"></div>
                 <input type="hidden" id="section">
-            </div>
-            <div>
-              <div class="col-span-12 md:col-span-6">
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Movement Type</label>
-                <div id="movementtype-dropdown-container" class="w-full"></div>
-                <input type="hidden" id="movementtype">
             </div>
         </div>
 
@@ -4263,14 +4266,6 @@ function drawChart(filteredData) {
   });
 }
 
-// --- RESTORED FUNCTION: Show Employee Details on Click ---
-function showEmployeeDetails(employee) {
-  if (!employee) return;
-  // Use the existing modal in 'edit' mode to show details
-  // If the user doesn't have permission, the modal logic will handle read-only or hide buttons
-  openModal('edit', employee.nodeId);
-}
-
 function showTooltip(event, nodeId) {
     if (typeof tooltipTimeout !== 'undefined') clearTimeout(tooltipTimeout);
     
@@ -4287,6 +4282,7 @@ function showTooltip(event, nodeId) {
     
     var contractTypeUpper = employee.stylingContractType ? employee.stylingContractType.toUpperCase() : '';
     
+    // Border Logic for Special Contracts
     if (contractTypeUpper === 'JREL' || contractTypeUpper === 'JPRO') {
         headerColor = '#f97316'; // Orange
         borderColor = '#f97316';
@@ -4306,12 +4302,13 @@ function showTooltip(event, nodeId) {
         headerColor = levelColors[employee.level];
     }
 
+    // Apply Border Immediately
     tooltipDiv.style.border = `${borderWidth} ${borderStyle} ${borderColor}`;
 
     var contentHtml = '';
 
     if (employee.employeeId) {
-        // --- 2. HEADER SECTION ---
+        // --- 2. HEADER SECTION (Left Aligned) ---
         var photoUrl = employee.gender && employee.gender.toLowerCase() === 'female' ? 'https://i.imgur.com/dTvdfy0.png' : 'https://i.imgur.com/bIbZ89x.png';
         
         contentHtml += `
@@ -4333,10 +4330,8 @@ function showTooltip(event, nodeId) {
                 <div style="font-size: 12px; color: #334155; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${value || '-'}</div>
             </div>`;
 
-        // Add Work Location here
         contentHtml += gridItem('Employee ID', employee.employeeId);
         contentHtml += gridItem('Date Hired', employee.dateHired);
-        contentHtml += gridItem('Work Location', employee.workLocation); // <--- ADDED
         contentHtml += gridItem('Division', employee.division);
         contentHtml += gridItem('Group', employee.group);
         contentHtml += gridItem('Department', employee.department);
@@ -4353,7 +4348,7 @@ function showTooltip(event, nodeId) {
         // --- 4. STATUS & HISTORY ---
         contentHtml += `<div style="padding: 12px 16px 16px 16px; display: flex; flex-direction: column; gap: 10px;">`;
 
-        // Incumbent Logic
+        // Incumbent Logic (Always Visible)
         let incumbentText = 'None';
         if (employee.historicalNote) {
             if (employee.historicalNote.lastIncumbents && employee.historicalNote.lastIncumbents.length > 0) {
@@ -5109,9 +5104,7 @@ function handleEmployeeIdBlur(event) {
 
     document.getElementById('employeename').addEventListener('input', handleEmployeeNameInput);
     document.getElementById('startdateinposition').addEventListener('input', syncNewHireDate);
-    document.getElementById('employeeid').addEventListener('blur', handleEmployeeIdBlur);
     
-    // Hide conditional fields initially
     document.getElementById('effective-date-wrapper').style.display = 'none';
     document.getElementById('effectivedate').required = false;
     document.getElementById('start-date-wrapper').style.display = 'none';
@@ -5120,21 +5113,15 @@ function handleEmployeeIdBlur(event) {
     document.getElementById('contractenddate').required = false;
     document.getElementById('datehired').required = false;
 
-    // --- DEFINE DROPDOWNS ---
+    document.getElementById('employeeid').addEventListener('blur', handleEmployeeIdBlur);
+
     let statusOptions = [...(dropdownListData.status || [])];
     if (!statusOptions.includes('VACANT')) statusOptions.push('VACANT');
     if (!statusOptions.includes('PROMOTION')) statusOptions.push('PROMOTION');
     if (!statusOptions.includes('INTERNAL TRANSFER')) statusOptions.push('INTERNAL TRANSFER');
     statusOptions.sort();
 
-    // --- NEW: Movement Type Options ---
-    const movementOptions = [
-        'New Hire', 'Replacement', 'Promotion', 'Lateral Transfer', 
-        'Internal Transfer', 'Re-designation', 'Regularization', 
-        'Resignation', 'Reorganization'
-    ];
-
-    // --- REUSABLE HELPER FOR PROBATION FIELDS ---
+    // --- REUSABLE HELPER FOR SHOWING/HIDING EVALUATION FIELDS ---
     const updateProbationFields = (sel) => {
         const statusUpper = sel ? sel.toUpperCase() : '';
         const trackingWrapper = document.getElementById('probationary-tracking-wrapper');
@@ -5145,12 +5132,10 @@ function handleEmployeeIdBlur(event) {
         }
     };
 
-    // --- INITIALIZE DROPDOWNS ---
     createSearchableDropdown('jobtitle-dropdown-container', dropdownListData.jobtitle || [], null, null, (sel) => { document.getElementById('jobtitle').value = sel; });
     createSearchableDropdown('level-dropdown-container', dropdownListData.level || [], null, null, (sel) => { document.getElementById('level').value = sel; });
     createSearchableDropdown('payrolltype-dropdown-container', dropdownListData.payrolltype || [], null, null, (sel) => { document.getElementById('payrolltype').value = sel; });
     createSearchableDropdown('joblevel-dropdown-container', dropdownListData.joblevel || [], null, null, (sel) => { document.getElementById('joblevel').value = sel; });
-    
     createSearchableDropdown('contracttype-dropdown-container', dropdownListData.contracttype || [], null, null, (sel) => { 
         document.getElementById('contracttype').value = sel; 
         const endDateWrapper = document.getElementById('contract-end-date-wrapper');
@@ -5164,15 +5149,15 @@ function handleEmployeeIdBlur(event) {
             endDateInput.value = '';
         }
     });
-
     createSearchableDropdown('competency-dropdown-container', dropdownListData.competency || [], null, null, (sel) => { document.getElementById('competency').value = sel; });
     
-    // Status Logic
+    // UPDATED STATUS DROPDOWN WITH PROBATION CHECK
     createSearchableDropdown('status-dropdown-container', statusOptions, null, null, (sel) => { 
       document.getElementById('status').value = sel; 
-      updateProbationFields(sel);
+      updateProbationFields(sel); // Check visibility immediately
 
       const selUpper = sel ? sel.toUpperCase() : '';
+      
       const effectiveDateWrapper = document.getElementById('effective-date-wrapper');
       const effectiveDateLabel = document.getElementById('effective-date-label');
       const effectiveDateInput = document.getElementById('effectivedate');
@@ -5216,15 +5201,15 @@ function handleEmployeeIdBlur(event) {
       startDateWrapper.style.display = showStartDateField ? 'block' : 'none';
       startDateInput.required = showStartDateField;
 
-      // Logic for Regularization Start Date
       if (selUpper === 'REGULAR') {
           const mode = document.getElementById('form-mode').value;
           if (mode === 'edit') {
               const positionId = document.getElementById('positionid').value;
               google.script.run
                   .withSuccessHandler(function(startDate) {
-                      if (startDate) startDateInput.value = startDate;
-                      else {
+                      if (startDate) {
+                          startDateInput.value = startDate;
+                      } else {
                           const dateHired = document.getElementById('datehired').value;
                           if(dateHired) startDateInput.value = dateHired;
                       }
@@ -5242,9 +5227,11 @@ function handleEmployeeIdBlur(event) {
           dateHiredInput.required = true;
           const employeeId = document.getElementById('employeeid').value;
           if (mode === 'edit' && employeeId && !dateHiredInput.value) {
-              google.script.run.withSuccessHandler(function(hiredDate) {
-                  if (hiredDate) dateHiredInput.value = hiredDate;
-              }).getDateHired(employeeId);
+              google.script.run
+                  .withSuccessHandler(function(hiredDate) {
+                      if (hiredDate) dateHiredInput.value = hiredDate;
+                  })
+                  .getDateHired(employeeId);
           }
       } else {
           dateHiredInput.required = false;
@@ -5254,29 +5241,21 @@ function handleEmployeeIdBlur(event) {
     createSearchableDropdown('gender-dropdown-container', ['Male', 'Female'], null, null, (sel) => { document.getElementById('gender').value = sel; });
     createSearchableDropdown('reasonforleaving-dropdown-container', dropdownListData.reasonforleaving || [], null, null, (sel) => { document.getElementById('reasonforleaving').value = sel; });
     createSearchableDropdown('positionstatus-dropdown-container', ['Active', 'Inactive'], null, null, (sel) => { document.getElementById('positionstatus').value = sel; });
-    
-    // --- NEW: Movement Type Dropdown ---
-    createSearchableDropdown('movementtype-dropdown-container', movementOptions, null, null, (sel) => { document.getElementById('movementtype').value = sel; });
-
     createSearchableDropdown('reportingto-dropdown-container', dropdownListData.managers || [], 'name', 'id', handleManagerSelection);
     createSearchableDropdown('division-dropdown-container', dropdownListData.divisions || [], null, null, (sel) => updateDependentDropdowns('division', sel));
     createSearchableDropdown('group-dropdown-container', [], null, null, (sel) => updateDependentDropdowns('group', sel));
     createSearchableDropdown('department-dropdown-container', [], null, null, (sel) => updateDependentDropdowns('department', sel));
     createSearchableDropdown('section-dropdown-container', [], null, null, (sel) => { document.getElementById('section').value = sel; handleIdGeneration(); });
 
-    // --- POPULATE DATA ---
     if (mode === 'add') {
       document.getElementById('modal-title').textContent = 'Add New Position';
       document.getElementById('positionid').value = 'Select Division/Section...';
       document.getElementById('original-status').value = '';
+      
+      // Clear new fields
       document.getElementById('3rdmonthevaldate').value = '';
       document.getElementById('5thmonthevaldate').value = '';
       
-      // Clear New Fields
-      document.getElementById('worklocation').value = '';
-      setSearchableDropdownValue('movementtype-dropdown-container', '');
-      document.getElementById('movementtype').value = '';
-
     } else {
       document.getElementById('modal-title').textContent = 'Edit Position / Employee';
       const employee = employeeMap.get(nodeId);
@@ -5291,39 +5270,30 @@ function handleEmployeeIdBlur(event) {
       document.getElementById('datehired').value = employee.dateHired || '';
       document.getElementById('dateofbirth').value = employee.dateOfBirth || '';
       document.getElementById('contractenddate').value = employee.contractEndDate || '';
-      
       setSearchableDropdownValue('reportingto-dropdown-container', employee.managerName || '');
       document.getElementById('reportingtoid').value = employee.managerEmployeeId || '';
       document.getElementById('reportingtoid_display').value = employee.managerEmployeeId || '';
       document.getElementById('reportingto').value = employee.managerName || '';
-      
       setSearchableDropdownValue('jobtitle-dropdown-container', employee.jobTitle || '');
       setSearchableDropdownValue('level-dropdown-container', employee.level || '');
       setSearchableDropdownValue('payrolltype-dropdown-container', employee.payrollType || '');
       setSearchableDropdownValue('joblevel-dropdown-container', employee.jobLevel || '');
       setSearchableDropdownValue('contracttype-dropdown-container', employee.contractType || '');
-      
-      // Trigger change for JPRO logic
       const contractTypeInput = document.querySelector('#contracttype-dropdown-container .searchable-dropdown-input');
       if (contractTypeInput) setTimeout(() => contractTypeInput.dispatchEvent(new Event('change')), 0);
-      
       setSearchableDropdownValue('competency-dropdown-container', employee.competency || '');
       setSearchableDropdownValue('status-dropdown-container', employee.status || '');
       setSearchableDropdownValue('gender-dropdown-container', employee.gender || '');
       setSearchableDropdownValue('positionstatus-dropdown-container', employee.positionStatus || '');
-      
       setSearchableDropdownValue('division-dropdown-container', employee.division || '', true);
       updateDependentDropdowns('division', employee.division, employee);
 
-      // Populate Evaluation Fields
+      // --- POPULATE NEW EVALUATION FIELDS ---
       document.getElementById('3rdmonthevaldate').value = employee.thirdMonthEval || '';
       document.getElementById('5thmonthevaldate').value = employee.fifthMonthEval || '';
+      
+      // Update visibility based on loaded status
       updateProbationFields(employee.status);
-
-      // --- POPULATE NEW FIELDS ---
-      document.getElementById('worklocation').value = employee.workLocation || '';
-      setSearchableDropdownValue('movementtype-dropdown-container', employee.movementType || '');
-      document.getElementById('movementtype').value = employee.movementType || '';
     }
     document.getElementById('employee-modal').style.display = 'flex';
 }
@@ -5712,9 +5682,6 @@ function showSavingOverlay(message) {
       // --- NEW EVALUATION FIELDS ---
       "3rdmonthevaldate": document.getElementById('3rdmonthevaldate').value,
       "5thmonthevaldate": document.getElementById('5thmonthevaldate').value
-    // --- NEW FIELDS ---
-      worklocation: document.getElementById('worklocation').value,
-      movementtype: document.getElementById('movementtype').value
     };
     const originalStatus = document.getElementById('original-status').value;
 
@@ -6201,6 +6168,57 @@ function drawPredictiveInsights() {
 }
 
 // --- END: NEW PREDICTIVE INSIGHTS SCRIPT ---
+
+// --- START: NEW PREDICTIVE INSIGHTS SCRIPT ---
+
+function drawPredictiveInsights() {
+  predictiveDataLoaded = true;
+  document.getElementById('attrition-risk-loader').style.display = 'flex';
+  document.getElementById('attrition-risk-content').style.display = 'none';
+
+  google.script.run
+    .withSuccessHandler(function(data) {
+      const tableBody = document.getElementById('attrition-risk-table-body');
+      tableBody.innerHTML = ''; 
+
+      if (data.error) {
+        tableBody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-red-500">Error: ${data.error}</td></tr>`;
+      } else if (data.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-gray-500">No significant attrition risks identified based on current data.</td></tr>`;
+      } else {
+        data.forEach(employee => {
+          const row = document.createElement('tr');
+          let riskLevelHtml = '';
+          if (employee.score >= 5) {
+              riskLevelHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">High</span>';
+          } else if (employee.score >= 3) {
+              riskLevelHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Medium</span>';
+          } else {
+              riskLevelHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Low</span>';
+          }
+
+          row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${employee.name}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${employee.position}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${employee.department}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-bold">${riskLevelHtml}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${employee.factors}</td>
+          `;
+          tableBody.appendChild(row);
+        });
+      }
+
+      document.getElementById('attrition-risk-loader').style.display = 'none';
+      document.getElementById('attrition-risk-content').style.display = 'block';
+    })
+    .withFailureHandler(function(err) {
+      const tableBody = document.getElementById('attrition-risk-table-body');
+      tableBody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-red-500">Failed to load predictive data. Error: ${err.message}</td></tr>`;
+      document.getElementById('attrition-risk-loader').style.display = 'none';
+      document.getElementById('attrition-risk-content').style.display = 'block';
+    })
+    .getAttritionRiskData();
+}
 
 function drawHiringPredictions() {
   document.getElementById('tth-prediction-loader').style.display = 'flex';

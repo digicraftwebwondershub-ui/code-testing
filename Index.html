@@ -5135,7 +5135,8 @@ function handleEmployeeIdBlur(event) {
     })
     .getEmployeeFullDetails(employeeId);
 }
-  function openModal(mode, nodeId) {
+
+function openModal(mode, nodeId) {
     const form = document.getElementById('employee-form');
     form.reset();
     document.getElementById('form-mode').value = mode;
@@ -5153,13 +5154,15 @@ function handleEmployeeIdBlur(event) {
 
     document.getElementById('employeeid').addEventListener('blur', handleEmployeeIdBlur);
 
-    let statusOptions = [...(dropdownListData.status || [])];
+    // CHANGED: dropdownListData.status -> dropdownListData.employmentstatus
+    // Note: The backend 'getListsForDropdowns' creates keys by lowercasing and removing spaces.
+    // So 'Employment Status' becomes 'employmentstatus'.
+    let statusOptions = [...(dropdownListData.employmentstatus || [])];
     if (!statusOptions.includes('VACANT')) statusOptions.push('VACANT');
     if (!statusOptions.includes('PROMOTION')) statusOptions.push('PROMOTION');
     if (!statusOptions.includes('INTERNAL TRANSFER')) statusOptions.push('INTERNAL TRANSFER');
     statusOptions.sort();
 
-    // --- REUSABLE HELPER FOR SHOWING/HIDING EVALUATION FIELDS ---
     const updateProbationFields = (sel) => {
         const statusUpper = sel ? sel.toUpperCase() : '';
         const trackingWrapper = document.getElementById('probationary-tracking-wrapper');
@@ -5189,10 +5192,9 @@ function handleEmployeeIdBlur(event) {
     });
     createSearchableDropdown('competency-dropdown-container', dropdownListData.competency || [], null, null, (sel) => { document.getElementById('competency').value = sel; });
     
-    // UPDATED STATUS DROPDOWN WITH PROBATION CHECK
     createSearchableDropdown('status-dropdown-container', statusOptions, null, null, (sel) => { 
       document.getElementById('status').value = sel; 
-      updateProbationFields(sel); // Check visibility immediately
+      updateProbationFields(sel);
 
       const selUpper = sel ? sel.toUpperCase() : '';
       
@@ -5221,15 +5223,6 @@ function handleEmployeeIdBlur(event) {
         effectiveDateInput.required = false;
         reasonWrapper.style.display = 'none';
         reasonInput.required = false;
-      }
-
-      if (selUpper === 'VACANT') {
-        document.getElementById('employeeid').value = '';
-        document.getElementById('employeename').value = '';
-        document.getElementById('datehired').value = '';
-        document.getElementById('dateofbirth').value = '';
-        document.getElementById('contractenddate').value = '';
-        setSearchableDropdownValue('gender-dropdown-container', '');
       }
 
       if (selUpper === 'VACANT') {
@@ -5298,11 +5291,8 @@ function handleEmployeeIdBlur(event) {
       document.getElementById('modal-title').textContent = 'Add New Position';
       document.getElementById('positionid').value = 'Select Division/Section...';
       document.getElementById('original-status').value = '';
-      
-      // Clear new fields
       document.getElementById('3rdmonthevaldate').value = '';
       document.getElementById('5thmonthevaldate').value = '';
-      
     } else {
       document.getElementById('modal-title').textContent = 'Edit Position / Employee';
       const employee = employeeMap.get(nodeId);
@@ -5335,11 +5325,9 @@ function handleEmployeeIdBlur(event) {
       setSearchableDropdownValue('division-dropdown-container', employee.division || '', true);
       updateDependentDropdowns('division', employee.division, employee);
 
-      // --- POPULATE NEW EVALUATION FIELDS ---
       document.getElementById('3rdmonthevaldate').value = employee.thirdMonthEval || '';
       document.getElementById('5thmonthevaldate').value = employee.fifthMonthEval || '';
       
-      // Update visibility based on loaded status
       updateProbationFields(employee.status);
     }
     document.getElementById('employee-modal').style.display = 'flex';
@@ -5722,7 +5710,10 @@ function showSavingOverlay(message) {
       contracttype: document.getElementById('contracttype').value,
       contractenddate: document.getElementById('contractenddate').value,
       competency: document.getElementById('competency').value,
-      status: document.getElementById('status').value,
+      
+      // CHANGED: Key is now 'employmentstatus'
+      employmentstatus: document.getElementById('status').value,
+      
       effectivedate: document.getElementById('effectivedate').value,
       gender: document.getElementById('gender').value,
       positionstatus: document.getElementById('positionstatus').value,
@@ -5730,7 +5721,6 @@ function showSavingOverlay(message) {
       dateofbirth: document.getElementById('dateofbirth').value,
       startdateinposition: document.getElementById('startdateinposition').value,
       reasonforleaving: document.getElementById('reasonforleaving').value,
-      // --- NEW EVALUATION FIELDS ---
       "3rdmonthevaldate": document.getElementById('3rdmonthevaldate').value,
       "5thmonthevaldate": document.getElementById('5thmonthevaldate').value
     };
@@ -5749,24 +5739,28 @@ function showSavingOverlay(message) {
         const rootNodes = fullEmployeeData.filter(emp => !emp.managerId && emp.employeeId);
         const isEditingTheSingleRootNode = (data.formmode === 'edit' && rootNodes.length === 1 && rootNodes[0].employeeId === data.employeeid);
         const isAddingFirstNode = (data.formmode === 'add' && fullEmployeeData.length === 0);
-        if (!isEditingTheSingleRootNode && !isAddingFirstNode && data.status.toUpperCase() !== 'VACANT') {
+        // CHANGED: data.status -> data.employmentstatus
+        if (!isEditingTheSingleRootNode && !isAddingFirstNode && data.employmentstatus.toUpperCase() !== 'VACANT') {
             alert('The "Reporting To" field is required.');
             return;
         }
     }
     
     const mode = data.formmode;
-    if (mode === 'edit' && data.employeeid && data.status.toUpperCase() === 'VACANT' && originalStatus.toUpperCase() !== 'RESIGNED') {
+    // CHANGED: data.status -> data.employmentstatus
+    if (mode === 'edit' && data.employeeid && data.employmentstatus.toUpperCase() === 'VACANT' && originalStatus.toUpperCase() !== 'RESIGNED') {
       alert('Incorrect Workflow for Resignation!\n\nTo ensure accurate incumbency history, you must perform this action in two steps:\n\n1. First, change this employee\'s status to "Resigned" and save.\n2. After saving, edit the position again to make it "VACANT".\n\nPlease change the status to "Resigned" for now.');
       return;
     }
 
-    if ((data.status.toUpperCase() === 'VACANT' || data.status.toUpperCase() === 'RESIGNED') && mode === 'edit' && !data.effectivedate) {
+    // CHANGED: data.status -> data.employmentstatus
+    if ((data.employmentstatus.toUpperCase() === 'VACANT' || data.employmentstatus.toUpperCase() === 'RESIGNED') && mode === 'edit' && !data.effectivedate) {
       alert('Please provide the Effective Date for this status change.');
       return;
     }
     
-    if (data.status.toUpperCase() === 'RESIGNED' && !data.reasonforleaving) {
+    // CHANGED: data.status -> data.employmentstatus
+    if (data.employmentstatus.toUpperCase() === 'RESIGNED' && !data.reasonforleaving) {
         alert('Please select a "Reason for Leaving" before saving.');
         return;
     }
@@ -5776,7 +5770,8 @@ function showSavingOverlay(message) {
         return;
     }
 
-    const statusUpper = data.status ? data.status.toUpperCase() : '';
+    // CHANGED: data.status -> data.employmentstatus
+    const statusUpper = data.employmentstatus ? data.employmentstatus.toUpperCase() : '';
     const statusesRequiringStartDate = ['NEW HIRE', 'PROBATIONARY', 'REGULAR', 'PROMOTION', 'INTERNAL TRANSFER', 'LATERAL TRANSFER', 'FILLED VACANCY'];
     if (statusesRequiringStartDate.includes(statusUpper) && !data.startdateinposition) {
       alert('Please provide the Start Date in Position for this status.');
@@ -5801,7 +5796,7 @@ function showSavingOverlay(message) {
         alert('Error: ' + error.message);
       })
       .saveEmployeeData(data, mode);
-}
+  }
 
   function deactivateEmployee(positionId) {
     if (!confirm(`Are you sure you want to deactivate position ${positionId}? This will mark it as 'Inactive' and remove it from the active chart.`)) {

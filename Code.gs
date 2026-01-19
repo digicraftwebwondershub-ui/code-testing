@@ -1395,7 +1395,6 @@ function getEmployeeData() {
         resignationDate = Utilities.formatDate(resignationDates.get(posId), Session.getScriptTimeZone(), 'yyyy-MM-dd');
       }
 
-      // --- UPDATE THIS BLOCK IN getEmployeeData ---
       employeesToShow.push({
         positionId: posId,
         employeeId: val(row, 'Employee ID'),
@@ -1416,12 +1415,6 @@ function getEmployeeData() {
         contractType: isFieldAuthorized('Contract Type') ? val(row, 'Contract Type') : null,
         stylingContractType: val(row, 'Contract Type'),
         competency: isFieldAuthorized('Competency') ? val(row, 'Competency') : null,
-        
-        // --- NEW FIELDS ---
-        workLocation: val(row, 'Work Location'),
-        movementType: val(row, 'Movement Type'),
-        // ------------------
-
         status: employeeStatus,
         positionStatus: val(row, 'Position Status') || 'Active',
         dateHired: dateHired,
@@ -1429,6 +1422,7 @@ function getEmployeeData() {
         contractEndDate: contractEndDate,
         historicalNote: history,
         resignationDate: resignationDate,
+        // --- NEW: EVALUATION DATES ---
         thirdMonthEval: val(row, '3rd Month Eval Date') instanceof Date ? Utilities.formatDate(val(row, '3rd Month Eval Date'), Session.getScriptTimeZone(), 'yyyy-MM-dd') : null,
         fifthMonthEval: val(row, '5th Month Eval Date') instanceof Date ? Utilities.formatDate(val(row, '5th Month Eval Date'), Session.getScriptTimeZone(), 'yyyy-MM-dd') : null
       });

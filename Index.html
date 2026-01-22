@@ -4113,6 +4113,7 @@ function drawChart(filteredData) {
       const neededConnectors = new Set();
       let nodesToTrace = [...matchingRealEmployees]; 
 
+      // Trace parents to build hierarchy
       while(nodesToTrace.length > 0) {
           const nextTrace = [];
           nodesToTrace.forEach(node => {
@@ -4144,7 +4145,19 @@ function drawChart(filteredData) {
   dataTable.addColumn('string', 'Node ID');
   dataTable.addColumn('string', 'Reporting to ID');
   
+  // --- FIX 1: Performance Optimization ---
+  // Create a Set of all IDs that WILL be in the chart. 
+  // This makes checking "does parent exist?" instant (O(1)) instead of slow (O(N)).
+  const allValidIds = new Set(chartDataForDisplay.map(e => e.nodeId));
+  
+  // --- FIX 2: Duplicate Prevention Set ---
+  const addedIds = new Set();
+
   chartDataForDisplay.forEach(function(emp) {
+      // CRITICAL: If this Node ID is already added, skip it. 
+      // This prevents the "Duplicate ID" crash that causes the white screen.
+      if (addedIds.has(emp.nodeId)) return;
+      
       let nodeHtml;
       let actionsHtml = '';
       
@@ -4156,7 +4169,6 @@ function drawChart(filteredData) {
       const isInactive = (emp.positionStatus || '').toUpperCase() === 'INACTIVE';
       let inactiveOverlayHtml = isInactive ? '<div class="inactive-overlay">INACTIVE</div>' : '';
 
-      // --- 1. PROBATIONARY STATUS LOGIC (STRIPED PATTERN) ---
       let probationClass = '';
       const statusUpper = (emp.status || '').toUpperCase();
       if (statusUpper === 'PROBATIONARY') {
@@ -4187,7 +4199,7 @@ function drawChart(filteredData) {
 
       if (emp.employeeId) {
           let resignTag = '';
-          if (emp.status.toUpperCase() === 'RESIGNED' && emp.resignationDate) {
+          if (emp.status && emp.status.toUpperCase() === 'RESIGNED' && emp.resignationDate) {
               resignTag = '<div style="position: absolute; top: 4px; left: 4px; background-color: #ef4444; color: white; padding: 2px 6px; border-radius: 9999px; font-size: 10px; font-weight: bold; z-index: 5;">RESIGNEE (Eff. ' + emp.resignationDate + ')</div>';
           }
           
@@ -4223,7 +4235,6 @@ function drawChart(filteredData) {
           const statusClass = statusColors[normalizedStatus] || '';
           const statusDot = statusClass && !resignTag ? '<div class="status-dot ' + statusClass + '"></div>' : '';
           
-          // Construct Card
           nodeHtml = '<div class="node-card ' + levelBorderClass + ' ' + levelBgClass + ' ' + contractClass + ' ' + highlightClass + ' ' + probationClass + '" style="overflow: visible;" onmouseover="showTooltip(event, \'' + emp.nodeId + '\')" onmouseout="hideTooltip()">' +
                         inactiveOverlayHtml + resignTag + statusDot + actionsHtml +
                         '<img src="' + photoUrl + '" onerror="this.onerror=null;this.src=\'https://i.imgur.com/RHvayzz.png\';">' +
@@ -4242,11 +4253,28 @@ function drawChart(filteredData) {
                       '</div>';
       }
       
-      dataTable.addRow([{ v: emp.nodeId, f: nodeHtml }, emp.managerId]);
+      // Ensure manager ID is valid; if it refers to a node that doesn't exist in our chart, set to null (root)
+      let managerId = emp.managerId;
+      // FIX 3: Use the Set for O(1) lookup
+      if (managerId && !allValidIds.has(managerId)) {
+          managerId = ''; 
+      }
+
+      dataTable.addRow([{ v: emp.nodeId, f: nodeHtml }, managerId]);
+      
+      // Mark as added
+      addedIds.add(emp.nodeId);
   });
 
-  chart = new google.visualization.OrgChart(document.getElementById('chart_div'));
-  chart.draw(dataTable, { allowHtml: true, allowCollapse: true });
+  // --- FIX 4: Safety Draw Block ---
+  // If drawing fails, it will now show an error instead of a white screen
+  try {
+      chart = new google.visualization.OrgChart(document.getElementById('chart_div'));
+      chart.draw(dataTable, { allowHtml: true, allowCollapse: true });
+  } catch (err) {
+      console.error("Org Chart Render Error:", err);
+      document.getElementById('chart_div').innerHTML = `<div class="p-4 text-center"><p class="text-red-600 font-bold">Error rendering chart.</p><p class="text-sm text-gray-500">${err.message}</p></div>`;
+  }
 
   const wrapper = document.getElementById('chart-wrapper');
   wrapper.scrollLeft = (wrapper.scrollWidth - wrapper.clientWidth) / 2;
